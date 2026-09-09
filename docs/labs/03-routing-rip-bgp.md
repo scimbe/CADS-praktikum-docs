@@ -297,8 +297,23 @@ r1$ traceroute 192.168.3.1
 r1$ ip route
 ```
 
-Der Pfad führt nun über `193.1.1.4` (`r4`, RIP) statt über `193.1.1.2`
-(`r2`, BGP) – die niedrigere administrative Distanz gewinnt jetzt bei RIP.
+!!! note "Korrektur (2026-09-09): Der Nexthop bleibt `r2`, nur das Protokoll wechselt"
+    Eine frühere Fassung dieses Abschnitts behauptete an dieser Stelle, der
+    Pfad führe jetzt über `193.1.1.4` (`r4`). Ein unabhängiger Nachtest auf
+    einem frischen Container widerlegt das: `r1` hat **keinen** eigenen
+    RIP-Nachbarn `r4` – `show ip rip` auf `r1` zeigt ausschließlich von
+    `193.1.1.2` (`r2`) gelernte RIP-Routen, nie von `r4`, obwohl beide auf
+    demselben Switch-Segment hängen. `r1` selbst ist also gar nicht zwischen
+    einem Pfad über `r2` und einem über `r4` entscheidungsfähig; es hat für
+    `192.168.3.0/24` durchgehend nur den Nachbarn `r2` als Nexthop zur
+    Auswahl, einmal als BGP-Route (`Known via "bgp"`) und einmal als
+    RIP-Route (`Known via "rip"`, ebenfalls `via 193.1.1.2`) gelernt. Der
+    Pfad führt nach dem Distanz-Wechsel also weiterhin über denselben
+    Nexthop `193.1.1.2` – nur der in `ip route`/`show ip route` vermerkte
+    **Quell-Routing-Prozess** wechselt von `bgp` auf `rip`, weil dessen
+    administrative Distanz (120) jetzt niedriger ist als die soeben auf 200
+    gesetzte BGP-Distanz. `r4` wird erst in Teil 3 weiter unten tatsächlich
+    relevant – dort allerdings aus der Perspektive von `r2`, nicht von `r1`.
 
 !!! note "Rauschen in der Routing-Tabelle: eine vorkonfigurierte Route ohne Bezug zur Aufgabe"
     In `r3/zebra.conf` findet sich eine statische Route
@@ -361,11 +376,21 @@ Danach gelingt der Ping mit der erzwungenen Quelladresse.
 
 #### Ausfall eines Pfads beobachten
 
-Startet einen dauerhaften Ping von `r1` auf `192.168.3.1`, wechselt zu `r4`
-und fahrt dort das Interface `r4-eth1` herunter – ihr solltet eine kurze,
-vorübergehende Erhöhung der Ping-Latenz sehen, der Ping läuft aber weiter
-(Umschwenken auf den alternativen Pfad). Beendet den Ping auf `r1` und
-prüft mit `traceroute 192.168.3.1`, welchen Pfad ihr nun seht.
+!!! note "Korrektur (2026-09-09): `r4-eth1` hat aus `r1`s Sicht keine Wirkung"
+    Eine frühere Fassung dieses Abschnitts beschrieb hier, dass ein
+    Herunterfahren von `r4-eth1` eine kurze Latenzerhöhung im Ping von `r1`
+    auslöst, bevor der Pfad zurückschwenkt. Ein realer Nachtest auf einem
+    frischen Container widerlegt das: Wie im Hinweis weiter oben erklärt,
+    hat `r1` für `192.168.3.0/24` (weder als BGP- noch als RIP-Route) *nie*
+    `r4` als Nexthop – nur `r2`. Ein `ifconfig r4-eth1 down` auf `r4` bleibt
+    aus `r1`s Sicht daher komplett folgenlos: `show ip route
+    192.168.3.0/24` auf `r1` zeigt vorher und nachher denselben Eintrag
+    ohne neuen Zeitstempel, und ein `ping 192.168.3.1` von `r1` läuft dabei
+    mit durchgehend 0 % Verlust und unveränderter Latenz weiter (real
+    geprüft: 2 von 2 Paketen angekommen, 0,1–1,1 ms, keine Veränderung).
+    Eine Topologie, in der ein Link-Ausfall tatsächlich eine Rekonvergenz
+    auslöst, folgt unten in Teil 3 – dort aus der Sicht von `r2`, dessen
+    Pfad zu `r3` von `r4` als Backup tatsächlich abhängt.
 
 !!! tip "Fortschritt festhalten (optional)"
     Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
@@ -393,6 +418,120 @@ prüft mit `traceroute 192.168.3.1`, welchen Pfad ihr nun seht.
     müsstet.
 
 
+### Teil 3 – Redundanz im RIP-Netz testen: reale Rekonvergenz messen (`topo03`)
+
+Teil 2 hat gezeigt, dass `r1` für `192.168.3.0/24` **solange `r2-eth1`
+funktioniert** immer nur `r2` als Nexthop kennt – `r4` spielt aus `r1`s
+Sicht in diesem Zustand keine Rolle. `r4` ist aber kein überflüssiger
+Router: Er bildet eine echte **Backup-Route**, weil er sowohl auf `r1`s
+und `r2`s gemeinsamem Switch-Segment (`193.1.1.0/26`, `sw2`) als auch auf
+`r3`s Switch-Segment (`193.1.2.0/24`, `sw3`) sitzt – `r4` ist also nicht
+nur für `r2`, sondern auch für `r1` direkt per RIP erreichbar. Solange `r2`
+direkt mit `r3` verbunden ist, bleibt der Pfad über `r2` für alle
+Beteiligten die bessere (kürzere) RIP-Route und `r4` bleibt ungenutzt – bis
+genau diese direkte Verbindung ausfällt. Fällt sie aus, kann sich das nicht
+nur bei `r2`, sondern (etwas verzögert) auch bei `r1` selbst ändern, wie
+die Messung unten zeigt.
+
+In diesem Teil legt ihr genau diese direkte Verbindung lahm und messt, wie
+schnell RIP tatsächlich auf den Ersatzpfad über `r4` umschaltet.
+
+Stellt zunächst auf `r2` den aktuellen (funktionierenden) Zustand fest:
+
+```bash
+mininet> xterm r2
+r2$ vtysh -c "show ip route 192.168.3.0/24"
+```
+
+Ihr solltet sowohl eine `bgp`- als auch eine `rip`-Route sehen, beide mit
+Nexthop `193.1.2.2` über `r2-eth1` – die direkte Verbindung zu `r3`.
+
+Startet nun auf `r1` einen dauerhaften Ping auf `192.168.3.1` in einem
+eigenen Terminal, damit ihr die Auswirkung auf die Ende-zu-Ende-Konnektivität
+mitverfolgen könnt:
+
+```bash
+mininet> xterm r1
+r1$ ping 192.168.3.1
+```
+
+Deaktiviert anschließend auf `r2` die direkte Verbindung zu `r3`:
+
+```bash
+r2$ ifconfig r2-eth1 down
+```
+
+Wiederholt sofort und danach im Abstand von einigen Sekunden den Befehl von
+oben auf `r2`, um zu beobachten, *wann genau* RIP eine Ersatzroute
+installiert:
+
+```bash
+r2$ vtysh -c "show ip route 192.168.3.0/24"
+```
+
+**Aufgabe:** Notiert, nach wie vielen Sekunden die Ausgabe erstmals eine
+Route über `193.1.1.4` (`r4`) statt über das jetzt abgeschaltete `r2-eth1`
+zeigt, und vergleicht diese Zeit mit RIPs bekanntem periodischem
+Update-Intervall von 30 Sekunden. Erklärt anhand eurer Messung den
+Unterschied zwischen einem *periodischen* Update (RIP sendet ohnehin alle
+30 Sekunden seine komplette Routing-Tabelle) und einem *ausgelösten*
+Update (*triggered update*: eine Änderung am eigenen Interface-Status wird
+sofort, ohne auf den nächsten Zeitzyklus zu warten, an die Nachbarn
+gemeldet). Beobachtet dabei auch euren laufenden Ping auf `r1`: erwartet
+nicht, dass er lückenlos durchläuft – haltet fest, ob und wie lange er
+tatsächlich aussetzt, bevor er von selbst wieder Antworten bekommt.
+
+!!! success "Real geprüft (korrigiert 2026-09-09)"
+    Auf einem frisch gestarteten Container installierte `r2` die
+    Ersatzroute über `r4` bereits **innerhalb von 13-16 Sekunden** nach dem
+    `ifconfig r2-eth1 down` – deutlich schneller, als ein rein periodisches
+    30-Sekunden-Update es erklären könnte (Beleg für ein *triggered
+    update*, in drei unabhängigen Testläufen reproduziert). Die Ausgabe
+    zeigte danach durchgehend `Known via "rip", ... 193.1.1.4, via
+    r2-eth0` als beste Route auf `r2`.
+
+    Eine frühere Fassung dieses Abschnitts behauptete hier zusätzlich, der
+    parallel laufende Ping von `r1` überstehe den Ausfall ganz ohne
+    Paketverlust und `r1`s eigene Route ändere sich dabei nicht. Ein
+    unabhängiger Nachtest widerlegt beides: `r1` sitzt (wie oben erklärt)
+    auf demselben Switch-Segment wie `r4` und ist damit selbst ebenfalls
+    ein direkter RIP-Nachbar von `r4`. Nach vollständiger
+    netzwerkweiter Rekonvergenz zeigte `r1`s eigene Kernel-Route zu
+    `192.168.3.1` **direkt** `via 193.1.1.4 dev r1-eth1` – nicht mehr
+    `via 193.1.1.2` (`r2`). Diese vollständige Rekonvergenz (bei der auch
+    `r1` selbst und `r3`s Rückweg zu `r1` aktualisiert werden müssen)
+    braucht spürbar länger als `r2`s eigene, oben gemessene
+    Routenaktualisierung: ein einzelner `ping -c 3` auf `r1`, 20-35
+    Sekunden nach dem `ifconfig r2-eth1 down` abgesetzt, zeigte in zwei von
+    zwei Testläufen **100 % Paketverlust** (0 von 3 Paketen angekommen).
+    Praktisch heißt das: euer dauerhafter Ping auf `r1` wird während dieses
+    Übergangs voraussichtlich einige Sekunden lang Antworten verlieren,
+    bevor er von selbst wieder funktioniert – das ist das erwartete,
+    normale Verhalten einer echten RIP-Rekonvergenz, kein Fehler in eurer
+    Topologie. (Die direkten Verbindungen bleiben davon unberührt: `r4`
+    konnte während des gesamten Tests `r2` und `r3` jeweils mit 0 %
+    Verlust anpingen.)
+
+Prüft abschließend, dass die Wiederherstellung ebenso funktioniert:
+
+```bash
+r2$ ifconfig r2-eth1 up
+r2$ vtysh -c "show ip route 192.168.3.0/24"
+```
+
+Die Route sollte innerhalb weniger Sekunden wieder auf den direkten Pfad
+über `193.1.2.2` zurückwechseln. Beendet den Ping auf `r1` mit
+++ctrl+c++.
+
+!!! tip "Fortschritt festhalten (optional)"
+    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
+    (rein lokal, keine Netzwerkverbindung):
+
+    ```bash
+    ~/rn-practice/mark-done.sh 03 teil3
+    ```
+
+
 ## Potenzielle Herausforderungen
 
 !!! success "topoP03 (Teil 1) verifiziert (2026-09-09)"
@@ -406,7 +545,7 @@ prüft mit `traceroute 192.168.3.1`, welchen Pfad ihr nun seht.
     (inklusive des anfänglich hohen ersten Ping-RTTs durch MAC-Lernen der
     beiden im Skript bereits auf `standalone` gesetzten Switches).
 
-!!! info "topo03 (Teil 2, vier FRR-Router): FRR-10.x-Ladeproblem behoben, RIP/BGP konvergieren real"
+!!! info "topo03 (Teil 2, vier FRR-Router): zwei aufeinanderfolgende FRR-10.x-Probleme behoben, RIP/BGP konvergieren real"
     `topo03` hatte zunächst zwei reine Skript-Bugs, unabhängig vom
     Capability-Set: einen toten `import pytest` (Modul nicht installiert,
     Absturz schon beim Parsen der Datei) und einen harten `assert` beim
@@ -423,16 +562,70 @@ prüft mit `traceroute 192.168.3.1`, welchen Pfad ihr nun seht.
     aus `test_rip_topo1.py` (NetDEF) vendorierte Test-Framework startete nie
     `mgmtd`, das seit FRR's Northbound-Umstellung (nach 8.x) neben
     `zebra`/`staticd` immer mitlaufen muss, damit `interface`/`ip
-    address`-Konfiguration angewendet werden kann. **Behoben** in
+    address`-Konfiguration angewendet werden kann. Behoben in
     `lib/topotest.py`: `mgmtd` wird jetzt mitgestartet, und `zebra`
     bekommt sein `zebra.conf` – wie schon zuvor bei `ripd` – per `vtysh -f`
-    zugestellt statt per `--config_file`. Real gegen einen aus dem aktuellen
-    Image gebauten Container verifiziert: alle vier Router bekommen ihre
-    IP-Adressen, RIP- und BGP-Routen erscheinen in `show ip route`, und ein
-    echter `ping`/`traceroute` zwischen den beiden nicht direkt verbundenen
-    Testnetzen (`192.168.1.0/24` bei `r1` und `192.168.3.0/24` bei `r3`)
-    funktioniert. Details und Belege siehe
+    zugestellt statt per `--config_file`.
+
+    **Korrektur (2026-09-09):** Der vorherige Stand dieses Abschnitts hatte
+    an dieser Stelle bereits "vollständig gelöst" mit BGP-`Established`-
+    Sessions und erfolgreichem Ping/Traceroute vermeldet. Diese Verifikation
+    war **fehlerhaft** (vermutlich ein zu kurzer Beobachtungszeitraum, der
+    den unten beschriebenen `bgpd`-Hang nicht aufgedeckt hat) – ein
+    unabhängiger Nachtest auf einem frischen Container zeigte `r1 ping
+    192.168.3.1` weiterhin als "Network is unreachable", `show ip bgp
+    summary` weiterhin dauerhaft `Idle` auf allen drei eBGP-Sessions. Die
+    tatsächliche Ursache: `r1/bgpd.conf`, `r2/bgpd.conf` und `r3/bgpd.conf`
+    enthielten – als Altlast aus dem `zebra.conf`-Vendoring – ebenfalls
+    `interface`/`ip address`-Blöcke (bei `r3` zusätzlich eine `ip
+    route`-Zeile). Anders als vermutet wurden diese von `bgpd` **nicht**
+    harmlos ignoriert: `bgpd`s `--config_file`-Lader blieb an diesen
+    Northbound-Kommandos in einer Dauerschleife hängen (alle `bgpd`-Threads
+    dauerhaft bei 100–200 % CPU), sodass `bgpd` nie fertig startete – kein
+    `bgpd.vty`-Socket, keine Registrierung bei `zebra`s zapi-Socket, keine
+    einzige BGP-Verbindung wurde je versucht (`Connections established 0;
+    dropped 0`, `FD used: -1`). Da die Stub-Netze `192.168.1.0/24` und
+    `192.168.3.0/24` ausschließlich über BGP (nicht über RIP) verteilt
+    werden, blieb `r1`↔`r3`-Konnektivität dadurch kaputt, obwohl RIP selbst
+    die ganze Zeit korrekt konvergierte. **Behoben**: die `interface`/`ip
+    address`/`ip route`/`ip forwarding`-Zeilen wurden aus allen drei
+    `bgpd.conf`-Dateien entfernt (bgpd braucht sie nicht – `zebra` wendet die
+    echte Interface-Konfiguration bereits an); das Adressierungsschema selbst
+    ist unverändert. Zusätzlich fehlte in `start-topo03.sh` ein `killall
+    mgmtd` (nur `zebra`/`ripd`/`bgpd` wurden beim Start/Stop beendet) –
+    ergänzt, damit wiederholte Lab-Läufe im selben Container keine
+    verwaisten `mgmtd`-Prozesse anhäufen.
+
+    Real gegen einen genuinely-frischen, nie zuvor verwendeten, über den
+    echten `s6-overlay`-Entrypoint gebauten Container verifiziert (nicht nur
+    gegen die Logik des Fixes selbst): alle vier Router bekommen ihre
+    IP-Adressen; `show ip route rip` zeigt echte RIP-Routen auf `r1`, `r2`,
+    `r3`, `r4`; `show ip bgp summary` zeigt alle drei eBGP-Sessions
+    `Established` mit realen `PfxRcd`/`PfxSnt` > 0; `show ip route` zeigt auf
+    `r1` und `r3` genau die von diesem Abschnitt weiter oben beschriebene
+    Dopplung (`B>*` für die per BGP gewählte Route, `R` für dieselbe, nicht
+    gewählte RIP-Route); ein echter `ping -c 4 192.168.3.1` von `r1` sowie
+    der Rückweg-`ping` von `r3` nach `192.168.1.1` kommen mit 0 % Verlust an;
+    `traceroute` zeigt in beide Richtungen den erwarteten Zwei-Hop-Pfad über
+    `r2`. Details und Belege siehe
     [ADR 0002](../adr/0002-capabilities-not-privileged.md).
+
+!!! warning "Korrektur (2026-09-09): zwei bisherige Aussagen zur administrativen Distanz und zu `r4` waren falsch"
+    Beim Entwerfen von Teil 3 (neue Übung, s. o.) wurde real nachgeprüft,
+    *welche* Nexthops `r1` für `192.168.3.0/24` tatsächlich kennt
+    (`show ip rip` auf `r1`). Ergebnis: `r1` lernt RIP-Routen ausschließlich
+    von `r2` (`193.1.1.2`), nie von `r4` – beide Aussagen weiter oben, dass
+    der administrative-Distanz-Wechsel den Pfad auf `r4` umlenkt bzw. dass
+    ein Herunterfahren von `r4-eth1` eine Latenzerhöhung auf `r1` auslöst,
+    waren dadurch **nicht haltbar** und wurden oben direkt an den
+    betroffenen Stellen korrigiert (`r1` bleibt in beiden Fällen bei
+    Nexthop `r2` – nur der Quell-Routing-Prozess wechselt zwischen `bgp`
+    und `rip`). `r4` ist trotzdem kein funktionsloser Router: Er bildet eine
+    reale Backup-Route zwischen `r2` und `r3` – das wird jetzt korrekt in
+    der neuen Teil 3 demonstriert und aus `r2`s (nicht `r1`s) Perspektive
+    gemessen. Diese Korrektur betrifft ausschließlich die Interpretation
+    bereits vorhandener, korrekt konvergierender RIP/BGP-Daten – an der
+    zugrunde liegenden Konfiguration oder den Fixes oben ändert sich nichts.
 
 - **Falscher Skriptname im Original** (`start-topoP02.sh` statt
   `start-topoP03.sh`, s. o.) sowie ein nicht existierender Pfad

@@ -496,6 +496,72 @@ einem NAT-Uplink ins echte Internet.
     [Aufgabenblatt 06, Teil 5](06-advanced-covert-channels.md)).
 
 
+### Teil 3 – Subnetz-Zugehörigkeit selbst berechnen, bevor ihr sie prüft (`topo01`)
+
+Aufgabe 2 in Teil 2 hat euch bereits auffallen lassen, dass ein Ping von `h1`
+zu `h2` nicht direkt funktioniert, während Pings zu anderen Zielen sehr wohl
+ankommen. Statt das nur zu beobachten, berechnet jetzt selbst, *warum* das so
+ist – bevor ihr es mit einem Befehl nachprüft.
+
+`topo01` vergibt euch bereits bekannte Adressen: `h1` hat **zwei** Interfaces,
+`h1-eth0` mit `10.0.5.2/24` und `h1-eth1` mit `10.0.1.2/24`; `h2` hat ein
+Interface `h2-eth0` mit `10.0.6.2/24`.
+
+Bestimmt für jedes der folgenden Ziele – **auf Papier oder im Kopf, ohne
+vorher `ip route` oder Ähnliches auszuführen** – ob es im selben Subnetz wie
+der jeweilige Startpunkt liegt (Netzwerk- und Broadcast-Adresse aus der
+`/24`-Maske berechnen genügt) oder ob eine Weiterleitung über einen Router
+nötig ist:
+
+| Startpunkt | Ziel | Gleiches Subnetz? | Begründung |
+|---|---|---|---|
+| `h1` (`10.0.5.2/24` auf `h1-eth0`) | `10.0.6.2` (`h2`) | ? | ? |
+| `h1` (`10.0.5.2/24` auf `h1-eth0`) | `10.0.5.1` | ? | ? |
+| `h1` (`10.0.1.2/24` auf `h1-eth1`) | `141.22.27.238` | ? | ? |
+| `h2` (`10.0.6.2/24` auf `h2-eth0`) | `10.0.1.1` | ? | ? |
+
+Prüft anschließend jede Zeile eurer Tabelle mit dem tatsächlichen
+Weiterleitungsentscheid des Kernels – `ip route get` beantwortet euch pro
+Ziel genau die Frage, die ihr gerade von Hand beantwortet habt:
+
+```bash
+h1$ ip route get 10.0.6.2
+h1$ ip route get 10.0.5.1
+h1$ ip route get 141.22.27.238
+h2$ ip route get 10.0.1.1
+```
+
+**So lest ihr die Ausgabe:** Steht in der Zeile ein `via <IP>` vor dem
+`dev <interface>`, wird das Paket über einen Router (die angegebene
+Gateway-Adresse) weitergeleitet – das Ziel liegt in einem anderen Subnetz.
+Fehlt `via` und steht nur `dev <interface>` da, ist das Ziel direkt über
+dieses Interface erreichbar (gleiches Subnetz, Auflösung per ARP statt per
+Routing).
+
+!!! success "Real geprüft"
+    Auf einem frisch gestarteten Container liefert `topo01` genau das aus
+    der Adressierung berechenbare Bild: `ip route get 10.0.6.2` auf `h1`
+    zeigt `via 10.0.1.1 dev h1-eth1` (anderes Subnetz, Route über `r1`),
+    `ip route get 10.0.5.1` auf `h1` zeigt dagegen nur `dev h1-eth0` ohne
+    `via` (`10.0.5.1` liegt im selben `/24` wie `h1-eth0`), `ip route get
+    141.22.27.238` zeigt `via 10.0.5.1 dev h1-eth0` (Internet-Ziel über den
+    NAT-Uplink), und `ip route get 10.0.1.1` auf `h2` zeigt `via 10.0.6.1
+    dev h2-eth0`.
+
+**Aufgabe:** Erklärt anhand eurer Tabelle, warum ein direkter Ping zwischen
+`h1` und `h2` fehlschlägt bzw. Paketverlust zeigt (siehe die Warnung weiter
+oben), obwohl beide Rechner Teil derselben Topologie sind – und warum das
+kein Fehler, sondern eine direkte Folge der Subnetz-Struktur ist.
+
+!!! tip "Fortschritt festhalten (optional)"
+    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
+    (rein lokal, keine Netzwerkverbindung):
+
+    ```bash
+    ~/rn-practice/mark-done.sh 01 teil3
+    ```
+
+
 ## Potenzielle Herausforderungen
 
 - **`getIntWithIntenet.sh` muss vor `topo01.py` laufen.** `topo01.py` liest
@@ -509,6 +575,15 @@ einem NAT-Uplink ins echte Internet.
   `CN=noway` und offensichtlich unsinnige Organisationsangaben. Das ist kein
   Bug, sondern das Lernziel von Aufgabe 10: einen Zertifikatsfehler als
   Laie erkennen und einordnen können.
+- **`key.pem` ist passphrasengeschützt – bisher nirgends dokumentiert.** Real
+  geprüft (2026-09-09): `python3 startHTTPsServer.py` fragt beim Laden von
+  `key.pem` interaktiv nach einer PEM-Passphrase, bevor der Server überhaupt
+  auf Port 443 lauscht (`openssl rsa -in key.pem -check` bestätigt dieselbe
+  Abfrage direkt). Die Passphrase ist **`mininet`** (durch Ausprobieren
+  verifiziert, `openssl rsa ... -passin pass:mininet` liefert `RSA key ok`).
+  Ohne dieses Wissen bleibt Aufgabe 10 an dieser Stelle stecken. Siehe auch
+  [Aufgabenblatt 07, Teil 3](07-http-rest-quic.md), das denselben Server
+  nutzt und dort ebenfalls auf die Passphrase hinweist.
 - **`h1` ↔ `h2` direkt: kein Ping möglich.** Die Topologie verbindet `h1`
   und `h2` nur indirekt über die Router `r1`/`r2` mit asymmetrischem
   Routing zwischen den beiden Subnetzen. Ein `pingall` in dieser Topologie

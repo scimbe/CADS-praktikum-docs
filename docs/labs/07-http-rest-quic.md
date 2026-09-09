@@ -204,6 +204,84 @@ Internet-Zugriff, keinen NAT-Uplink einer Mininet-Topologie.
     ```
 
 
+### Teil 3 – Manuelles HTTP *über TLS* mit `openssl s_client` (`topo01`)
+
+Teil 1 hat gezeigt, dass reines Netcat/Telnet gegen den HTTPS-Server nicht
+funktioniert, weil beide keinen TLS-Handshake sprechen. In diesem Teil holt
+ihr genau das nach: `openssl s_client` übernimmt den TLS-Handshake für
+euch und reicht euch danach eine ganz normale, unverschlüsselte Textleitung
+weiter, auf der ihr – wie in Teil 1, nur jetzt tatsächlich über HTTPS – die
+HTTP-Anfrage von Hand eintippt.
+
+Startet `topo01`, falls nicht mehr aktiv:
+
+```bash
+cd ~/rn-practice/topo01
+./start-topo01.sh
+```
+
+Startet auf `h1` denselben HTTPS-Server, den ihr schon aus
+[Aufgabenblatt 01](01-netzwerkgrundlagen-tools.md) kennt:
+
+```bash
+h1$ python3 startHTTPsServer.py
+```
+
+!!! warning "PEM-Passphrase erforderlich – bisher undokumentiert"
+    Real geprüft (2026-09-09): Der Server fragt beim Start interaktiv nach
+    einer Passphrase für `key.pem`, bevor er auf Port 443 lauscht. Die
+    Passphrase ist **`mininet`**. Ohne sie bleibt der Server hängen und
+    öffnet nie einen Port – dieselbe, bisher nirgends dokumentierte
+    Voraussetzung gilt auch für den bereits bestehenden HTTPS-Schritt in
+    [Aufgabenblatt 01](01-netzwerkgrundlagen-tools.md#potenzielle-herausforderungen).
+
+Baut von `h2` aus eine TLS-Verbindung zu `h1` auf:
+
+```bash
+h2$ openssl s_client -connect 10.0.1.2:443
+```
+
+Beobachtet zunächst den ausgegebenen Zertifikats-Handshake, **bevor** ihr
+irgendetwas eintippt – ihr solltet dieselben unsinnigen Zertifikatsangaben
+(`CN=noway`, `O=Not your buisness`) sehen, die euch in
+[Aufgabenblatt 01, Aufgabe 10](01-netzwerkgrundlagen-tools.md) bereits im
+Browser als Warnung begegnet sind, sowie eine Zeile
+`verify error:num=18:self-signed certificate`. Tippt dann direkt die
+HTTP-Anfrage von Hand ein (analog zu Teil 1, inklusive der abschließenden
+Leerzeile):
+
+```text
+GET / HTTP/1.1
+Host: h1
+Connection: close
+
+```
+
+**Aufgabe:** Vergleicht die Antwort mit der aus Teil 1 (reines HTTP gegen
+denselben Server auf Port 80). Ist der HTTP-Teil der Antwort (Status-Zeile,
+Header, Body) identisch? Was genau hat `openssl s_client` für euch
+übernommen, das bei purem `netcat`/`telnet` fehlte?
+
+!!! success "Real geprüft"
+    Auf einem frisch gestarteten Container lieferte dieser Ablauf eine
+    vollständige, reale `HTTP/1.0 200 OK`-Antwort inklusive Headern
+    (`Server: SimpleHTTP/0.6 Python/3.13.5`) und dem kompletten
+    HTML-Inhalt der Startseite – durch den TLS-Tunnel hindurch von Hand
+    eingetippt. Der Handshake zeigte davor sichtbar die erwarteten
+    Zertifikatsdetails (`CN=noway`, `O=Not your buisness`,
+    `verify error:num=18:self-signed certificate`), exakt passend zu der
+    in Aufgabenblatt 01 beschriebenen, absichtlich fehlerhaften
+    Zertifikatskonfiguration.
+
+!!! tip "Fortschritt festhalten (optional)"
+    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
+    (rein lokal, keine Netzwerkverbindung):
+
+    ```bash
+    ~/rn-practice/mark-done.sh 07 teil3
+    ```
+
+
 ## Potenzielle Herausforderungen
 
 - **QUIC ist im Original nicht enthalten.** Wie oben bereits vermerkt,

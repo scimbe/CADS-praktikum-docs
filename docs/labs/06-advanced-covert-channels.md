@@ -345,6 +345,90 @@ auf TLS-Verbindungen.
     ```
 
 
+### Teil 7 — Den TTL-Kanal aus Teil 3 wirklich decodieren (`topo01`)
+
+Teil 3 hat gezeigt, dass sich ein einzelnes Zeichen über den TTL-Wert eines
+IP-Pakets kodieren lässt. In diesem Teil baut ihr das zu einem echten,
+mehrzeichigen verdeckten Kanal aus: Ein kurzes Wort wird Zeichen für Zeichen
+verschickt (ein `hping3`-Paket pro Zeichen, TTL = ASCII-Code des Zeichens),
+und ihr **decodiert es aus einem Mitschnitt zurück** – ohne vorher zu
+wissen, was verschickt wurde.
+
+Startet `topo01`, falls nicht mehr aktiv:
+
+```bash
+cd ~/rn-practice/topo01
+./start-topo01.sh
+```
+
+1. **Empfänger vorbereiten.** Startet auf `h1` einen Mitschnitt, der nur
+   ICMP-Verkehr aufzeichnet:
+
+   ```bash
+   h1$ sudo tcpdump -i any icmp -n -w /tmp/ttlmsg.pcap
+   ```
+
+2. **Sender:** Wechselt zu `h2` und schickt (ohne `h1` vorher zu verraten,
+   was ihr sendet) ein kurzes Wort Zeichen für Zeichen, mit einem
+   ASCII-kodierten TTL-Wert pro Zeichen:
+
+   ```bash
+   h2$ for c in H I ; do
+         ttl=$(printf '%d' "'$c")
+         hping3 -1 --ttl "$ttl" -c 1 10.0.1.2
+         sleep 1
+       done
+   ```
+
+   (Ersetzt die Zeichenliste `H I` durch ein eigenes, für euch unbekanntes
+   Wort – lasst es euch am besten von jemand anderem vorgeben, damit die
+   Decodierung im nächsten Schritt nicht durch Vorwissen verfälscht wird.)
+
+3. **Decodieren.** Beendet den Mitschnitt auf `h1` (++ctrl+c++) und lest die
+   *empfangene* TTL jedes eingehenden Pakets aus:
+
+   ```bash
+   h1$ tcpdump -r /tmp/ttlmsg.pcap -n -v
+   ```
+
+   Achtet nur auf die Zeilen mit `ICMP echo request` (Absender `h2`, in
+   `topo01` die Adresse `10.0.6.2`) – die dazugehörigen `echo reply`-Zeilen
+   (Absender `h1`) tragen `h1`s eigenen, unveränderten Standard-TTL-Wert und
+   sind für die Decodierung ohne Bedeutung. Die relevanten Zeilen zeigen
+   euch je einen Wert wie `ttl 70`. Das ist
+   **nicht** der von `h2` gesendete Wert, sondern der bereits um die Anzahl
+   der durchlaufenen Router verminderte Wert – bestimmt diese Hop-Zahl
+   selbst mit `traceroute` (oder `tracepath`) von `h2` zu `h1`, bevor ihr
+   zurückrechnet.
+
+4. **Rückrechnen.** Addiert die ermittelte Hop-Zahl auf jeden beobachteten
+   TTL-Wert und wandelt das Ergebnis mit der ASCII-Tabelle (oder
+   `printf "\x$(printf %x <Zahl>)"`) zurück in ein Zeichen. Reiht die
+   Zeichen in der Reihenfolge auf, in der die Pakete eingetroffen sind.
+
+!!! success "Real geprüft"
+    Auf einem frisch gestarteten Container liegen zwischen `h2` und `h1`
+    real **zwei** Router-Hops (`h2`→`r2`→`r1`→`h1`). Ein mit TTL 72 (`H`)
+    bzw. TTL 73 (`I`) von `h2` gesendetes Paketpaar kam auf `h1` mit den
+    Werten `ttl 70` bzw. `ttl 71` an – exakt um 2 vermindert, passend zur
+    Hop-Zahl. `70 + 2 = 72` (`H`), `71 + 2 = 73` (`I`) – die Rückrechnung
+    liefert damit korrekt das ursprünglich gesendete Wort zurück.
+
+**Aufgabe:** Erklärt, warum ihr die Hop-Zahl vorher separat ermitteln
+müsst, statt sie zu raten – und warum ein verdecktes TTL-Signal über einen
+Pfad mit *wechselnder* Hop-Zahl (z. B. bei dynamischem Routing wie in
+[Aufgabenblatt 03](03-routing-rip-bgp.md)) unzuverlässig würde, selbst wenn
+Sender und Empfänger sich vorher auf ein Encoding geeinigt haben.
+
+!!! tip "Fortschritt festhalten (optional)"
+    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
+    (rein lokal, keine Netzwerkverbindung):
+
+    ```bash
+    ~/rn-practice/mark-done.sh 06 teil7
+    ```
+
+
 ## Potenzielle Herausforderungen
 
 !!! danger "Nur Teil 1/3/4/5 nicht real getestet – Teil 2 (Installation) und Teil 6 (Zeit) inzwischen verifiziert"

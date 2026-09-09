@@ -272,6 +272,64 @@ gelegentliche Paketverluste im Zusammenspiel zu beobachten.
     ```
 
 
+### Teil 4 – Broadcast-Adressen selbst berechnen, bevor ihr sie prüft (`topoP02`)
+
+Die VLSM-Tabelle aus Teil 1 gibt euch für jedes der vier Subnetze bereits
+Netzadresse und Anzahl nutzbarer Hosts vor. Berechnet daraus jetzt selbst –
+**ohne vorher `ip addr` auf dem jeweiligen Interface auszuführen** – die
+**Broadcast-Adresse** für die Subnetze von `h1` (Entwicklung) und `h2`
+(Verkauf):
+
+| Abteilung | Netz | Präfixlänge | Eure berechnete Broadcast-Adresse |
+|---|---|---|---|
+| Entwicklung (`h1`) | `128.155.128.0` | `/18` | ? |
+| Verkauf (`h2`) | `128.155.192.0` | `/19` | ? |
+
+**Vorgehen:** Bestimmt zunächst die Netzmaske in Dotted-Decimal-Schreibweise
+(`/18` → `255.255.192.0`, `/19` → `255.255.224.0`), invertiert sie bitweise
+(Host-Anteil), und setzt diesen invertierten Anteil auf die Netzadresse auf
+– das Ergebnis ist die Broadcast-Adresse (letzte Adresse des Subnetzes, für
+Hosts nicht nutzbar).
+
+Startet anschließend `topoP02` (falls nicht mehr aktiv) und prüft eure
+Rechnung gegen die tatsächlich vom Kernel vergebene Broadcast-Adresse:
+
+```bash
+cd ~/rn-practice/topoP02
+./start-topoP02.sh
+h1$ ip addr show h1-eth0
+h2$ ip addr show h2-eth0
+```
+
+Das Feld `brd` in der Ausgabe von `ip addr show` zeigt euch die vom Kernel
+aus Adresse und Präfixlänge berechnete Broadcast-Adresse – sie muss exakt
+mit eurem von Hand berechneten Wert übereinstimmen.
+
+!!! success "Real geprüft"
+    Auf einem frisch gestarteten Container liefert `ip addr show h1-eth0`
+    tatsächlich `inet 128.155.128.2/18 brd 128.155.191.255`, und `ip addr
+    show h2-eth0` liefert `inet 128.155.192.2/19 brd 128.155.223.255` –
+    beide Werte stimmen mit der Handrechnung überein
+    (`128.155.128.0/18` → Broadcast `128.155.191.255`;
+    `128.155.192.0/19` → Broadcast `128.155.223.255`).
+
+**Aufgabe:** Berechnet zusätzlich, wie viele Subnetze der Größe `/19`
+(Verkauf) rechnerisch insgesamt in das übergeordnete `/17`-Netz aus der
+Aufgabenstellung passen würden, wenn das gesamte Netz ausschließlich in
+gleich große `/19`-Subnetze aufgeteilt würde – und vergleicht das Ergebnis
+mit der Anzahl der tatsächlich benötigten, unterschiedlich großen VLSM-Netze
+aus der Tabelle in Teil 1. Was verliert man an nutzbaren Adressen, wenn man
+statt VLSM eine starre, gleich große Aufteilung verwendet?
+
+!!! tip "Fortschritt festhalten (optional)"
+    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
+    (rein lokal, keine Netzwerkverbindung):
+
+    ```bash
+    ~/rn-practice/mark-done.sh 02 teil4
+    ```
+
+
 ## Potenzielle Herausforderungen
 
 !!! success "Capability-Set für topoP02/topoP03/topoP04 verifiziert (2026-09-09)"

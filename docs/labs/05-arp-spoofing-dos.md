@@ -234,6 +234,92 @@ ein SYN-Flood von einer einzelnen, festen Quell-IP, und welche Gegenmaßnahme
     Netz wäre schon der erste Versuch nicht erlaubt gewesen.
 
 
+### Teil D — Selbst zum Verteidiger werden: ARP-Spoofing als Opfer erkennen (`topo02`)
+
+In Teil B habt ihr den Angriff aus Sicht des Angreifers (`h2`) durchgeführt
+und in Wireshark bestätigt. In diesem Teil dreht ihr die Perspektive um:
+Ihr seid jetzt das Opfer (`h3`) und müsst den laufenden Angriff **selbst
+erkennen**, ohne vorher zu wissen, dass er stattfindet – so, wie es eine
+reale Administratorin an ihrem Rechner tun müsste, ohne Wireshark-Mitschnitt
+des Angreifers zur Hand zu haben.
+
+Startet `topo02` (falls nicht mehr aktiv) und sorgt zunächst dafür, dass
+`h3` eine "saubere" Basis hat, mit der ihr später vergleichen könnt:
+
+```bash
+cd ~/rn-practice/topo02
+./start-topo02.sh
+```
+
+1. **Baseline aufnehmen.** Erzeugt auf `h3` zunächst Verkehr zum Gateway,
+   damit dessen Eintrag im Nachbarschafts-Cache steht, und notiert euch die
+   dabei angezeigte MAC-Adresse:
+
+   ```bash
+   h3$ ping -c 2 10.0.20.1
+   h3$ ip neigh show 10.0.20.1
+   ```
+
+2. **Angriff im Hintergrund starten**, ohne dass `h3` etwas davon "weiß"
+   (in einer echten Übung: bittet eine Kommilitonin/einen Kommilitonen, den
+   Angriff für euch zu starten, während ihr nur auf `h3` schaut):
+
+   ```bash
+   h2$ ./startARP-AttackerOnNodeH2.sh
+   ```
+
+3. **Selbst erkennen, ohne Wireshark.** Prüft auf `h3` erneut denselben
+   Nachbarschafts-Eintrag:
+
+   ```bash
+   h3$ ping -c 1 10.0.20.1
+   h3$ ip neigh show 10.0.20.1
+   ```
+
+   **Aufgabe:** Vergleicht die MAC-Adresse mit eurer Notiz aus Schritt 1.
+   Eine sich ändernde MAC-Adresse für dieselbe Gateway-IP, ohne dass am
+   Gateway selbst etwas getauscht wurde, ist ein starkes Indiz für
+   ARP-Spoofing. Bestätigt euren Verdacht, indem ihr auf `h2` die eigene
+   Interface-MAC abfragt und mit der "neuen" Gateway-MAC vergleicht:
+
+   ```bash
+   h2$ ip link show h2-eth0
+   ```
+
+   Stimmen beide MAC-Adressen überein, habt ihr den Angreifer eindeutig
+   identifiziert – rein aus der Opfer-Perspektive, ohne den Angriffs-Traffic
+   selbst mitgeschnitten zu haben.
+
+!!! success "Real geprüft"
+    Auf einem frisch gestarteten Container zeigte `ip neigh show 10.0.20.1`
+    auf `h3` vor dem Angriff `lladdr 00:00:00:00:00:06` (die echte MAC von
+    `r2`) und nach dem Start von `startARP-AttackerOnNodeH2.sh`
+    `lladdr 00:00:00:00:00:03` – exakt die MAC-Adresse, die `ip link show
+    h2-eth0` auf `h2` als dessen eigene Interface-Adresse ausweist. Als
+    zusätzliches, nicht erwartetes Indiz erschien während des Angriffs beim
+    Ping auf `h3` zudem einmalig die Meldung
+    `From 10.0.20.10: icmp_seq=1 Redirect Host(New nexthop: 10.0.20.1)` –
+    ein ICMP-Redirect, ausgelöst dadurch, dass der Angreifer (`10.0.20.10`)
+    kurzzeitig als vermeintlicher Zwischen-Hop auftaucht. Auch das ist ein
+    beobachtbares Warnsignal, auch wenn es nicht in jedem Timing-Fenster
+    zuverlässig auftritt.
+
+**Aufgabe:** Nennt zwei Gründe, warum diese Erkennungsmethode (manueller
+Vergleich der Nachbarschafts-Tabelle) in einem echten, großen Firmennetz
+mit hunderten Rechnern nicht praktikabel skaliert, und recherchiert
+stichwortartig, wie automatisierte Gegenmaßnahmen wie **Dynamic ARP
+Inspection** (auf verwalteten Switches) oder Tools wie **arpwatch** dasselbe
+Prinzip (Änderung einer IP-zu-MAC-Zuordnung erkennen) automatisieren.
+
+!!! tip "Fortschritt festhalten (optional)"
+    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
+    (rein lokal, keine Netzwerkverbindung):
+
+    ```bash
+    ~/rn-practice/mark-done.sh 05 teild
+    ```
+
+
 ## Potenzielle Herausforderungen
 
 - **`topo02` (ARP-Spoofing/`hping3`) ist seit 2026-09-09 unter dem
@@ -249,11 +335,32 @@ ein SYN-Flood von einer einzelnen, festen Quell-IP, und welche Gegenmaßnahme
 - In `topo02.py` fällt bei genauerem Lesen eine Ungereimtheit in der
   Interface-Benennung auf: mehrere `addLink()`-Aufrufe vergeben für `h1`
   literal den Namen `h0-eth0` statt `h1-eth0` (z. B.
-  `addLink(h[1], s[1], intfName1='h0-eth0', ...)`). Dies wirkt wie ein
-  Copy-Paste-Fehler im Originalskript und könnte je nach Mininet-Version zu
-  Konfigurationsproblemen führen. Das Skript wurde für dieses Aufgabenblatt
-  unverändert als Referenz übernommen (read-only vendorierte Kopie) — vor
-  produktivem Rollout sollte dies vom Fachverantwortlichen geprüft werden.
+  `addLink(h[1], s[1], intfName1='h0-eth0', ...)`). Das ist zwar
+  ungewöhnlich benannt, aber (auf dieser Codebasis real geprüft) harmlos: `h1`
+  bekommt dadurch konsequent selbst eine Schnittstelle namens `h0-eth0`
+  zugewiesen und alle nachfolgenden Befehle referenzieren denselben Namen,
+  sodass kein tatsächlicher Namenskonflikt zwischen verschiedenen Nodes
+  entsteht (Interface-Namen sind ohnehin pro Netzwerk-Namespace separat).
+  Ein echter, bestätigter Bug lag stattdessen an anderer Stelle, siehe
+  nächster Punkt.
+- **Nachtrag (2026-09-09):** Nach dem `controller=`-Fix (siehe oben) lief
+  `arpspoof`/der HTTP-Content-Swap zwar bereits real, `net.pingAll()` zeigte
+  in derselben `topo02`-Topologie aber weiterhin **100 % Paketverlust auf
+  allen 30 Host-Paaren**, während einzelne manuell abgesetzte `ping`s
+  (inkl. `h0`↔`h1`, `h0`↔`r1`, `h0`↔`h2` über beide Router) fehlerfrei
+  funktionierten. Ursache: `topo02.py` setzt alle IP-Adressen per rohem
+  `ifconfig` statt über Mininets `Intf.setIP()`-API, wodurch Mininets interne
+  IP-Buchführung (von `node.IP()`, das `net.pingAll()` zur Zieladressen-
+  Ermittlung verwendet) auf der beim Linkaufbau automatisch vergebenen
+  `10.0.0.x`-Adresse stehen blieb, statt die real konfigurierte Adresse zu
+  kennen — jeder `pingAll()`-Ping ging dadurch ins Leere. Fix: `topo02.py`
+  synchronisiert nach jedem `ifconfig`-Aufruf die betroffene Schnittstelle
+  per `Intf.updateIP()`. Auf einem frisch gestarteten, zuvor nie benutzten
+  Container real nachgewiesen: `*** Results: 0% dropped (30/30 received)`.
+  Für Teil B/C dieses Aufgabenblatts ändert das nichts an den bereits
+  bestätigten Ergebnissen (die nutzen gezielte Host-Paare, keinen
+  `pingAll()`), stellt aber sicher, dass die volle Netz-Konnektivität der
+  Topologie tatsächlich wie im Docstring beschrieben funktioniert.
 - `--rand-source` bei `hping3` kann innerhalb der Mininet-Namespaces zu
   ungewöhnlichem ARP-/Routing-Verhalten führen, da die vorgetäuschten
   Quell-IPs im Testnetz nicht existieren. Im isolierten Mininet-Setup ist

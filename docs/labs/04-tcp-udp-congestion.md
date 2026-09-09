@@ -368,6 +368,79 @@ Verlustbehandlung, Rate-Limiting auf Anwendungsebene).
     es eine Zeitstempel-Spalte in eurem eigenen Mitschnitt.
 
 
+### Teil C — Das TCP Congestion Window unter Paketverlust live beobachten (`topoP04`)
+
+Teil A hat gezeigt, dass der verlustbehaftete Link aus `topoP04` (10 %
+Fehlerrate, 10 Mbit/s, MTU 500 Byte) TCP zu Retransmissions zwingt. In
+diesem Teil macht ihr sichtbar, *wie* TCP auf diesen Verlust reagiert:
+Linux erlaubt euch, das aktuelle Congestion Window (`cwnd`) einer laufenden
+Verbindung direkt beim Kernel zu erfragen – kein Wireshark, kein
+Zusatz-Tool nötig.
+
+Startet die Topologie, falls nicht mehr aktiv:
+
+```bash
+cd ~/rn-practice/topoP04
+./start-topoP04.sh
+```
+
+Startet auf `h1` einen Iperf-Server und auf `h2` einen ausreichend langen
+Client-Transfer:
+
+```bash
+h1$ iperf -s
+h2$ iperf -t 20 -i 2 -c 10.0.0.1
+```
+
+Öffnet dafür parallel ein zweites Terminal auf `h2` und beobachtet, während
+der Transfer läuft, wiederholt das Congestion Window der Verbindung:
+
+```bash
+h2$ watch -n 1 "ss -ti dst 10.0.0.1"
+```
+
+In der Ausgabe von `ss -ti` interessiert euch vor allem das Feld `cwnd:`
+(Congestion Window in MSS-Einheiten) sowie – sofern angezeigt – `rto:`
+(aktueller Retransmission-Timeout).
+
+**Aufgabe:** Notiert den `cwnd`-Wert alle paar Sekunden mit, vom Start der
+Übertragung bis zu ihrem Ende. Vergleicht den Verlauf mit den
+Intervall-Durchsatzwerten, die `iperf` auf `h2` selbst ausgibt (die Spalte
+`Bandwidth` je Zwei-Sekunden-Intervall). Erklärt den Zusammenhang: Was
+passiert mit `cwnd`, sobald der erste Paketverlust auftritt, und warum
+bricht der gemessene Durchsatz danach so stark ein?
+
+!!! success "Real geprüft"
+    Auf einem frisch gestarteten Container startete `cwnd` bei **40**
+    (Slow-Start-Anfangswert) und brach bereits in der zweiten Sekunde auf
+    **1–2** ein, sobald der erste durch die 10-%-Fehlerrate verlorene
+    Bestätigungs- oder Datenverlust erkannt wurde – und blieb für den Rest
+    der 20-Sekunden-Übertragung durchgehend in diesem Bereich (Werte
+    zwischen 1 und 5), statt sich wie im verlustfreien Fall wieder
+    aufzubauen. Parallel dazu brach der von `iperf` gemeldete
+    Intervall-Durchsatz von anfänglich 3,93 Mbit/s (erstes 2-Sekunden-
+    Intervall, noch mit großem `cwnd`) auf 250–520 Kbit/s ein, mit
+    mehreren Intervallen bei exakt 0 Bit/s – eine sehr konkrete,
+    messtechnisch direkt nachvollziehbare Bestätigung dafür, dass TCP
+    zufälligen Linkverlust fälschlich als Netzüberlastung interpretiert
+    und sein Sendefenster dauerhaft klein hält, obwohl der Link selbst gar
+    nicht überlastet, sondern lediglich fehlerbehaftet ist.
+
+**Vergleich:** Wiederholt die Messung auf einer Verbindung *ohne* die 10-%-
+Fehlerrate – am einfachsten mit derselben `iperf`-Messung aus Teil B auf
+`topo02` (Link ohne künstlichen Verlust). Vergleicht dort den `cwnd`-Verlauf
+über die Zeit: Wächst das Fenster dort stetig, statt bei sehr kleinen
+Werten hängen zu bleiben?
+
+!!! tip "Fortschritt festhalten (optional)"
+    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
+    (rein lokal, keine Netzwerkverbindung):
+
+    ```bash
+    ~/rn-practice/mark-done.sh 04 teilc
+    ```
+
+
 ## Potenzielle Herausforderungen
 
 - **`topoP04` (Teil A) und `topo02` (Teil B) sind seit 2026-09-09 real
@@ -379,6 +452,25 @@ Verlustbehandlung, Rate-Limiting auf Anwendungsebene).
   liefen die Fehlerraten-Beobachtung in Teil A sowie ein `iperf`-Durchsatztest
   in Teil B (9,6 Mbit/s auf dem nominell 10-Mbit/s-Link zwischen `h0` und
   `h2`) wie im Aufgabenblatt beschrieben.
+- **Nachtrag (2026-09-09):** Der `iperf`-Test oben lief zwar bereits nach dem
+  `controller=`-Fix erfolgreich, `net.pingAll()` (Mininets eingebauter
+  Allpaar-Konnektivitätstest, den u. a. `h1$ ping ...`/`h3$ ping ...` in
+  Aufgabe 2 sinngemäß nachstellen) zeigte in `topo02` aber weiterhin **100 %
+  Verlust auf allen 30 Paaren**, obwohl einzelne, manuell abgesetzte `ping`s
+  zwischen genau denselben Hosts fehlerfrei funktionierten. Ursache: `topo02.py`
+  setzt IP-Adressen ausschließlich per rohem `ifconfig`
+  (`r.cmd('ifconfig ...')`/`h.cmd('ifconfig ...')`) statt über Mininets eigene
+  `Intf.setIP()`-API — die tatsächliche Kernel-Adresse ist dadurch korrekt,
+  aber Mininets interne Buchführung (`Intf.ip`, ausgelesen von `node.IP()`)
+  bleibt auf der beim Linkaufbau automatisch vergebenen `10.0.0.x`-Adresse
+  stehen. `net.pingAll()`/`net.ping()` ermitteln ihr Ziel aber genau über
+  `dest.IP()` und pingen dadurch bei jedem Paar die falsche, nie real
+  konfigurierte Adresse an. Fix (`topo02.py`): nach jedem `ifconfig`-Aufruf
+  wird die betroffene Schnittstelle per `Intf.updateIP()` neu synchronisiert.
+  Auf einem frisch gestarteten, zuvor nie benutzten Container real
+  nachgewiesen: `*** Results: 0% dropped (30/30 received)`, zusätzlich erneut
+  der `iperf`-Durchsatztest `h0`→`h2` (9,6 Mbit/s) sowie ein `curl` von `h3`
+  zum Webserver auf `h1` (HTTP 200) — alle drei im selben Lauf.
 - Die in Teil A beobachtete Ping-Verlustrate kann durch die
   bidirektionale Natur von ICMP Echo/Reply höher als die nominelle
   Link-Fehlerrate ausfallen — das ist kein Environment-Fehler, sondern
