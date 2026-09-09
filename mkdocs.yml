@@ -1,0 +1,78 @@
+site_name: Rechnernetze-Praktikum
+site_description: >-
+  Praktikumsaufgaben und Referenzdokumentation der modernisierten
+  Rechnernetze-Praktikumsumgebung.
+site_url: https://scimbe.github.io/CADS-praktikum-docs/
+docs_dir: docs
+
+theme:
+  name: material
+  language: de
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Dunkelmodus aktivieren
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Hellmodus aktivieren
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.top
+    - navigation.indexes
+    - content.code.copy
+    - toc.follow
+    - search.suggest
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      languages:
+        - locale: de
+          name: Deutsch
+          build: true
+          default: true
+        - locale: en
+          name: English
+          build: true
+          nav_translations:
+            Start: Home
+            Praktika: Labs
+            Referenz: Reference
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Start: index.md
+  - Praktika:
+      - "01 · Netzwerkgrundlagen & Tools": labs/01-netzwerkgrundlagen-tools.md
+      - "02 · IPv4-Subnetting & ARP": labs/02-subnetting-arp.md
+      - "03 · Routing (RIP/BGP)": labs/03-routing-rip-bgp.md
+      - "04 · TCP/UDP & Congestion Control": labs/04-tcp-udp-congestion.md
+      - "05 · ARP-Spoofing & DoS": labs/05-arp-spoofing-dos.md
+      - "06 · Advanced: Covert Channels": labs/06-advanced-covert-channels.md
+      - "07 · HTTP/REST/QUIC": labs/07-http-rest-quic.md
+  - Referenz:
+      - "rn-practice Setup": reference/rn-practice-setup.md
+      - "Desktop-/Mininet-Umgebung": reference/umgebung.md
+      - "Remote-Desktop: rn-praktikum": reference/remote-desktop-rn-praktikum.md
+      - "Remote-Desktop: riisc": reference/remote-desktop-riisc.md
