@@ -1,6 +1,6 @@
 # 01 · Netzwerkgrundlagen & Tools
 
-[:material-file-pdf-box: Als PDF herunterladen](../pdf/01-netzwerkgrundlagen-tools.pdf){ .md-button }
+[:material-file-pdf-box: Als PDF herunterladen](../../pdf/01-netzwerkgrundlagen-tools.pdf){ .md-button }
 
 ![Standard-XFCE-Desktop direkt nach dem Login: Applications-Menü oben links, Verknüpfungen "Home" und "File System", Uhr/Sprache rechts oben](../assets/screenshots/01-netzwerkgrundlagen-tools/desktop-default.png)
 *Der Desktop direkt nach dem ersten Login – so orientiert ihr euch, bevor ihr das erste Terminal öffnet.*

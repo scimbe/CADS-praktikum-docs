@@ -1,6 +1,6 @@
 # 06 · Advanced: Covert Channels
 
-[:material-file-pdf-box: Als PDF herunterladen](../pdf/06-advanced-covert-channels.pdf){ .md-button }
+[:material-file-pdf-box: Als PDF herunterladen](../../pdf/06-advanced-covert-channels.pdf){ .md-button }
 
 !!! success "Originalinhalt jetzt vollständig vorhanden"
     Eine frühere Fassung dieses Aufgabenblatts markierte es als "In

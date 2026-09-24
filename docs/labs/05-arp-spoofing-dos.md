@@ -1,6 +1,6 @@
 # 05 · ARP-Spoofing & Denial-of-Service
 
-[:material-file-pdf-box: Als PDF herunterladen](../pdf/05-arp-spoofing-dos.pdf){ .md-button }
+[:material-file-pdf-box: Als PDF herunterladen](../../pdf/05-arp-spoofing-dos.pdf){ .md-button }
 
 !!! warning "Sicherheits- und Ethikhinweis"
     Dieses Aufgabenblatt behandelt reale Angriffstechniken (ARP-Spoofing,

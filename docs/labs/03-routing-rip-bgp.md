@@ -1,6 +1,6 @@
 # 03 · Routing (RIP/BGP)
 
-[:material-file-pdf-box: Als PDF herunterladen](../pdf/03-routing-rip-bgp.pdf){ .md-button }
+[:material-file-pdf-box: Als PDF herunterladen](../../pdf/03-routing-rip-bgp.pdf){ .md-button }
 
 ## Lernziele
 

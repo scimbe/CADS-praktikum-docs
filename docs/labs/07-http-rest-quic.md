@@ -1,6 +1,6 @@
 # 07 · HTTP/REST/QUIC von Hand
 
-[:material-file-pdf-box: Als PDF herunterladen](../pdf/07-http-rest-quic.pdf){ .md-button }
+[:material-file-pdf-box: Als PDF herunterladen](../../pdf/07-http-rest-quic.pdf){ .md-button }
 
 !!! warning "Titel-Klarstellung: kein QUIC-Inhalt"
     Der Titel dieses Aufgabenblatts (und der Dateiname des zugrundeliegenden
