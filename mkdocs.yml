@@ -55,13 +55,16 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.highlight
   - pymdownx.inlinehilite
+  # Ohne pymdownx.emoji bleibt ":material-file-pdf-box:" aus den
+  # Aufgabenblaettern als roher Text stehen - sichtbar auf allen sieben
+  # Seiten und in allen sieben PDFs (gemessen 2026-09-24).
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - tables
   - attr_list
   - md_in_html
   - pymdownx.keys
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - toc:
       permalink: true
 

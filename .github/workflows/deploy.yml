@@ -68,15 +68,54 @@ jobs:
         with:
           node-version: 20
       - name: Playwright bereitstellen
-        run: npm init -y >/dev/null && npm i -D @playwright/test@^1.48.0 && npx playwright install --with-deps chromium
+        run: npm init -y >/dev/null && npm i -D @playwright/test@^1.49.0 && npx playwright install --with-deps chromium
       - name: PDFs aus der gebauten Site rendern
+        # Die Basis-URL ist Pflicht: beim Druck aus einer file://-Quelle
+        # schreibt Chromium sonst file:///home/runner/work/...-Pfade als
+        # Linkziele in jedes PDF (toter Link + Offenlegung des Build-Pfads).
+        env:
+          PDF_BASE_URL: https://scimbe.github.io/CADS-praktikum-docs/
         run: node scripts/render-lab-pdfs.mjs "$(pwd)/site"
-      - name: Gegenprobe - es muss mindestens ein PDF entstanden sein
+      - name: Gegenprobe - Anzahl, Knopf-Ziel und Linkziele der PDFs
         run: |
           anzahl=$(find site -name '*.pdf' | wc -l)
           echo "PDFs erzeugt: $anzahl"
-          test "$anzahl" -ge 1 || { echo "FEHLER: kein PDF erzeugt"; exit 1; }
+          test "$anzahl" -eq 14 || { echo "FEHLER: 14 PDFs erwartet (7 Blaetter x DE/EN), gefunden $anzahl"; exit 1; }
           find site -name '*.pdf' -printf '  %p  %s Byte\n'
+
+          # Der Knopf muss auf eine Datei zeigen, die es gibt. Bis 2026-09-24
+          # verlinkte er ../pdf/<slug>.pdf und traf damit /labs/pdf/<slug>.pdf
+          # - alle sieben Knoepfe lieferten HTTP 404. Geprueft wird deshalb
+          # das href der gebauten Seite, nicht eine geratene URL.
+          fehler=0
+          for seite in site/labs/*/index.html site/en/labs/*/index.html; do
+            verzeichnis=$(dirname "$seite")
+            ziel=$(grep -oE 'href="[^"]*\.pdf"' "$seite" | head -1 | sed 's/href="//; s/"$//')
+            test -n "$ziel" || { echo "FEHLER: kein PDF-Knopf in $seite"; fehler=1; continue; }
+            aufgeloest=$(realpath -m "$verzeichnis/$ziel")
+            if [ -f "$aufgeloest" ]; then
+              echo "  OK    $seite -> $ziel"
+            else
+              echo "  FEHLT $seite -> $ziel (aufgeloest: $aufgeloest)"
+              fehler=1
+            fi
+          done
+
+          # Kein Build-Pfad in den Linkzielen.
+          if grep -rlU 'file:///home/runner' site --include='*.pdf' | head -1 | grep -q .; then
+            echo "FEHLER: file://-Build-Pfad als Linkziel in mindestens einem PDF"
+            grep -rlU 'file:///home/runner' site --include='*.pdf'
+            fehler=1
+          fi
+
+          # Kein roher Icon-Shortcode im ausgelieferten HTML.
+          if grep -rl ':material-file-pdf-box:' site --include='*.html' | head -1 | grep -q .; then
+            echo "FEHLER: roher Shortcode :material-file-pdf-box: im HTML"
+            grep -rl ':material-file-pdf-box:' site --include='*.html'
+            fehler=1
+          fi
+
+          test "$fehler" -eq 0 || exit 1
 
       - uses: actions/upload-pages-artifact@v3
         with:
