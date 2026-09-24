@@ -200,148 +200,148 @@ wiedergegeben, statt wie zuvor durch eine Neuentwicklung ersetzt zu sein.)*
     ```
 
 1. **Erwartungswert bilden, dann Durchsatz messen.** Die Verbindung erlaubt
-   nominell 10 Mbit/s. Überschlagt vorab, wie viele Daten sich in 5 Minuten
-   übertragen lassen sollten. Startet dann auf `h2` einen Iperf-TCP-Server
-   und auf `h0` den zugehörigen Client:
+    nominell 10 Mbit/s. Überschlagt vorab, wie viele Daten sich in 5 Minuten
+    übertragen lassen sollten. Startet dann auf `h2` einen Iperf-TCP-Server
+    und auf `h0` den zugehörigen Client:
 
-   ```bash
-   h2$ iperf -i 10 -s
-   h0$ iperf -t 300 -i 10 -c 10.0.20.10
-   ```
+    ```bash
+    h2$ iperf -i 10 -s
+    h0$ iperf -t 300 -i 10 -c 10.0.20.10
+    ```
 
-   Vergleicht das Messergebnis mit eurem Erwartungswert. Wiederholt die
-   Messung mit einer auf 536 Byte reduzierten maximalen Segmentgröße:
+    Vergleicht das Messergebnis mit eurem Erwartungswert. Wiederholt die
+    Messung mit einer auf 536 Byte reduzierten maximalen Segmentgröße:
 
-   ```bash
-   h0$ iperf -M 536 -l 1 -t 300 -i 10 -c 10.0.20.10
-   ```
+    ```bash
+    h0$ iperf -M 536 -l 1 -t 300 -i 10 -c 10.0.20.10
+    ```
 
-   Bildet vorher eine These, wie sich die kleinere Segmentgröße auf den
-   Durchsatz auswirken sollte, und gleicht sie mit dem Ergebnis ab.
+    Bildet vorher eine These, wie sich die kleinere Segmentgröße auf den
+    Durchsatz auswirken sollte, und gleicht sie mit dem Ergebnis ab.
 
 2. **Latenz und der Effekt einer konkurrierenden Übertragung.** Startet auf
-   `h1` einen fortlaufenden `ping` zu `h3` (und optional umgekehrt):
+    `h1` einen fortlaufenden `ping` zu `h3` (und optional umgekehrt):
 
-   ```bash
-   h1$ ping 10.0.20.11
-   h3$ ping 10.0.10.11
-   ```
+    ```bash
+    h1$ ping 10.0.20.11
+    h3$ ping 10.0.10.11
+    ```
 
-   Beurteilt anhand der gemessenen Round-Trip-Time, ob eine Telefonkonferenz
-   über diese Verbindung praktikabel wäre (Richtwert: unter 150–200 ms).
-   Bildet dann eine Annahme, wie stark sich die Latenz verändert, wenn `h0`
-   gleichzeitig einen `iperf`-Strom zu `h2` startet (Stichwort: Pufferung
-   auf gemeinsam genutzten Verbindungen):
+    Beurteilt anhand der gemessenen Round-Trip-Time, ob eine Telefonkonferenz
+    über diese Verbindung praktikabel wäre (Richtwert: unter 150–200 ms).
+    Bildet dann eine Annahme, wie stark sich die Latenz verändert, wenn `h0`
+    gleichzeitig einen `iperf`-Strom zu `h2` startet (Stichwort: Pufferung
+    auf gemeinsam genutzten Verbindungen):
 
-   ```bash
-   h0$ iperf -t 300 -i 10 -c 10.0.20.10
-   ```
+    ```bash
+    h0$ iperf -t 300 -i 10 -c 10.0.20.10
+    ```
 
-   Prüft eure Annahme anhand der laufenden `ping`-Ausgabe auf `h1`/`h3`.
+    Prüft eure Annahme anhand der laufenden `ping`-Ausgabe auf `h1`/`h3`.
 
 3. **TCP vs. UDP im direkten Vergleich.** Lasst die TCP-Server-Instanz auf
-   `h2` weiterlaufen und startet zusätzlich auf `h3` einen UDP-Server:
+    `h2` weiterlaufen und startet zusätzlich auf `h3` einen UDP-Server:
 
-   ```bash
-   h3$ iperf -u -i 10 -s
-   ```
+    ```bash
+    h3$ iperf -u -i 10 -s
+    ```
 
-   Sendet von `h0` UDP-Verkehr mit steigender Rate zu `h3`, während `h1`
-   weiterhin `h3` anpingt, und beobachtet jeweils Durchsatz auf `h3` sowie
-   Latenz auf `h1`:
+    Sendet von `h0` UDP-Verkehr mit steigender Rate zu `h3`, während `h1`
+    weiterhin `h3` anpingt, und beobachtet jeweils Durchsatz auf `h3` sowie
+    Latenz auf `h1`:
 
-   ```bash
-   h0$ iperf -u -b 8.6M -t 300 -i 10 -c 10.0.20.11
-   h0$ iperf -u -b 9.8M -t 300 -i 10 -c 10.0.20.11
-   h0$ iperf -u -b 100M -t 300 -i 10 -c 10.0.20.11
-   ```
+    ```bash
+    h0$ iperf -u -b 8.6M -t 300 -i 10 -c 10.0.20.11
+    h0$ iperf -u -b 9.8M -t 300 -i 10 -c 10.0.20.11
+    h0$ iperf -u -b 100M -t 300 -i 10 -c 10.0.20.11
+    ```
 
-   Bei `-b 100M` überschreitet ihr die nominelle Link-Kapazität von 10
-   Mbit/s deutlich – beobachtet insbesondere die Client- und
-   Server-Ausgabe von `iperf` (Sendevolumen vs. tatsächlich beim Empfänger
-   angekommenes Volumen). Vereinzelte "Out of Order"-Pakete bei UDP sind
-   dabei normal und kein Fehler.
+    Bei `-b 100M` überschreitet ihr die nominelle Link-Kapazität von 10
+    Mbit/s deutlich – beobachtet insbesondere die Client- und
+    Server-Ausgabe von `iperf` (Sendevolumen vs. tatsächlich beim Empfänger
+    angekommenes Volumen). Vereinzelte "Out of Order"-Pakete bei UDP sind
+    dabei normal und kein Fehler.
 
 4. **Pfadunterbrechung während einer laufenden TCP-Übertragung.** Startet
-   erneut eine TCP-Messung `h0` → `h2` und beobachtet parallel `h1$ ping
-   10.0.20.10`. Deaktiviert dann für 20–30 Sekunden das Interface des
-   Routers `r1` in Richtung `h2` und aktiviert es danach wieder:
+    erneut eine TCP-Messung `h0` → `h2` und beobachtet parallel `h1$ ping
+    10.0.20.10`. Deaktiviert dann für 20–30 Sekunden das Interface des
+    Routers `r1` in Richtung `h2` und aktiviert es danach wieder:
 
-   ```bash
-   r1$ ifconfig r1-eth0 down
-   # 20-30 Sekunden warten, Client-/Server-/Ping-Ausgabe beobachten
-   r1$ ifconfig r1-eth0 up
-   ```
+    ```bash
+    r1$ ifconfig r1-eth0 down
+    # 20-30 Sekunden warten, Client-/Server-/Ping-Ausgabe beobachten
+    r1$ ifconfig r1-eth0 up
+    ```
 
-   Haltet fest, wie sich Iperf-Client (`h0`), Iperf-Server (`h2`) und der
-   `ping` auf `h1` jeweils während der Unterbrechung und nach der
-   Wiederherstellung verhalten.
+    Haltet fest, wie sich Iperf-Client (`h0`), Iperf-Server (`h2`) und der
+    `ping` auf `h1` jeweils während der Unterbrechung und nach der
+    Wiederherstellung verhalten.
 
 5. **Dieselbe Unterbrechung mit einer Anwendung (SSH) statt einem rohen
-   Iperf-Strom.** Startet auf `h2` den SSH-Server und verbindet euch von
-   `h0` aus:
+    Iperf-Strom.** Startet auf `h2` den SSH-Server und verbindet euch von
+    `h0` aus:
 
-   ```bash
-   h2$ /usr/sbin/sshd -D -f sshd.conf
-   h0$ ssh mininet@10.0.20.10
-   h0$ /sbin/ifconfig   # zur Bestätigung: Interfaces mit "h2-" sichtbar?
-   ```
+    ```bash
+    h2$ /usr/sbin/sshd -D -f sshd.conf
+    h0$ ssh mininet@10.0.20.10
+    h0$ /sbin/ifconfig   # zur Bestätigung: Interfaces mit "h2-" sichtbar?
+    ```
 
-   Bildet eine Erwartung, wie sich die SSH-Sitzung bei derselben
-   Pfadunterbrechung verhalten sollte, unterbrecht dann erneut `r1-eth0` wie
-   in Schritt 4, wiederholt `/sbin/ifconfig` auf `h0` und stellt den Pfad
-   danach wieder her. Beendet die Sitzung anschließend mit `exit`.
+    Bildet eine Erwartung, wie sich die SSH-Sitzung bei derselben
+    Pfadunterbrechung verhalten sollte, unterbrecht dann erneut `r1-eth0` wie
+    in Schritt 4, wiederholt `/sbin/ifconfig` auf `h0` und stellt den Pfad
+    danach wieder her. Beendet die Sitzung anschließend mit `exit`.
 
 6. **Fairness zwischen zwei gleichzeitigen Verbindungen.** Startet
-   Iperf-TCP-Server auf `h2` und `h3` (`&` damit ihr das Terminal
-   weiterverwenden könnt):
+    Iperf-TCP-Server auf `h2` und `h3` (`&` damit ihr das Terminal
+    weiterverwenden könnt):
 
-   ```bash
-   h2$ iperf -i 10 -s
-   h3$ iperf -i 10 -s &
-   ```
+    ```bash
+    h2$ iperf -i 10 -s
+    h3$ iperf -i 10 -s &
+    ```
 
-   Startet zunächst nur `h0` → `h2`, wartet bis sich der Durchsatz
-   stabilisiert hat, und startet dann zusätzlich `h1` → `h3`:
+    Startet zunächst nur `h0` → `h2`, wartet bis sich der Durchsatz
+    stabilisiert hat, und startet dann zusätzlich `h1` → `h3`:
 
-   ```bash
-   h0$ iperf -t 300 -i 10 -c 10.0.20.10
-   h1$ iperf -t 300 -i 10 -c 10.0.20.11
-   ```
+    ```bash
+    h0$ iperf -t 300 -i 10 -c 10.0.20.10
+    h1$ iperf -t 300 -i 10 -c 10.0.20.11
+    ```
 
-   Wiederholt den Versuch mit einem TCP-Strom (`h0` → `h2`) neben einem
-   *unlimitierten* UDP-Strom mit 100 Mbit/s (`h1` → `h3`, ohne dass dafür
-   ein eigener UDP-Server läuft):
+    Wiederholt den Versuch mit einem TCP-Strom (`h0` → `h2`) neben einem
+    *unlimitierten* UDP-Strom mit 100 Mbit/s (`h1` → `h3`, ohne dass dafür
+    ein eigener UDP-Server läuft):
 
-   ```bash
-   h0$ iperf -t 300 -i 10 -c 10.0.20.10
-   h1$ iperf -u -b 100M -t 300 -i 10 -c 10.0.20.11
-   ```
+    ```bash
+    h0$ iperf -t 300 -i 10 -c 10.0.20.10
+    h1$ iperf -u -b 100M -t 300 -i 10 -c 10.0.20.11
+    ```
 
-   Vergleicht, wie fair sich TCP gegenüber einem konkurrierenden TCP-Strom
-   verhält – und wie es sich gegenüber einem unkooperativen UDP-Strom
-   verhält, der keine Rücksicht auf Überlast nimmt.
+    Vergleicht, wie fair sich TCP gegenüber einem konkurrierenden TCP-Strom
+    verhält – und wie es sich gegenüber einem unkooperativen UDP-Strom
+    verhält, der keine Rücksicht auf Überlast nimmt.
 
 7. **Reno vs. Cubic mit iperf3.** Prüft zunächst, welche
-   Congestion-Control-Algorithmen der Kernel anbietet:
+    Congestion-Control-Algorithmen der Kernel anbietet:
 
-   ```bash
-   h0$ sysctl -A | grep tcp | grep congestion
-   ```
+    ```bash
+    h0$ sysctl -A | grep tcp | grep congestion
+    ```
 
-   Startet auf `h3` einen Iperf3-Server und vergleicht zwei gleichzeitige
-   Iperf3-Client-Verbindungen mit unterschiedlicher Congestion Control –
-   einmal mit der System-Standardeinstellung (typischerweise Cubic) von
-   `h0` zu `h2`, einmal explizit mit Reno von `h1` zu `h3`:
+    Startet auf `h3` einen Iperf3-Server und vergleicht zwei gleichzeitige
+    Iperf3-Client-Verbindungen mit unterschiedlicher Congestion Control –
+    einmal mit der System-Standardeinstellung (typischerweise Cubic) von
+    `h0` zu `h2`, einmal explizit mit Reno von `h1` zu `h3`:
 
-   ```bash
-   h3$ iperf3 -i 10 -s
-   h0$ iperf -t 300 -i 10 -c 10.0.20.10
-   h1$ iperf3 -C reno -t 300 -i 10 -c 10.0.20.11
-   ```
+    ```bash
+    h3$ iperf3 -i 10 -s
+    h0$ iperf -t 300 -i 10 -c 10.0.20.10
+    h1$ iperf3 -C reno -t 300 -i 10 -c 10.0.20.11
+    ```
 
-   Beobachtet den Durchsatzverlauf über die gesamte Laufzeit. Führt danach
-   zum Vergleich dieselbe Messung mit `-C cubic` statt `-C reno` durch.
+    Beobachtet den Durchsatzverlauf über die gesamte Laufzeit. Führt danach
+    zum Vergleich dieselbe Messung mit `-C cubic` statt `-C reno` durch.
 
 **Aufgabe:** Fasst zusammen, wie TCP auf Konkurrenz durch einen weiteren
 TCP-Strom reagiert (Fairness) und wie es sich gegenüber einem unlimitierten
@@ -707,16 +707,16 @@ $ nano ~/rn-practice/snapshots/04-teile-sollist.txt
 **Die drei Fragen, an denen sich zeigt, ob ihr die Abweichung verstanden habt:**
 
 1. **Der Ist-Wert liegt immer unter dem Soll-Wert, nie darüber.** Begründet,
-   warum das so sein *muss* und nicht Zufall ist. Denkt an alles, was außer
-   euren Nutzdaten noch durch dieselbe Leitung passt: Ethernet-Rahmenkopf,
-   IP-Kopf, TCP-Kopf, Bestätigungen in der Gegenrichtung.
+    warum das so sein *muss* und nicht Zufall ist. Denkt an alles, was außer
+    euren Nutzdaten noch durch dieselbe Leitung passt: Ethernet-Rahmenkopf,
+    IP-Kopf, TCP-Kopf, Bestätigungen in der Gegenrichtung.
 2. **`iperf3` nennt zwei Zahlen: `sender` und `receiver`.** Sie sind nicht
-   gleich. Welche der beiden ist die ehrliche Antwort auf „wie viel kam an?",
-   und was misst die andere? (Wer die falsche Zeile abliest, meldet einen
-   Durchsatz, den nie ein Byte erreicht hat.)
+    gleich. Welche der beiden ist die ehrliche Antwort auf „wie viel kam an?",
+    und was misst die andere? (Wer die falsche Zeile abliest, meldet einen
+    Durchsatz, den nie ein Byte erreicht hat.)
 3. **Die prozentuale Abweichung ist bei kleinen Raten größer als bei großen.**
-   Prüft das an euren eigenen drei Zeilen und erklärt es: Der Aufwand je Paket
-   ist konstant, die Nutzlast je Paket auch – was ändert sich also?
+    Prüft das an euren eigenen drei Zeilen und erklärt es: Der Aufwand je Paket
+    ist konstant, die Nutzlast je Paket auch – was ändert sich also?
 
 !!! success "Real geprüft (2026-09-24)"
     Alle drei Konfigurationen wurden in einem Wegwerfcontainer gegen ein real

