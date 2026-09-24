@@ -24,6 +24,31 @@ jobs:
           python-version: "3.12"
       - run: pip install -r docs/requirements.txt
       - run: mkdocs build
+
+      # PDF-Erzeugung. Jedes Aufgabenblatt traegt oben einen Knopf "Als PDF
+      # herunterladen" auf ../pdf/<slug>.pdf. Bis zum 2026-09-24 gab es dieses
+      # Verzeichnis hier nicht: ALLE SIEBEN Knoepfe lieferten HTTP 404, und im
+      # Repo existierte kein einziger pdf-Pfad. Das private Repo rendert die
+      # PDFs in seinem eigenen Workflow (docs-site.yml) per Playwright aus der
+      # gebauten Site; dieser Spiegel machte nur `mkdocs build` und kannte den
+      # Schritt nicht.
+      #
+      # Kein LaTeX/Pandoc: Playwright druckt die bereits gebauten HTML-Seiten,
+      # die PDFs entsprechen damit immer genau dem veroeffentlichten Text.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Playwright bereitstellen
+        run: npm init -y >/dev/null && npm i -D @playwright/test@^1.48.0 && npx playwright install --with-deps chromium
+      - name: PDFs aus der gebauten Site rendern
+        run: node scripts/render-lab-pdfs.mjs "$(pwd)/site"
+      - name: Gegenprobe - es muss mindestens ein PDF entstanden sein
+        run: |
+          anzahl=$(find site -name '*.pdf' | wc -l)
+          echo "PDFs erzeugt: $anzahl"
+          test "$anzahl" -ge 1 || { echo "FEHLER: kein PDF erzeugt"; exit 1; }
+          find site -name '*.pdf' -printf '  %p  %s Byte\n'
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
