@@ -1,6 +1,6 @@
 # 02 · IPv4-Subnetting & ARP
 
-[:material-file-pdf-box: Als PDF herunterladen](../pdf/02-subnetting-arp.pdf){ .md-button }
+[:material-file-pdf-box: Als PDF herunterladen](../../pdf/02-subnetting-arp.pdf){ .md-button }
 
 ## Lernziele
 

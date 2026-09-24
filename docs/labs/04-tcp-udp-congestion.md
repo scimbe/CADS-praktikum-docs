@@ -1,6 +1,6 @@
 # 04 · TCP/UDP & Congestion Control
 
-[:material-file-pdf-box: Als PDF herunterladen](../pdf/04-tcp-udp-congestion.pdf){ .md-button }
+[:material-file-pdf-box: Als PDF herunterladen](../../pdf/04-tcp-udp-congestion.pdf){ .md-button }
 
 ## Lernziele
 

@@ -22,7 +22,7 @@ Auf dem Desktop startet ihr Terminals über das Standard-Terminal-Icon
 (`xfce4-terminal`) — **nicht** `xterm`. Innerhalb von Mininet bleibt der
 dokumentierte Befehl
 
-```
+```text
 mininet> xterm h1
 ```
 
