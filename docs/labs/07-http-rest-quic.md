@@ -37,68 +37,68 @@ schiefgehen kann.
 
 1. Startet die Topologie, falls sie nicht schon läuft:
 
-   ```bash
-   cd ~/rn-practice/topo01
-   ./start-topo01.sh
-   ```
+    ```bash
+    cd ~/rn-practice/topo01
+    ./start-topo01.sh
+    ```
 
 2. Startet auf `h1` den einfachen HTTP-Server:
 
-   ```bash
-   python3 startHTTPServer.py &
-   ```
+    ```bash
+    python3 startHTTPServer.py &
+    ```
 
 3. Sprecht von `h2` aus HTTP manuell per Netcat, statt einen Browser zu
-   benutzen:
+    benutzen:
 
-   ```bash
-   netcat h1 80
-   GET / HTTP/1.1
-   Host: h1
-   ```
+    ```bash
+    netcat h1 80
+    GET / HTTP/1.1
+    Host: h1
+    ```
 
-   (Leerzeile am Ende durch zweimaliges Drücken von ++enter++ nicht
-   vergessen – das ist das Ende des Headers und bei `HTTP/1.1` mit
-   `Host`-Header notwendig, damit der Server antwortet.) Beobachtet die
-   Antwort: Status-Zeile, Header, Leerzeile, HTML-Body.
+    (Leerzeile am Ende durch zweimaliges Drücken von ++enter++ nicht
+    vergessen – das ist das Ende des Headers und bei `HTTP/1.1` mit
+    `Host`-Header notwendig, damit der Server antwortet.) Beobachtet die
+    Antwort: Status-Zeile, Header, Leerzeile, HTML-Body.
 
-   !!! note "Namensauflösung schlägt ohne laufenden dnsmasq fehl"
-       Real getestet: `netcat h1 80` liefert `getaddrinfo for host "h1"
-       port 80: Temporary failure in name resolution`, solange kein
-       DNS-Forwarder (`dnsmasq`, siehe [Aufgabenblatt 01](01-netzwerkgrundlagen-tools.md))
-       läuft, der den Namen `h1` auflöst. Verwendet ersatzweise die
-       numerische Adresse, z. B. `netcat 10.0.1.2 80`.
+    !!! note "Namensauflösung schlägt ohne laufenden dnsmasq fehl"
+        Real getestet: `netcat h1 80` liefert `getaddrinfo for host "h1"
+        port 80: Temporary failure in name resolution`, solange kein
+        DNS-Forwarder (`dnsmasq`, siehe [Aufgabenblatt 01](01-netzwerkgrundlagen-tools.md))
+        läuft, der den Namen `h1` auflöst. Verwendet ersatzweise die
+        numerische Adresse, z. B. `netcat 10.0.1.2 80`.
 
-   ![Terminalfenster "Node: h2": Ausgabe von netcat 10.0.1.2 80 mit Request (GET / HTTP/1.1, Host: h1) und der kompletten Antwort inkl. Status-Zeile "HTTP/1.0 200 OK", Headern (Cache-Control, Server, Date, Content-Type, Content-Length) und dem Beginn des HTML-Bodys](../assets/screenshots/07-http-rest-quic/netcat-manual-http.png)
-   *Echte, von Hand über `netcat` gesprochene HTTP/1.1-Anfrage gegen den
-   lokalen Server auf `h1` – Status-Zeile, Header, Leerzeile und HTML-Body
-   sind vollständig sichtbar, genau wie ein Browser sie normalerweise
-   verborgen im Hintergrund verarbeitet.*
+    ![Terminalfenster "Node: h2": Ausgabe von netcat 10.0.1.2 80 mit Request (GET / HTTP/1.1, Host: h1) und der kompletten Antwort inkl. Status-Zeile "HTTP/1.0 200 OK", Headern (Cache-Control, Server, Date, Content-Type, Content-Length) und dem Beginn des HTML-Bodys](../assets/screenshots/07-http-rest-quic/netcat-manual-http.png)
+    *Echte, von Hand über `netcat` gesprochene HTTP/1.1-Anfrage gegen den
+    lokalen Server auf `h1` – Status-Zeile, Header, Leerzeile und HTML-Body
+    sind vollständig sichtbar, genau wie ein Browser sie normalerweise
+    verborgen im Hintergrund verarbeitet.*
 
 4. Alternativ mit `telnet`, falls installiert, identisch:
 
-   ```bash
-   telnet h1 80
-   ```
+    ```bash
+    telnet h1 80
+    ```
 
 5. Vergleicht das Ergebnis mit einem Mitschnitt in Wireshark (Filter
-   `ip.addr == 10.0.1.2 && tcp`, Interface auf `h2-eth0`) und mit einem
-   normalen Browseraufruf von `http://h1` (siehe Aufgabenblatt 01) – der
-   Inhalt ist identisch, nur der Weg dorthin unterscheidet sich.
+    `ip.addr == 10.0.1.2 && tcp`, Interface auf `h2-eth0`) und mit einem
+    normalen Browseraufruf von `http://h1` (siehe Aufgabenblatt 01) – der
+    Inhalt ist identisch, nur der Weg dorthin unterscheidet sich.
 
 6. Wiederholt den Versuch gegen den HTTPS-Server (`python3
-   startHTTPsServer.py` auf `h1`, siehe Aufgabenblatt 01) mit reinem
-   Netcat/Telnet auf Port 443. Beobachtet, dass die Anfrage so **nicht**
-   funktioniert bzw. keine sinnvolle Antwort liefert.
+    startHTTPsServer.py` auf `h1`, siehe Aufgabenblatt 01) mit reinem
+    Netcat/Telnet auf Port 443. Beobachtet, dass die Anfrage so **nicht**
+    funktioniert bzw. keine sinnvolle Antwort liefert.
 
-   !!! note "Warum das nicht funktioniert"
-       Netcat und Telnet sprechen nur rohes TCP, keinen TLS-Handshake. HTTPS
-       verlangt aber, dass zuerst eine TLS-Sitzung aufgebaut wird, bevor die
-       HTTP-Anfrage im Klartext hineingereicht werden kann. Für eine
-       manuelle HTTPS-Anfrage bräuchtet ihr ein Werkzeug, das TLS selbst
-       terminiert (z. B. `openssl s_client -connect h1:443`, danach die
-       HTTP-Zeilen wie gewohnt eintippen). Das ist ein guter Beleg dafür,
-       *warum* HTTP und Transportsicherheit (TLS) getrennte Schichten sind.
+    !!! note "Warum das nicht funktioniert"
+        Netcat und Telnet sprechen nur rohes TCP, keinen TLS-Handshake. HTTPS
+        verlangt aber, dass zuerst eine TLS-Sitzung aufgebaut wird, bevor die
+        HTTP-Anfrage im Klartext hineingereicht werden kann. Für eine
+        manuelle HTTPS-Anfrage bräuchtet ihr ein Werkzeug, das TLS selbst
+        terminiert (z. B. `openssl s_client -connect h1:443`, danach die
+        HTTP-Zeilen wie gewohnt eintippen). Das ist ein guter Beleg dafür,
+        *warum* HTTP und Transportsicherheit (TLS) getrennte Schichten sind.
 
 !!! tip "Fortschritt festhalten (optional)"
     Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
@@ -126,59 +126,59 @@ Internet-Zugriff, keinen NAT-Uplink einer Mininet-Topologie.
 
 1. Baut eine rohe TCP-Verbindung zum API-Server auf:
 
-   ```bash
-   nc api.openweathermap.org 80
-   ```
+    ```bash
+    nc api.openweathermap.org 80
+    ```
 
-   oder
+    oder
 
-   ```bash
-   telnet api.openweathermap.org 80
-   ```
+    ```bash
+    telnet api.openweathermap.org 80
+    ```
 
 2. Schickt eine manuelle HTTP-GET-Anfrage (ersetzt `CITY_NAME` und
-   `YOUR_API_KEY`):
+    `YOUR_API_KEY`):
 
-   ```text
-   GET /data/2.5/weather?q=CITY_NAME&appid=YOUR_API_KEY HTTP/1.1
-   Host: api.openweathermap.org
-   ```
+    ```text
+    GET /data/2.5/weather?q=CITY_NAME&appid=YOUR_API_KEY HTTP/1.1
+    Host: api.openweathermap.org
+    ```
 
-   Bereitet euch die Zeilen am besten vorher in einem Editor vor, damit ihr
-   sie zügig einfügen könnt – der Server hat wie jeder produktive Webserver
-   ein Timeout für unvollständige Anfragen.
+    Bereitet euch die Zeilen am besten vorher in einem Editor vor, damit ihr
+    sie zügig einfügen könnt – der Server hat wie jeder produktive Webserver
+    ein Timeout für unvollständige Anfragen.
 
 3. Alternativ mit geografischen Koordinaten (`LAT`/`LON`, z. B. per Google
-   Maps ermittelt):
+    Maps ermittelt):
 
-   ```text
-   GET /data/2.5/weather?lat=LAT&lon=LON&appid=YOUR_API_KEY HTTP/1.1
-   Host: api.openweathermap.org
-   ```
+    ```text
+    GET /data/2.5/weather?lat=LAT&lon=LON&appid=YOUR_API_KEY HTTP/1.1
+    Host: api.openweathermap.org
+    ```
 
 4. Mit dem `Accept`-Header (bzw. dem Query-Parameter `mode`) lässt sich das
-   Antwortformat beeinflussen. Vergleicht JSON- und XML-Antwort:
+    Antwortformat beeinflussen. Vergleicht JSON- und XML-Antwort:
 
-   ```text
-   GET /data/2.5/weather?q=CITY_NAME&appid=YOUR_API_KEY&mode=xml HTTP/1.1
-   Host: api.openweathermap.org
-   ```
+    ```text
+    GET /data/2.5/weather?q=CITY_NAME&appid=YOUR_API_KEY&mode=xml HTTP/1.1
+    Host: api.openweathermap.org
+    ```
 
 5. Zeichnet den gesamten Vorgang mit Wireshark mit (Filter z. B. auf
-   `tcp.port == 80` oder die aufgelöste IP der API) und vergleicht die
-   Rohdaten mit der euch angezeigten Konsolenausgabe.
+    `tcp.port == 80` oder die aufgelöste IP der API) und vergleicht die
+    Rohdaten mit der euch angezeigten Konsolenausgabe.
 
-   !!! note "Playwright-Screenshot-Referenz"
-       Für den Beleg einer erfolgreichen API-Antwort (z. B. die JSON-Zeile
-       mit den Wetterdaten in der Konsole) eignet sich ein
-       **Zeilen-/Locator-Screenshot** (siehe
-       `tests/e2e/specs/screenshots.spec.ts`, Test "Zeilen-Screenshot")
-       besser als ein Fenster-Screenshot: entscheidend ist der Inhalt einer
-       einzelnen Ausgabezeile (die HTTP-Statuszeile bzw. der JSON-Body), nicht
-       der gesamte sichtbare Terminalzustand.
+    !!! note "Playwright-Screenshot-Referenz"
+        Für den Beleg einer erfolgreichen API-Antwort (z. B. die JSON-Zeile
+        mit den Wetterdaten in der Konsole) eignet sich ein
+        **Zeilen-/Locator-Screenshot** (siehe
+        `tests/e2e/specs/screenshots.spec.ts`, Test "Zeilen-Screenshot")
+        besser als ein Fenster-Screenshot: entscheidend ist der Inhalt einer
+        einzelnen Ausgabezeile (die HTTP-Statuszeile bzw. der JSON-Body), nicht
+        der gesamte sichtbare Terminalzustand.
 
 6. Probiert eigenständig weitere Endpunkte der API aus (Dokumentation:
-   [openweathermap.org/current](https://openweathermap.org/current)).
+    [openweathermap.org/current](https://openweathermap.org/current)).
 
 !!! tip "Fortschritt festhalten (optional)"
     Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken

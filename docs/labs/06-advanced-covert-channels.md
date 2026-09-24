@@ -57,45 +57,45 @@ cd ~/rn-practice/topo01
 ```
 
 1. Öffnet auf `h1` einen xterm und startet dort einen Mitschnitt auf allen
-   Interfaces:
+    Interfaces:
 
-   ```bash
-   h1$ sudo tcpdump -i any -w h1.pcap
-   ```
+    ```bash
+    h1$ sudo tcpdump -i any -w h1.pcap
+    ```
 
 2. Erzeugt auf `h1` in einem zweiten Terminal Verkehr:
 
-   ```bash
-   h1$ ping -c 4 10.0.1.2
-   h1$ dig @10.0.1.2 becke.net
-   h1$ dig +tcp @10.0.1.2 becke.net
-   h1$ curl becke.net
-   ```
+    ```bash
+    h1$ ping -c 4 10.0.1.2
+    h1$ dig @10.0.1.2 becke.net
+    h1$ dig +tcp @10.0.1.2 becke.net
+    h1$ curl becke.net
+    ```
 
-   !!! note "Korrektur gegenüber dem Originaldokument"
-       Das Original ruft `dig`/`curl` gegen die Adresse `10.0.1.2` auf, ohne
-       diese im Kontext dieses Aufgabenblatts zu erklären. In `topo01`
-       (siehe [Lab 01](01-netzwerkgrundlagen-tools.md)) ist `10.0.1.2`
-       keine der beiden Host-Adressen (`h1`/`h2`), sondern liegt im Subnetz
-       von `h1`. Verwendet stattdessen eine tatsächlich erreichbare
-       Gegenstelle aus `topo01`, z. B. `10.0.6.2` (`h2`) oder eine externe
-       Adresse/Domain über den NAT-Uplink, und passt die Befehle
-       entsprechend an. Das Original-`ping` ohne `-c` läuft zudem endlos;
-       nutzt `-c 4`, um die Aufzeichnung nicht unnötig zu verlängern.
+    !!! note "Korrektur gegenüber dem Originaldokument"
+        Das Original ruft `dig`/`curl` gegen die Adresse `10.0.1.2` auf, ohne
+        diese im Kontext dieses Aufgabenblatts zu erklären. In `topo01`
+        (siehe [Lab 01](01-netzwerkgrundlagen-tools.md)) ist `10.0.1.2`
+        keine der beiden Host-Adressen (`h1`/`h2`), sondern liegt im Subnetz
+        von `h1`. Verwendet stattdessen eine tatsächlich erreichbare
+        Gegenstelle aus `topo01`, z. B. `10.0.6.2` (`h2`) oder eine externe
+        Adresse/Domain über den NAT-Uplink, und passt die Befehle
+        entsprechend an. Das Original-`ping` ohne `-c` läuft zudem endlos;
+        nutzt `-c 4`, um die Aufzeichnung nicht unnötig zu verlängern.
 
 3. Wiederholt dieselben Aufrufe auf `h2` und vergleicht den Unterschied im
-   Mitschnitt.
+    Mitschnitt.
 
 4. Beendet den Mitschnitt auf `h1` (++ctrl+c++) und öffnet die Datei in
-   Wireshark:
+    Wireshark:
 
-   ```bash
-   h1$ wireshark h1.pcap
-   ```
+    ```bash
+    h1$ wireshark h1.pcap
+    ```
 
 5. Beobachtet: Welche Protokolle sind sichtbar? Wo seht ihr Klartextdaten?
-   Welche Daten kommen unverschlüsselt "durch"? Vertraut ihr dem lokalen
-   Netz, wenn ihr das seht?
+    Welche Daten kommen unverschlüsselt "durch"? Vertraut ihr dem lokalen
+    Netz, wenn ihr das seht?
 
 !!! tip "Fortschritt festhalten (optional)"
     Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
@@ -128,31 +128,31 @@ Wireshark sichtbar gemacht werden.
 
 1. Installiert und startet `iodine` auf `h1` als Server:
 
-   ```bash
-   h1$ apt install iodine
-   h1$ iodine -f -T null 10.99.0.1 tunnel.h1
-   ```
+    ```bash
+    h1$ apt install iodine
+    h1$ iodine -f -T null 10.99.0.1 tunnel.h1
+    ```
 
 2. Konfiguriert auf `h1` `dnsmasq` so, dass `h2` seine DNS-Anfragen über
-   `h1` sendet (siehe `dnsmasq`-Konfiguration, die `topo01` bereits für die
-   `dig`-Übung in Lab 01 verwendet).
+    `h1` sendet (siehe `dnsmasq`-Konfiguration, die `topo01` bereits für die
+    `dig`-Übung in Lab 01 verwendet).
 
 3. Verbindet euch auf `h2` als Client:
 
-   ```bash
-   h2$ iodine tunnel.h2
-   h2$ ping 10.99.0.1 -I dns0
-   ```
+    ```bash
+    h2$ iodine tunnel.h2
+    h2$ ping 10.99.0.1 -I dns0
+    ```
 
 4. Startet parallel auf `h1` einen gezielten Mitschnitt auf DNS-Verkehr:
 
-   ```bash
-   h1$ sudo tcpdump -i any port 53 -w /tmp/dnstunnel.pcap
-   ```
+    ```bash
+    h1$ sudo tcpdump -i any port 53 -w /tmp/dnstunnel.pcap
+    ```
 
 5. Analysiert in Wireshark: Welche DNS-Resource-Record-Typen werden
-   genutzt? Wie sehen die (ungewöhnlich langen bzw. zufällig wirkenden)
-   Subdomains aus, über die die Tunneldaten kodiert werden?
+    genutzt? Wie sehen die (ungewöhnlich langen bzw. zufällig wirkenden)
+    Subdomains aus, über die die Tunneldaten kodiert werden?
 
 !!! note "Original-Befehlszeile leicht widersprüchlich"
     Das Originaldokument zeigt für Schritt 3 `h1$ iodine tunnel.h2`, obwohl
@@ -190,51 +190,51 @@ Wireshark sichtbar gemacht werden.
 bzw. TTL-Manipulation.
 
 1. Erzeugt auf `h2` eine "geheime" Nachricht und sendet sie per ICMP an
-   `h1`:
+    `h1`:
 
-   ```bash
-   h2$ echo "TOP_SECRET" > /tmp/secret.txt
-   h2$ hping3 -1 -E /tmp/secret.txt -c 5 <IP_h1>
-   ```
+    ```bash
+    h2$ echo "TOP_SECRET" > /tmp/secret.txt
+    h2$ hping3 -1 -E /tmp/secret.txt -c 5 <IP_h1>
+    ```
 
-   !!! warning "In dieser hping3-Version zusätzlich `-d <Größe>` nötig"
-       Real gegen die Umgebung getestet: `hping3` verweigert `-E` ohne eine
-       explizit angegebene Datengröße mit der Fehlermeldung
-       `Option error: -E option useless without -d`. Ergänzt den Aufruf
-       daher um `-d <Bytegröße-der-Datei>`, z. B. für eine 20 Byte lange
-       Nachricht `hping3 -1 -d 20 -E /tmp/secret.txt -c 5 <IP_h1>`.
+    !!! warning "In dieser hping3-Version zusätzlich `-d <Größe>` nötig"
+        Real gegen die Umgebung getestet: `hping3` verweigert `-E` ohne eine
+        explizit angegebene Datengröße mit der Fehlermeldung
+        `Option error: -E option useless without -d`. Ergänzt den Aufruf
+        daher um `-d <Bytegröße-der-Datei>`, z. B. für eine 20 Byte lange
+        Nachricht `hping3 -1 -d 20 -E /tmp/secret.txt -c 5 <IP_h1>`.
 
-   ![Terminalfenster "Node: h2": hping3 -1 -d 20 -E /tmp/secret.txt -c 5 10.0.1.2 mit fuenf beantworteten ICMP-Paketen und Abschlussstatistik "5 packets transmitted, 5 packets received, 0% packet loss"](../assets/screenshots/06-advanced-covert-channels/hping3-icmp-payload.png)
-   *`hping3` verschickt fünf ICMP-Echo-Requests von `h2` an `h1`, deren
-   Payload der Inhalt von `/tmp/secret.txt` ist – aus Sicht eines simplen
-   Firewall-/IDS-Regelwerks sieht das wie gewöhnlicher Ping-Verkehr aus.*
+    ![Terminalfenster "Node: h2": hping3 -1 -d 20 -E /tmp/secret.txt -c 5 10.0.1.2 mit fuenf beantworteten ICMP-Paketen und Abschlussstatistik "5 packets transmitted, 5 packets received, 0% packet loss"](../assets/screenshots/06-advanced-covert-channels/hping3-icmp-payload.png)
+    *`hping3` verschickt fünf ICMP-Echo-Requests von `h2` an `h1`, deren
+    Payload der Inhalt von `/tmp/secret.txt` ist – aus Sicht eines simplen
+    Firewall-/IDS-Regelwerks sieht das wie gewöhnlicher Ping-Verkehr aus.*
 
 2. Zeichnet parallel auf `h1` den ICMP-Verkehr auf:
 
-   ```bash
-   h1$ sudo tcpdump -i any -nn icmp -w /tmp/secret.pcap
-   ```
+    ```bash
+    h1$ sudo tcpdump -i any -nn icmp -w /tmp/secret.pcap
+    ```
 
 3. Öffnet das Pcap in Wireshark und beobachtet den Payload in den
-   ICMP-Echo-Requests – die "geheime" Nachricht steht im Klartext im
-   Paket-Inhalt.
+    ICMP-Echo-Requests – die "geheime" Nachricht steht im Klartext im
+    Paket-Inhalt.
 
-   ![Wireshark-Fenster mit geoeffnetem secret.pcap, Paketliste mit 10 ICMP-Paketen (5 Request/5 Reply), im Hex-Dump-Bereich des ausgewaehlten Requests ist der ASCII-Text "TOP_SECR" sichtbar](../assets/screenshots/06-advanced-covert-channels/wireshark-secret-payload.png)
-   *Der Mitschnitt auf `h1` bestätigt den verdeckten Kanal: Im
-   Hex-/ASCII-Bereich des ICMP-Echo-Requests (Paket 7) ist der Anfang der
-   "geheimen" Nachricht `TOP_SECR…` im Klartext lesbar – ICMP-Payload wird
-   von den meisten einfachen Firewalls nicht inspiziert.*
+    ![Wireshark-Fenster mit geoeffnetem secret.pcap, Paketliste mit 10 ICMP-Paketen (5 Request/5 Reply), im Hex-Dump-Bereich des ausgewaehlten Requests ist der ASCII-Text "TOP_SECR" sichtbar](../assets/screenshots/06-advanced-covert-channels/wireshark-secret-payload.png)
+    *Der Mitschnitt auf `h1` bestätigt den verdeckten Kanal: Im
+    Hex-/ASCII-Bereich des ICMP-Echo-Requests (Paket 7) ist der Anfang der
+    "geheimen" Nachricht `TOP_SECR…` im Klartext lesbar – ICMP-Payload wird
+    von den meisten einfachen Firewalls nicht inspiziert.*
 
 4. **Erweiterung:** Kodiert einzelne Zeichen stattdessen über den
-   TTL-Wert des IP-Headers statt über die Payload:
+    TTL-Wert des IP-Headers statt über die Payload:
 
-   ```bash
-   h2$ hping3 -2 --ttl 65 -p 53 -c 1 <IP_h1>
-   ```
+    ```bash
+    h2$ hping3 -2 --ttl 65 -p 53 -c 1 <IP_h1>
+    ```
 
-   Ein Wert, der normalerweise nur zur Pfadverfolgung dient, lässt sich so
-   zweckentfremden, um (langsam, aber unauffällig) Informationen zu
-   übertragen.
+    Ein Wert, der normalerweise nur zur Pfadverfolgung dient, lässt sich so
+    zweckentfremden, um (langsam, aber unauffällig) Informationen zu
+    übertragen.
 
 !!! tip "Fortschritt festhalten (optional)"
     Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
@@ -264,28 +264,28 @@ Mitschnitt im Vergleich zu klassischem DNS noch sichtbar ist.
 
 1. Klassisches DNS auf `h1`:
 
-   ```bash
-   h1$ dig @1.1.1.1 example.com
-   ```
+    ```bash
+    h1$ dig @1.1.1.1 example.com
+    ```
 
 2. Startet einen gezielten Mitschnitt:
 
-   ```bash
-   h1$ sudo tcpdump -i any host 1.1.1.1 -w /tmp/dns_plain.pcap
-   ```
+    ```bash
+    h1$ sudo tcpdump -i any host 1.1.1.1 -w /tmp/dns_plain.pcap
+    ```
 
 3. Wiederholt dieselbe Abfrage über DNS-over-HTTPS:
 
-   ```bash
-   h1$ curl -H "accept: application/dns-json" \
-       "https://1.1.1.1/dns-query?name=example.com&type=A"
-   ```
+    ```bash
+    h1$ curl -H "accept: application/dns-json" \
+        "https://1.1.1.1/dns-query?name=example.com&type=A"
+    ```
 
 4. Öffnet den Mitschnitt in Wireshark: Was ist bei der klassischen
-   DNS-Anfrage im Klartext sichtbar (Anfragename, Antwort), was ist bei der
-   DoH-Anfrage nur noch als TLS-Record erkennbar? Wie unterscheidet sich
-   DoH dadurch von klassischem DNS aus Sicht eines mitlesenden Dritten im
-   selben Netzsegment?
+    DNS-Anfrage im Klartext sichtbar (Anfragename, Antwort), was ist bei der
+    DoH-Anfrage nur noch als TLS-Record erkennbar? Wie unterscheidet sich
+    DoH dadurch von klassischem DNS aus Sicht eines mitlesenden Dritten im
+    selben Netzsegment?
 
 !!! tip "Fortschritt festhalten (optional)"
     Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
@@ -303,27 +303,27 @@ mittels JA3-Fingerprint.
 
 1. Installiert die benötigten Werkzeuge auf `h1`:
 
-   ```bash
-   h1$ sudo apt install -y jq tshark
-   ```
+    ```bash
+    h1$ sudo apt install -y jq tshark
+    ```
 
 2. Wertet den TLS-Handshake aus einem vorhandenen Mitschnitt aus (z. B. dem
-   `dns_plain.pcap`/DoH-Mitschnitt aus Teil 4, sofern er TLS-Verkehr
-   enthält):
+    `dns_plain.pcap`/DoH-Mitschnitt aus Teil 4, sofern er TLS-Verkehr
+    enthält):
 
-   ```bash
-   h1$ tshark -r /tmp/dns_plain.pcap -Y "ssl.handshake.type == 1" \
-       -T fields -e ip.src -e ssl.handshake.extensions_server_name \
-       -e ssl.handshake.ciphersuite -e ssl.handshake.version
-   ```
+    ```bash
+    h1$ tshark -r /tmp/dns_plain.pcap -Y "ssl.handshake.type == 1" \
+        -T fields -e ip.src -e ssl.handshake.extensions_server_name \
+        -e ssl.handshake.ciphersuite -e ssl.handshake.version
+    ```
 
 3. Notiert Unterschiede zwischen `curl`, `wget` und Firefox beim
-   TLS-Handshake (Cipher-Suite-Liste, TLS-Erweiterungen, Reihenfolge) – das
-   ist die Grundlage, auf der ein JA3-Fingerprint einen Client eindeutig
-   erkennen kann, ganz ohne den Server-Namen (SNI) auszuwerten.
+    TLS-Handshake (Cipher-Suite-Liste, TLS-Erweiterungen, Reihenfolge) – das
+    ist die Grundlage, auf der ein JA3-Fingerprint einen Client eindeutig
+    erkennen kann, ganz ohne den Server-Namen (SNI) auszuwerten.
 
 4. **Erweiterung:** Nutzt ein Python-Modul wie `pyja3`, um aus den obigen
-   Feldern direkt den JA3-Hash zu berechnen.
+    Feldern direkt den JA3-Hash zu berechnen.
 
 !!! tip "Fortschritt festhalten (optional)"
     Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
@@ -355,27 +355,27 @@ mittels JA3-Fingerprint.
 auf TLS-Verbindungen.
 
 1. Deaktiviert die Zeitsynchronisation auf `h1` und setzt eine falsche
-   Zeit:
+    Zeit:
 
-   ```bash
-   h1$ sudo timedatectl set-ntp false
-   h1$ sudo date -s "next monday 10:00"
-   ```
+    ```bash
+    h1$ sudo timedatectl set-ntp false
+    h1$ sudo date -s "next monday 10:00"
+    ```
 
 2. Versucht anschließend eine HTTPS-Verbindung:
 
-   ```bash
-   h1$ curl https://example.com
-   ```
+    ```bash
+    h1$ curl https://example.com
+    ```
 
 3. Beobachtet: Gibt es einen TLS-Fehler (Zertifikat nicht mehr gültig, weil
-   das System jetzt "in der Zukunft" liegt)? Ordnet ein, warum eine
-   korrekte Systemzeit eine stillschweigende Voraussetzung für
-   funktionierende Zertifikatsprüfung ist.
+    das System jetzt "in der Zukunft" liegt)? Ordnet ein, warum eine
+    korrekte Systemzeit eine stillschweigende Voraussetzung für
+    funktionierende Zertifikatsprüfung ist.
 
 4. **Erweiterung:** Betreibt einen lokalen NTP-Dienst mit absichtlich
-   falscher Zeit (z. B. `ntpd` im Fake-Modus) und manipuliert damit gezielt
-   die Zeit von `h2`.
+    falscher Zeit (z. B. `ntpd` im Fake-Modus) und manipuliert damit gezielt
+    die Zeit von `h2`.
 
 !!! tip "Fortschritt festhalten (optional)"
     Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
@@ -403,49 +403,49 @@ cd ~/rn-practice/topo01
 ```
 
 1. **Empfänger vorbereiten.** Startet auf `h1` einen Mitschnitt, der nur
-   ICMP-Verkehr aufzeichnet:
+    ICMP-Verkehr aufzeichnet:
 
-   ```bash
-   h1$ sudo tcpdump -i any icmp -n -w /tmp/ttlmsg.pcap
-   ```
+    ```bash
+    h1$ sudo tcpdump -i any icmp -n -w /tmp/ttlmsg.pcap
+    ```
 
 2. **Sender:** Wechselt zu `h2` und schickt (ohne `h1` vorher zu verraten,
-   was ihr sendet) ein kurzes Wort Zeichen für Zeichen, mit einem
-   ASCII-kodierten TTL-Wert pro Zeichen:
+    was ihr sendet) ein kurzes Wort Zeichen für Zeichen, mit einem
+    ASCII-kodierten TTL-Wert pro Zeichen:
 
-   ```bash
-   h2$ for c in H I ; do
-         ttl=$(printf '%d' "'$c")
-         hping3 -1 --ttl "$ttl" -c 1 10.0.1.2
-         sleep 1
-       done
-   ```
+    ```bash
+    h2$ for c in H I ; do
+          ttl=$(printf '%d' "'$c")
+          hping3 -1 --ttl "$ttl" -c 1 10.0.1.2
+          sleep 1
+        done
+    ```
 
-   (Ersetzt die Zeichenliste `H I` durch ein eigenes, für euch unbekanntes
-   Wort – lasst es euch am besten von jemand anderem vorgeben, damit die
-   Decodierung im nächsten Schritt nicht durch Vorwissen verfälscht wird.)
+    (Ersetzt die Zeichenliste `H I` durch ein eigenes, für euch unbekanntes
+    Wort – lasst es euch am besten von jemand anderem vorgeben, damit die
+    Decodierung im nächsten Schritt nicht durch Vorwissen verfälscht wird.)
 
 3. **Decodieren.** Beendet den Mitschnitt auf `h1` (++ctrl+c++) und lest die
-   *empfangene* TTL jedes eingehenden Pakets aus:
+    *empfangene* TTL jedes eingehenden Pakets aus:
 
-   ```bash
-   h1$ tcpdump -r /tmp/ttlmsg.pcap -n -v
-   ```
+    ```bash
+    h1$ tcpdump -r /tmp/ttlmsg.pcap -n -v
+    ```
 
-   Achtet nur auf die Zeilen mit `ICMP echo request` (Absender `h2`, in
-   `topo01` die Adresse `10.0.6.2`) – die dazugehörigen `echo reply`-Zeilen
-   (Absender `h1`) tragen `h1`s eigenen, unveränderten Standard-TTL-Wert und
-   sind für die Decodierung ohne Bedeutung. Die relevanten Zeilen zeigen
-   euch je einen Wert wie `ttl 70`. Das ist
-   **nicht** der von `h2` gesendete Wert, sondern der bereits um die Anzahl
-   der durchlaufenen Router verminderte Wert – bestimmt diese Hop-Zahl
-   selbst mit `traceroute` (oder `tracepath`) von `h2` zu `h1`, bevor ihr
-   zurückrechnet.
+    Achtet nur auf die Zeilen mit `ICMP echo request` (Absender `h2`, in
+    `topo01` die Adresse `10.0.6.2`) – die dazugehörigen `echo reply`-Zeilen
+    (Absender `h1`) tragen `h1`s eigenen, unveränderten Standard-TTL-Wert und
+    sind für die Decodierung ohne Bedeutung. Die relevanten Zeilen zeigen
+    euch je einen Wert wie `ttl 70`. Das ist
+    **nicht** der von `h2` gesendete Wert, sondern der bereits um die Anzahl
+    der durchlaufenen Router verminderte Wert – bestimmt diese Hop-Zahl
+    selbst mit `traceroute` (oder `tracepath`) von `h2` zu `h1`, bevor ihr
+    zurückrechnet.
 
 4. **Rückrechnen.** Addiert die ermittelte Hop-Zahl auf jeden beobachteten
-   TTL-Wert und wandelt das Ergebnis mit der ASCII-Tabelle (oder
-   `printf "\x$(printf %x <Zahl>)"`) zurück in ein Zeichen. Reiht die
-   Zeichen in der Reihenfolge auf, in der die Pakete eingetroffen sind.
+    TTL-Wert und wandelt das Ergebnis mit der ASCII-Tabelle (oder
+    `printf "\x$(printf %x <Zahl>)"`) zurück in ein Zeichen. Reiht die
+    Zeichen in der Reihenfolge auf, in der die Pakete eingetroffen sind.
 
 !!! success "Real geprüft"
     Auf einem frisch gestarteten Container liegen zwischen `h2` und `h1`

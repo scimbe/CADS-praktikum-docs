@@ -761,18 +761,18 @@ gemessenen Wert und begründet jede Abweichung. Die drei Fragen, an denen sich
 zeigt, ob ihr die Messung verstanden habt:
 
 1. **Die Abstände sind nicht alle gleich.** RIP nennt 30 Sekunden, ihr messt
-   Werte darunter und darüber. Das ist kein Messfehler: RIP versieht seinen
-   Zeitgeber absichtlich mit einer Zufallsschwankung. Überlegt, was passieren
-   würde, wenn alle Router eines Segments ihre Tabelle *exakt* gleichzeitig
-   senden würden – und warum die Schwankung damit kein Schönheitsfehler,
-   sondern eine Notwendigkeit ist.
+    Werte darunter und darüber. Das ist kein Messfehler: RIP versieht seinen
+    Zeitgeber absichtlich mit einer Zufallsschwankung. Überlegt, was passieren
+    würde, wenn alle Router eines Segments ihre Tabelle *exakt* gleichzeitig
+    senden würden – und warum die Schwankung damit kein Schönheitsfehler,
+    sondern eine Notwendigkeit ist.
 2. **BGP sendet seltener, kostet aber mehr.** Rechnet beide Byte-je-Minute-Werte
-   aus und stellt sie nebeneinander. Begründet das Ergebnis damit, dass RIP auf
-   UDP aufsetzt und BGP auf TCP – und dass zu jeder TCP-Nachricht eine
-   Bestätigung gehört, die in eurer gefilterten Datei mitzählt.
+    aus und stellt sie nebeneinander. Begründet das Ergebnis damit, dass RIP auf
+    UDP aufsetzt und BGP auf TCP – und dass zu jeder TCP-Nachricht eine
+    Bestätigung gehört, die in eurer gefilterten Datei mitzählt.
 3. **Der Preis des Ruhezustands.** Rechnet euren RIP-Wert auf eine Woche hoch
-   und stellt ihn der Nutzlast eines einzigen Bildes im Browser gegenüber.
-   Formuliert in einem Satz, warum dieser Aufwand trotzdem gerechtfertigt ist.
+    und stellt ihn der Nutzlast eines einzigen Bildes im Browser gegenüber.
+    Formuliert in einem Satz, warum dieser Aufwand trotzdem gerechtfertigt ist.
 
 !!! success "Real geprüft (2026-09-24)"
     Die Aufzeichnung und **alle** Auswertungsbefehle oben wurden in einem
