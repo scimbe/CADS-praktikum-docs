@@ -19,6 +19,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # RIEGEL: keine Nennung der HAW in diesem oeffentlichen Spiegel.
+      #
+      # WARUM MASCHINELL. Die Auswahlregel ("mkdocs.yml, README.md und
+      # .gitignore des Hauptrepos werden nicht uebernommen; keine Verweise auf
+      # die HAW, nur auf die CADS AG") stand bis zum 2026-09-24 NUR im
+      # Commit-Text und in der README dieses Spiegels - also nirgends, wo eine
+      # Maschine sie haette durchsetzen koennen. Am 2026-09-24 gemessen war der
+      # Spiegel sauber, die QUELLE im privaten Repo aber nicht: dort standen
+      # weiter "Anmelden mit HAW GitLab" und "HAW-GitLab-Account"
+      # (reference/remote-desktop-riisc.md, -rn-praktikum.md, umgebung.md).
+      # Nur weil jemand den Spiegel von Hand gesaeubert hatte, fiel es nicht
+      # auf; der naechste Abgleich haette die Nennung zurueckgeholt.
+      #
+      # Dieser Schritt laeuft VOR dem Bau: schlaegt er an, wird nichts
+      # veroeffentlicht.
+      - name: Riegel - keine HAW-Nennung im Spiegel
+        run: |
+          treffer=$(grep -rInE '\bHAW\b|\bHamburg\b|haw-hamburg|informatik\.haw' \
+            --include='*.md' --include='*.yml' --include='*.yaml' --include='*.txt' \
+            docs/ mkdocs.yml README.md 2>/dev/null || true)
+          anzahl=$(printf '%s\n' "$treffer" | grep -c . || true)
+          echo "HAW-Treffer: $anzahl (Soll: 0)"
+          if [ "$anzahl" -ne 0 ]; then
+            echo "$treffer"
+            echo "FEHLER: Dieser Spiegel darf die HAW nicht nennen, nur die CADS AG."
+            exit 1
+          fi
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
