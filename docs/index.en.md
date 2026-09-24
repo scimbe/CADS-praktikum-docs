@@ -13,14 +13,6 @@ every lab sheet is readable here as text **and** downloadable as a PDF.
   sheets (see below). Duplicates (e.g. ARP spoofing appeared in two
   documents) have been resolved, and missing sections (previously pure
   TODO placeholders) have been newly written out.
-- **Corrected:** known errors/ambiguities in the original texts have been
-  fixed and, where technically relevant, given a short justification.
-- **Challenges called out:** every lab sheet now explicitly names known
-  pitfalls (environment-related and subject-matter pitfalls) — each in the
-  "Potenzielle Herausforderungen" section at the end of the lab sheet.
-- **Verified, not just claimed:** where a statement has been confirmed via a
-  Playwright screenshot or an actual script test in this environment, that
-  is noted (see [Desktop/Mininet Environment](reference/umgebung.md)).
 
 ## Labs
 

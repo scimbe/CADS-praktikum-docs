@@ -8,8 +8,8 @@ Die Umgebung ist über zwei Hostnamen erreichbar — `rn-praktikum.bunsenbrenner
 und `riisc.bunsenbrenner.org`. Beide führen zum selben Backend/Account, nur
 mit unterschiedlichem Landing-Page-Branding.
 
-1. Browser öffnen, SSO-Login mit HAW-GitLab-Account (Button **„Anmelden mit
-   HAW GitLab“**).
+1. Browser öffnen, SSO-Login mit dem GitLab-Account der CADS AG (Button
+   **„Anmelden mit GitLab“**).
 2. Danach öffnet sich der persönliche Desktop im Browser (kein Client-Install
    nötig, WebRTC/WebSocket-Streaming).
 3. Der Fortschritt (Home-Verzeichnis) bleibt zwischen Logins erhalten, auch

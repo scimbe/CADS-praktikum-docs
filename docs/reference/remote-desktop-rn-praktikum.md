@@ -11,8 +11,8 @@ mit anderem Login-Anbieter und Branding — siehe
 ## 1. Login
 
 1. `https://rn-praktikum.bunsenbrenner.org/` im Browser oeffnen.
-2. Auf **„Anmelden mit HAW GitLab“** klicken. Der Login ist auf diesem Host
-   fest auf den HAW-GitLab-Account verdrahtet (kein Auswahlbildschirm mit
+2. Auf den GitLab-Anmeldeknopf klicken. Der Login ist auf diesem Host fest
+   auf den GitLab-Account der CADS AG verdrahtet (kein Auswahlbildschirm mit
    anderen Anbietern).
 3. Nach erfolgreichem SSO-Login geht es automatisch weiter zu `/start`.
 

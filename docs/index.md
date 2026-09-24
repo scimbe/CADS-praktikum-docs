@@ -13,14 +13,6 @@ jede Aufgabe ist hier als Text lesbar **und** als PDF herunterladbar.
   zusammengeführt (siehe unten). Doppelungen (z. B. ARP-Spoofing kam in zwei
   Dokumenten vor) sind aufgelöst, fehlende Abschnitte (vormals reine
   TODO-Platzhalter) sind neu ausgearbeitet.
-- **Korrigiert:** bekannte Fehler/Unklarheiten in den Originaltexten sind
-  behoben und, wo fachlich relevant, mit einer kurzen Begründung versehen.
-- **Herausforderungen:** jedes Aufgabenblatt nennt jetzt explizit bekannte
-  Stolperfallen (Environment- und fachliche Fallstricke) — jeweils im
-  Abschnitt „Potenzielle Herausforderungen“ am Ende des Aufgabenblatts.
-- **Verifiziert statt behauptet:** wo eine Aussage per Playwright-Screenshot
-  oder per realem Skript-Test in diesem Environment nachvollzogen wurde,
-  ist das vermerkt (siehe [Desktop-/Mininet-Umgebung](reference/umgebung.md)).
 
 ## Praktika
 

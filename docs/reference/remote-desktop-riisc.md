@@ -22,7 +22,7 @@ denselben Inhalten steht unter
    das RIISC-eigene Branding (an `riisc.de` angenaehnte Farb-/Typografie-
    Sprache), nicht das CADS-Branding von rn-praktikum.
 2. Auf den Login-Button klicken. Hier gibt es **keinen erzwungenen
-   HAW-GitLab-Login** — stattdessen zeigt Keycloak seinen eigenen
+   GitLab-Login** — stattdessen zeigt Keycloak seinen eigenen
    Provider-Auswahlbildschirm mit Google, GitHub oder E-Mail/Passwort als
    Optionen. Einen der angebotenen Anbieter waehlen und dort anmelden.
 3. Nach erfolgreichem Login geht es automatisch weiter zu `/start` — ab
