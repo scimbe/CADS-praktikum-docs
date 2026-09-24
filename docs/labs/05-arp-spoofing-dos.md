@@ -7,9 +7,10 @@
     SYN-Flood). Diese dürfen **ausschließlich** innerhalb der eigenen,
     isolierten Mininet-Netzwerk-Namespace-Umgebung Ihres Teilnehmer-Containers
     angewendet werden — **niemals** gegen das Host-Netzwerk, die
-    HAW-Infrastruktur oder Dritte (siehe auch der Sicherheitshinweis auf der
-    [Startseite](../index.md)). Bereits der Versuch gegen fremde Systeme ist
-    strafbar und ein Verstoß gegen die Nutzungsbedingungen der Umgebung.
+    Infrastruktur des Betreibers oder Dritte (siehe auch der
+    Sicherheitshinweis auf der [Startseite](../index.md)). Bereits der
+    Versuch gegen fremde Systeme ist strafbar und ein Verstoß gegen die
+    Nutzungsbedingungen der Umgebung.
 
 ## Lernziele
 
@@ -149,6 +150,24 @@ cd ~/rn-practice/topo02
     ```bash
     ~/rn-practice/mark-done.sh 05 teilb
     ```
+
+!!! example "Vertiefung (optional): Ein fester ARP-Eintrag als Gegenmaßnahme"
+    ARP glaubt jeder Antwort, auch einer unaufgeforderten – daher funktioniert
+    der Angriff überhaupt. Tragt auf dem angegriffenen Rechner die *richtige*
+    Zuordnung fest ein, bevor ihr den Angriff erneut startet:
+
+    ```bash
+    ip neigh replace <ziel-ip> lladdr <richtige-mac> dev <interface> nud permanent
+    ```
+
+    Startet das Angriffsskript danach noch einmal und schaut mit
+    `ip neigh show`, ob sich der Eintrag noch umbiegen lässt.
+
+    Überlegt anschließend, warum diese Abhilfe trotzdem kaum jemand einsetzt:
+    Wie viele Einträge wären das in einem Netz mit 500 Rechnern, und was
+    passiert, wenn ein Gerät planmäßig eine neue Netzwerkkarte bekommt?
+    Eine Maßnahme, die technisch wirkt, aber im Betrieb nicht durchzuhalten
+    ist, ist noch keine Lösung.
 
 
 ### Teil C — SYN-Flood-DoS mit `hping3` (`topo02`, Originaltext)
@@ -324,8 +343,8 @@ Prinzip (Änderung einer IP-zu-MAC-Zuordnung erkennen) automatisieren.
 
 - **`topo02` (ARP-Spoofing/`hping3`) ist seit 2026-09-09 unter dem
   granularen Capability-Set (`NET_ADMIN`+`NET_RAW`+`SYS_ADMIN`+
-  `apparmor:unconfined`, siehe
-  [ADR 0002](../adr/0002-capabilities-not-privileged.md)) real verifiziert.**
+  `apparmor:unconfined`, mit dem der Container ohne `--privileged`
+  auskommt) real verifiziert.**
   `topo02.py` baute vorher wegen eines reinen Skript-Bugs (fehlender
   `controller=`-Parameter) gar nicht — nach dem Fix wurden `arpspoof -i
   h2-eth0 -t ...` und das IP-Aliasing per `ifconfig h2-eth0:0 ... up` real

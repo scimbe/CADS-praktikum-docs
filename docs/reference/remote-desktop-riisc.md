@@ -5,11 +5,10 @@ Schritt-fuer-Schritt-Anleitung fuer den Weg von "Browser oeffnen" bis
 
 `riisc.bunsenbrenner.org` und `rn-praktikum.bunsenbrenner.org` fuehren zum
 **selben Backend, demselben Container-Modell und derselben Desktop-Umgebung**
-([ADR 0008](../adr/0008-multi-host-landing-pages.md)) — es gibt hier **kein
-separates Deployment**. Die einzigen tatsaechlichen Unterschiede sind
-Landing-Page-Branding und Login-Anbieter (siehe Schritt 1 unten;
-[ADR 0010](../adr/0010-per-host-branding-and-idp-choice.md)). Alles ab dem
-Login — Freigabe-Wartezeit, erster Start, Skript-Seeding, persistenter
+— es gibt hier **kein separates Deployment**. Die einzigen tatsaechlichen
+Unterschiede sind Landing-Page-Branding und Login-Anbieter (siehe Schritt 1
+unten). Alles ab dem Login — Freigabe-Wartezeit, erster Start,
+Skript-Seeding, persistenter
 Fortschritt, Logout, Terminal/Wireshark/Mininet-Orientierung — verlaeuft
 **identisch** zu rn-praktikum. Diese Seite fasst den Ablauf trotzdem
 vollstaendig zusammen, damit riisc-Teilnehmer:innen nicht zwischen zwei
@@ -21,12 +20,11 @@ denselben Inhalten steht unter
 
 1. `https://riisc.bunsenbrenner.org/` im Browser oeffnen. Die Seite zeigt
    das RIISC-eigene Branding (an `riisc.de` angenaehnte Farb-/Typografie-
-   Sprache), nicht das CaDS-Branding von rn-praktikum.
+   Sprache), nicht das CADS-Branding von rn-praktikum.
 2. Auf den Login-Button klicken. Hier gibt es **keinen erzwungenen
    HAW-GitLab-Login** — stattdessen zeigt Keycloak seinen eigenen
    Provider-Auswahlbildschirm mit Google, GitHub oder E-Mail/Passwort als
-   Optionen ([ADR 0010](../adr/0010-per-host-branding-and-idp-choice.md)).
-   Einen der angebotenen Anbieter waehlen und dort anmelden.
+   Optionen. Einen der angebotenen Anbieter waehlen und dort anmelden.
 3. Nach erfolgreichem Login geht es automatisch weiter zu `/start` — ab
    hier gilt exakt derselbe Ablauf wie bei rn-praktikum.
 
@@ -39,26 +37,25 @@ denselben Inhalten steht unter
 ## 2. Erstes Mal: auf Freigabe warten
 
 Identisch zu rn-praktikum: die eigene Identitaet muss vom Admin einmalig
-freigeschaltet werden ([ADR 0012](../adr/0012-session-launcher.md)). Beim
-ersten Login erscheint die Wartesseite ("Warte auf Freigabe", Auto-Refresh
-alle 30 Sekunden), das kann **bis zu 24 Stunden** dauern
-([ADR 0013](../adr/0013-approval-lifecycle.md)). Die Freigabe gilt danach,
-bis der Admin sie entzieht oder sie nach 6 Monaten automatisch ablaeuft.
+freigeschaltet werden. Beim ersten Login erscheint die Wartesseite
+("Warte auf Freigabe", Auto-Refresh alle 30 Sekunden), das kann **bis zu
+24 Stunden** dauern. Die Freigabe gilt danach, bis der Admin sie entzieht
+oder sie nach 6 Monaten automatisch ablaeuft.
 
 ## 3. Erster Start des Desktops
 
 Identisch zu rn-praktikum: nach der Freigabe dauert der erste Start rund
 30–45 Sekunden (Wartesseite mit Auto-Refresh alle 5 Sekunden). Die
 Aufgabenblatt-Skripte werden automatisch nach `~/rn-practice` kopiert
-(`init-seed-labs`, [ADR 0014](../adr/0014-lab-scripts-in-image.md)) — siehe
-[rn-practice Setup](rn-practice-setup.md) fuer die Ordnerstruktur.
+(`init-seed-labs`) — siehe [rn-practice Setup](rn-practice-setup.md) fuer
+die Ordnerstruktur.
 
 ## 4. Fortschritt & Wiederherstellung
 
 Identisch zu rn-praktikum: der Container ist ephemer und wird bei
-Inaktivitaet automatisch entfernt und beim naechsten Login neu erzeugt
-([ADR 0001](../adr/0001-no-terraform-for-sessions.md)); das persistente
-Home-Verzeichnis (`~/rn-practice` inklusive eigener Aenderungen) bleibt
+Inaktivitaet automatisch entfernt und beim naechsten Login neu erzeugt; das
+persistente Home-Verzeichnis (`~/rn-practice` inklusive eigener
+Aenderungen) bleibt
 davon unberuehrt und ist nach jedem erneuten Login unveraendert wieder da.
 
 ## 5. Orientierung im Desktop
@@ -77,5 +74,4 @@ vorinstallierten Werkzeuge:
 
 Identisch zu rn-praktikum: im Desktop ueber das Anwendungsmenue "Log Out"
 waehlen, nicht nur den Browser-Tab schliessen — nur so wird auch die
-SSO-Sitzung im Browser sauber beendet
-([ADR 0011](../adr/0011-in-desktop-logout.md)).
+SSO-Sitzung im Browser sauber beendet.

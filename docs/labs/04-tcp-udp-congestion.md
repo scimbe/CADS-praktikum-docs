@@ -9,7 +9,7 @@
 - Den Zusammenhang zwischen MTU-Begrenzung, IP-Fragmentation und
   UDP-Paketverlust nachvollziehen können — inklusive der Gründe, warum
   moderne Netze IP-Fragmentation heute eher vermeiden.
-- Durchsatz, Latenz und das Zusammenspiel von Bufferung und
+- Durchsatz, Latenz und das Zusammenspiel von Pufferung und
   Verbindungskonkurrenz mit `iperf`/`iperf3` praktisch messen und die
   gemessenen Werte gegen vorher gebildete Erwartungswerte prüfen.
 - Beobachten, wie eine TCP-Verbindung (roher `iperf`-Strom wie auch eine
@@ -18,6 +18,9 @@
 - Grundverständnis von TCP Congestion Control (Reno vs. Cubic) durch
   praktische `iperf3`-Messungen mit `-C reno`/`-C cubic` und Abgleich der
   verfügbaren Algorithmen über `sysctl` gewinnen.
+- Eine eingestellte Netzeigenschaft (Bandbreite, Verzögerung) gegen den
+  gemessenen Wert halten, die Abweichung in Prozent angeben und sie benennen
+  können – statt einer Konfigurationsangabe zu glauben.
 
 ## Aufgaben
 
@@ -227,7 +230,7 @@ wiedergegeben, statt wie zuvor durch eine Neuentwicklung ersetzt zu sein.)*
    Beurteilt anhand der gemessenen Round-Trip-Time, ob eine Telefonkonferenz
    über diese Verbindung praktikabel wäre (Richtwert: unter 150–200 ms).
    Bildet dann eine Annahme, wie stark sich die Latenz verändert, wenn `h0`
-   gleichzeitig einen `iperf`-Strom zu `h2` startet (Stichwort: Bufferung
+   gleichzeitig einen `iperf`-Strom zu `h2` startet (Stichwort: Pufferung
    auf gemeinsam genutzten Verbindungen):
 
    ```bash
@@ -441,13 +444,335 @@ Werten hängen zu bleiben?
     ```
 
 
+### Teil D — Störungen selbst erzeugen: Verzögerung, Verlust und Bandbreite mit `tc` (`topo02`)
+
+In Teil A war die Fehlerrate vorgegeben, in Teil C habt ihr gesehen, wie TCP
+darauf reagiert. In beiden Fällen hat jemand anderes die Störung eingebaut.
+Jetzt übernehmt ihr das selbst — und das ändert die Perspektive: Wer eine
+Störung erzeugen kann, kann eine gemessene Auffälligkeit auch einer Ursache
+zuordnen.
+
+`tc` (traffic control) ist das Bordmittel des Linux-Kernels für die Steuerung
+des ausgehenden Verkehrs. Es hängt an eine Schnittstelle eine sogenannte
+**qdisc** (queueing discipline), also eine Warteschlangenregel, die entscheidet,
+wann und ob ein Paket überhaupt losgeschickt wird. Die für uns interessante
+Regel heißt `netem` — der *Netzwerk-Emulator*. Mit ihr lassen sich Verzögerung,
+Paketverlust, Umsortierung und eine künstliche Bandbreitengrenze nachbilden,
+ohne dass am Netz selbst etwas geändert wird.
+
+```bash
+tc qdisc add dev <schnittstelle> root netem delay 100ms   # Verzögerung anlegen
+tc qdisc show dev <schnittstelle>                         # anzeigen, was aktiv ist
+tc qdisc del dev <schnittstelle> root                     # wieder entfernen
+man tc-netem                                              # alle Möglichkeiten
+```
+
+!!! warning "Nur in eurer eigenen Topologie, und hinterher aufräumen"
+    `tc` verändert das Verhalten einer Schnittstelle sofort und dauerhaft, bis
+    die Regel entfernt wird. Wendet es **ausschließlich** auf Schnittstellen
+    innerhalb eurer Mininet-Topologie an (`h0-eth0`, `r1-eth1` und so weiter),
+    niemals auf `eth0` des Containers — sonst schneidet ihr euch von eurem
+    eigenen Desktop ab. Entfernt jede Regel am Ende wieder mit
+    `tc qdisc del dev <schnittstelle> root`.
+
+Startet die Topologie aus Teil B:
+
+```bash
+cd ~/rn-practice/topo02
+./start-topo02.sh
+```
+
+Öffnet Terminals für `h0` und `h2` und stellt zuerst den ungestörten Zustand
+fest — ohne Vergleichswert ist jede spätere Messung wertlos:
+
+```bash
+mininet> xterm h0
+mininet> xterm h2
+h0$ ping -c 10 10.0.2.2
+```
+
+**Aufgabe 1 — Verzögerung.** Legt auf `h0` eine Verzögerung von 100 ms an und
+wiederholt den Ping:
+
+```bash
+h0$ tc qdisc add dev h0-eth0 root netem delay 100ms
+h0$ ping -c 10 10.0.2.2
+```
+
+Notiert die Laufzeit vorher und nachher. **Warum steigt sie um etwa 100 ms und
+nicht um 200, obwohl das Paket hin und zurück muss?** Begründet eure Antwort
+damit, an welcher Stelle die Regel greift.
+
+**Aufgabe 2 — Schwankung.** Ersetzt die feste Verzögerung durch eine
+schwankende und beobachtet die Streuung:
+
+```bash
+h0$ tc qdisc change dev h0-eth0 root netem delay 100ms 40ms
+h0$ ping -c 20 10.0.2.2
+```
+
+Vergleicht `mdev` in der Zusammenfassung von `ping` mit dem Wert aus Aufgabe 1.
+Diese Schwankung heißt **Jitter** und ist der Grund, warum Sprach- und
+Videoübertragung einen Puffer braucht — eine konstant hohe Laufzeit stört
+weniger als eine unregelmäßige.
+
+**Aufgabe 3 — Verlust, und was er mit TCP macht.** Entfernt die Verzögerung und
+legt stattdessen 5 % Paketverlust an. Messt dann mit `iperf` wie in Teil B:
+
+```bash
+h0$ tc qdisc del dev h0-eth0 root
+h0$ tc qdisc add dev h0-eth0 root netem loss 5%
+h2$ iperf -s
+h0$ iperf -c 10.0.2.2 -t 20
+```
+
+**Bildet vor der Messung eine Erwartung:** Um wie viel bricht der Durchsatz bei
+5 % Verlust ein — um 5 %, oder um deutlich mehr? Messt, und erklärt das
+Ergebnis mit dem, was ihr in Teil C über das Sendefenster gesehen habt.
+
+**Aufgabe 4 — Bandbreite.** Entfernt die Verlustregel und begrenzt stattdessen
+die Rate:
+
+```bash
+h0$ tc qdisc del dev h0-eth0 root
+h0$ tc qdisc add dev h0-eth0 root tbf rate 1mbit burst 32kbit latency 400ms
+h0$ iperf -c 10.0.2.2 -t 10
+```
+
+Vergleicht den gemessenen Durchsatz mit den eingestellten 1 Mbit/s. **Warum
+liegt der gemessene Wert darunter und nicht exakt darauf?** Denkt an das, was
+außer den Nutzdaten noch über die Leitung geht.
+
+Räumt zum Schluss auf und prüft, dass wirklich keine Regel mehr aktiv ist:
+
+```bash
+h0$ tc qdisc del dev h0-eth0 root
+h0$ tc qdisc show dev h0-eth0
+```
+
+!!! info "Hintergrund: netem ist kein Spielzeug"
+    `netem` stammt aus der Kernel-Entwicklung und wird dort benutzt, um
+    Protokollimplementierungen gegen Bedingungen zu testen, die im Labor sonst
+    nicht vorkommen — Satellitenstrecken mit 600 ms Laufzeit, Mobilfunk mit
+    schwankender Rate, Funkzellen mit Paketverlust. Dieselbe Technik steckt
+    hinter den Netzwerkprofilen in den Entwicklerwerkzeugen jedes Browsers.
+
+    Der praktische Wert für euch liegt in der Umkehrung: Wer eine Störung
+    gezielt erzeugen kann, erkennt sie später auch wieder. Eine Anwendung, die
+    „manchmal hängt", verhält sich unter 200 ms Verzögerung anders als unter
+    2 % Verlust — und wer beides einmal selbst hergestellt hat, unterscheidet
+    die Fälle am Symptom, statt zu raten.
+
+!!! question "Zum Weiterdenken: warum trifft Verlust TCP härter als UDP?"
+    In Aufgabe 3 habt ihr TCP unter Verlust gemessen. Überlegt, wie dieselbe
+    Messung mit `iperf -u` (UDP) ausgehen würde, und begründet es mit dem
+    Unterschied zwischen einem Protokoll, das verlorene Pakete erneut sendet
+    und sein Tempo drosselt, und einem, das beides nicht tut. Wer mag, misst
+    es nach — die UDP-Variante steht in Teil A.
+
+!!! tip "Fortschritt festhalten (optional)"
+    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
+    (rein lokal, keine Netzwerkverbindung):
+
+    ```bash
+    ~/rn-practice/mark-done.sh 04 teild
+    ```
+
+
+### Teil E — Soll gegen Ist: was die Emulation wirklich liefert (`topo02`)
+
+In Teil D habt ihr gelernt, eine Störung mit `tc` **herzustellen**. Jetzt geht
+es um die Gegenrichtung: Ihr **prüft eine Angabe nach**. In `topo02` steht eine
+Bandbreite und eine Verzögerung im Topologie-Skript – aber eine Zahl in einer
+Konfigurationsdatei ist eine Absicht, keine Messung. Wer beides verwechselt,
+sucht später stundenlang einen Fehler an der falschen Stelle.
+
+Das ist die vielleicht wichtigste Gewohnheit dieses ganzen Praktikums: **die
+Prämisse prüfen, bevor man dem Messwert traut.** Ein „der Link hat 10 Mbit/s"
+ist so lange eine Behauptung, bis jemand 10 Mbit/s gemessen hat.
+
+#### Schritt 1 – Das Soll aus dem Skript lesen, nicht aus dem Blatt
+
+Sucht die Stelle in `~/rn-practice/topo02/topo02.py`, an der die Verbindung
+zwischen den beiden Routern angelegt wird:
+
+```bash
+$ grep -n "TCLink" ~/rn-practice/topo02/topo02.py
+```
+
+Ihr findet dort genau **eine** Verbindung mit einer Begrenzung — die zwischen
+`r1` und `r2`, mit `bw=10` und `delay='0.1ms'`. Alle anderen Verbindungen der
+Topologie sind unbegrenzt.
+
+**Haltet fest, bevor ihr weiterliest:** Wenn nur *ein* Abschnitt des Weges
+begrenzt ist, welcher Wert bestimmt dann den Durchsatz von `h0` nach `h2`?
+Und was folgt daraus für die Frage, wo man in einem echten Netz messen muss,
+um eine Zusicherung zu überprüfen?
+
+Kontrolliert das Soll anschließend dort, wo es tatsächlich wirkt – im Kernel
+des Routers:
+
+```bash
+cd ~/rn-practice/topo02
+./start-topo02.sh
+mininet> xterm r1
+r1$ tc qdisc show dev r1-eth2
+r1$ tc class show dev r1-eth2
+```
+
+Die `class`-Zeile nennt `rate 10Mbit ceil 10Mbit`, die `qdisc`-Zeile
+`delay 100us`. Damit habt ihr das Soll nicht aus einem Aufgabenblatt
+übernommen, sondern am Gerät gelesen – genau das, was in einer echten
+Störungsmeldung als Erstes zu tun ist.
+
+#### Schritt 2 – Drei Konfigurationen messen
+
+Für jede der drei Konfigurationen messt ihr **zwei** Größen: die Laufzeit mit
+`ping` und den Durchsatz mit `iperf3`. Öffnet Terminals für `h0` und `h2`:
+
+```bash
+mininet> xterm h0
+mininet> xterm h2
+h2$ iperf3 -s
+```
+
+Das Messpaar, das ihr dreimal wiederholt:
+
+```bash
+h0$ ping -c 10 10.0.20.10
+h0$ iperf3 -c 10.0.20.10 -t 8 -f m
+```
+
+**Konfiguration 1** ist die unveränderte Topologie – Soll 10 Mbit/s und
+0,1 ms. Messt sie zuerst, sie ist euer Bezugspunkt.
+
+**Konfiguration 2 und 3** legt ihr selbst an. Anders als in Teil D nutzt ihr
+dabei eine einzige `netem`-Regel für beide Eigenschaften gleichzeitig:
+
+```bash
+h0$ tc qdisc add dev h0-eth0 root netem rate 2mbit delay 10ms
+h0$ tc qdisc show dev h0-eth0
+```
+
+…messen, dann die Regel austauschen:
+
+```bash
+h0$ tc qdisc del dev h0-eth0 root
+h0$ tc qdisc add dev h0-eth0 root netem rate 5mbit delay 50ms
+```
+
+!!! note "Warum die Regel auf `h0-eth0` gehört und nicht auf `r1-eth2`"
+    `h0-eth0` trägt im Ausgangszustand `qdisc noqueue` – dort ist also nichts,
+    was eure Regel verdrängen könnte. Auf `r1-eth2` sitzt dagegen bereits die
+    `htb`-Regel, mit der Mininet die 10 Mbit/s durchsetzt. Ein
+    `tc qdisc add … root` auf dieser Schnittstelle würde sie **ersetzen** und
+    damit genau das Soll zerstören, das ihr gerade nachprüfen wollt. Eine
+    eigene Messung so anzulegen, dass sie den Messgegenstand nicht verändert,
+    ist der halbe Beruf.
+
+Räumt am Ende auf, wie in Teil D gelernt:
+
+```bash
+h0$ tc qdisc del dev h0-eth0 root
+h0$ tc qdisc show dev h0-eth0
+```
+
+#### Schritt 3 – Die Abweichung ausrechnen und begründen
+
+Legt eure Messwerte in einer Tabelle ab und **rechnet die Abweichung in Prozent
+selbst aus**, für jede Konfiguration:
+
+```text
+Abweichung in Prozent = (Ist - Soll) / Soll * 100
+```
+
+| Konfiguration | Soll Rate | Ist Rate | Abw. % | Soll RTT | Ist RTT | Abw. % |
+|---|---|---|---|---|---|---|
+| 1 – unverändert | 10 Mbit/s | ? | ? | ? | ? | ? |
+| 2 – `rate 2mbit delay 10ms` | 2 Mbit/s | ? | ? | ? | ? | ? |
+| 3 – `rate 5mbit delay 50ms` | 5 Mbit/s | ? | ? | ? | ? | ? |
+
+Die Spalte „Soll RTT" ist bewusst leer: Ihr müsst sie selbst herleiten. Der
+Hinweis steckt in Teil D, Aufgabe 1 – eine `netem`-Regel wirkt nur auf den
+ausgehenden Verkehr **einer** Schnittstelle.
+
+Sichert die fertige Tabelle als Datei, damit sie eine Messung bleibt und nicht
+eine Erinnerung:
+
+```bash
+$ mkdir -p ~/rn-practice/snapshots
+$ nano ~/rn-practice/snapshots/04-teile-sollist.txt
+```
+
+**Die drei Fragen, an denen sich zeigt, ob ihr die Abweichung verstanden habt:**
+
+1. **Der Ist-Wert liegt immer unter dem Soll-Wert, nie darüber.** Begründet,
+   warum das so sein *muss* und nicht Zufall ist. Denkt an alles, was außer
+   euren Nutzdaten noch durch dieselbe Leitung passt: Ethernet-Rahmenkopf,
+   IP-Kopf, TCP-Kopf, Bestätigungen in der Gegenrichtung.
+2. **`iperf3` nennt zwei Zahlen: `sender` und `receiver`.** Sie sind nicht
+   gleich. Welche der beiden ist die ehrliche Antwort auf „wie viel kam an?",
+   und was misst die andere? (Wer die falsche Zeile abliest, meldet einen
+   Durchsatz, den nie ein Byte erreicht hat.)
+3. **Die prozentuale Abweichung ist bei kleinen Raten größer als bei großen.**
+   Prüft das an euren eigenen drei Zeilen und erklärt es: Der Aufwand je Paket
+   ist konstant, die Nutzlast je Paket auch – was ändert sich also?
+
+!!! success "Real geprüft (2026-09-24)"
+    Alle drei Konfigurationen wurden in einem Wegwerfcontainer gegen ein real
+    gestartetes `topo02` gemessen, `iperf3` von `h0` nach `h2` über je
+    8 Sekunden, `ping` mit 10 Paketen:
+
+    | Konfiguration | Soll Rate | Ist (`receiver`) | Abw. | Ist (`sender`) | Ist RTT (min/avg) |
+    |---|---|---|---|---|---|
+    | 1 – unverändert | 10 Mbit/s | **9,52 Mbit/s** | −4,8 % | 13,6 Mbit/s | 0,344 / 0,606 ms |
+    | 2 – `rate 2mbit delay 10ms` | 2 Mbit/s | **1,85 Mbit/s** | −7,5 % | 3,15 Mbit/s | 10,741 / 10,805 ms |
+    | 3 – `rate 5mbit delay 50ms` | 5 Mbit/s | **4,62 Mbit/s** | −7,6 % | 6,42 Mbit/s | 50,523 / 50,563 ms |
+
+    Ebenfalls bestätigt: `tc class show dev r1-eth2` liefert
+    `rate 10Mbit ceil 10Mbit`, `tc qdisc show dev r1-eth2` liefert
+    `delay 100us` – das Soll aus `topo02.py` wirkt also tatsächlich. Auf
+    `h0-eth0` stand vor dem ersten Eingriff `qdisc noqueue`, danach die eigene
+    `netem`-Regel, und nach dem Aufräumen wieder `noqueue`. Die gemessene RTT
+    entspricht in allen drei Fällen der **einfachen** eingestellten
+    Verzögerung (10 ms → 10,7 ms; 50 ms → 50,5 ms), nicht der doppelten.
+
+    Die auffälligste Zahl ist die Lücke zwischen `sender` und `receiver` in
+    Konfiguration 1: **13,6 gegen 9,52 Mbit/s**. Wer hier die `sender`-Zeile
+    abliest, berichtet einen Durchsatz **über** dem eingestellten Limit – ein
+    unmögliches Ergebnis, das sofort verrät, dass die falsche Zeile gemessen
+    wurde.
+
+    **Nicht geprüft:** Die Topologie wurde von einem Skript ohne grafische
+    Oberfläche gestartet, nicht über `./start-topo02.sh` mit den fünf
+    Terminalfenstern. Der Weg über `start-topo02.sh` ist in Teil B und D
+    dieses Blattes bereits verifiziert. Eure absoluten Zahlen werden von den
+    obigen abweichen – die *Richtung* der Abweichung und die Lücke zwischen
+    `sender` und `receiver` nicht.
+
+!!! question "Zum Weiterdenken: was hätte euch eine Einzelmessung verschwiegen?"
+    Ihr habt drei Konfigurationen gemessen, nicht eine. Überlegt, welche der
+    drei Erkenntnisse oben ihr mit nur einer Messung **nicht** hättet gewinnen
+    können. Das ist der Grund, warum in der Messtechnik eine Reihe gebildet
+    wird und kein Einzelwert: Ein einzelner Wert lässt sich immer erklären,
+    ein Verlauf nicht.
+
+!!! tip "Fortschritt festhalten (optional)"
+    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
+    (rein lokal, keine Netzwerkverbindung):
+
+    ```bash
+    ~/rn-practice/mark-done.sh 04 teile
+    ```
+
+
 ## Potenzielle Herausforderungen
 
 - **`topoP04` (Teil A) und `topo02` (Teil B) sind seit 2026-09-09 real
   verifiziert** unter dem granularen Capability-Set
-  (`NET_ADMIN`+`NET_RAW`+`SYS_ADMIN`+`apparmor:unconfined`, siehe
-  [ADR 0002](../adr/0002-capabilities-not-privileged.md)). Beide bauten vorher
-  wegen eines reinen Skript-Bugs (fehlender `controller=`-Parameter bzw. ein
+  (`NET_ADMIN`+`NET_RAW`+`SYS_ADMIN`+`apparmor:unconfined`, mit dem der
+  Container ohne `--privileged` auskommt). Beide bauten vorher wegen eines
+  reinen Skript-Bugs (fehlender `controller=`-Parameter bzw. ein
   nicht im Image vorhandenes Controller-Binary) gar nicht — nach dem Fix
   liefen die Fehlerraten-Beobachtung in Teil A sowie ein `iperf`-Durchsatztest
   in Teil B (9,6 Mbit/s auf dem nominell 10-Mbit/s-Link zwischen `h0` und
@@ -485,6 +810,15 @@ Werten hängen zu bleiben?
 - Schritt 6 (Fairness) setzt voraus, dass die Iperf-Server-Instanzen aus
   Schritt 1/3 noch laufen bzw. neu gestartet werden – im Original nicht
   explizit klargestellt, aus dem Kontext aber eindeutig.
+- **Teil E: `netem rate` braucht keinen zweiten Regelsatz.** Ältere
+  Anleitungen kombinieren `tbf` (Rate) und `netem` (Verzögerung) in einer
+  Hierarchie. Der in diesem Abbild vorhandene `tc` unterstützt beides in
+  *einer* `netem`-Regel (`netem rate 2mbit delay 10ms`, am 2026-09-24 real
+  bestätigt) – das ist kürzer und weniger fehleranfällig.
+- **Teil E: die eigene Regel niemals auf `r1-eth2`.** Dort sitzt die
+  `htb`-Regel, mit der Mininet die 10 Mbit/s aus `topo02.py` durchsetzt. Ein
+  `tc qdisc add … root` ersetzt sie und zerstört damit den Messgegenstand.
+  Begründung und Beleg (`qdisc noqueue` auf `h0-eth0`) stehen in Teil E.
 
 ## Playwright-Screenshot-Referenz
 
@@ -511,6 +845,14 @@ Zusammenspiel mehrerer Pakete im Kontext sichtbar sein muss.
   [Potenzielle Herausforderungen](#potenzielle-herausforderungen) in
   Lab 01 für die analoge Einschränkung. Ein Nachziehen dieser Korrektur in
   `mininet-labs/intro/02-TCP-IP-Suite.tex` selbst wird empfohlen.
-- `mininet-labs/rn-practice/topo02/` — Referenztopologie für Teil B (`h0`–`h3`,
-  Adressen `10.0.10.x`/`10.0.20.x`), dieselbe Topologie wie in
-  [Lab 05](05-arp-spoofing-dos.md).
+- `mininet-labs/rn-practice/topo02/` — Referenztopologie für Teil B, Teil D
+  und Teil E (`h0`–`h3`, Adressen `10.0.10.x`/`10.0.20.x`), dieselbe Topologie
+  wie in [Lab 05](05-arp-spoofing-dos.md). Die Soll-Werte in Teil E
+  (`bw=10`, `delay='0.1ms'`) stehen in `topo02.py` selbst.
+- Olivier Bonaventure u. a.: *Computer Networking: Principles, Protocols and
+  Practice*, UCLouvain (Université catholique de Louvain), Repository
+  `cnp3/ebook` — Lizenz **CC BY-SA 3.0**. (Einzelne Übungskapitel tragen im
+  Dateikopf CC BY 3.0; die Angaben widersprechen sich, hier wird konservativ
+  von **BY-SA** ausgegangen.) Von dort stammt die **Idee** zu Teil E, eine
+  zugesicherte Netzeigenschaft gegen die Messung zu halten statt ihr zu
+  glauben. Es wird kein Text und keine Datei aus diesem Werk übernommen.

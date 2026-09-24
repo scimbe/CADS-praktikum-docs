@@ -169,6 +169,20 @@ Wireshark sichtbar gemacht werden.
     ~/rn-practice/mark-done.sh 06 teil2
     ```
 
+!!! example "Vertiefung (optional): Was der Tunnel kostet"
+    Ein verdeckter Kanal ist nie umsonst. Übertragt dieselbe kleine Datei
+    einmal **durch** den Tunnel und einmal direkt über die normale Strecke,
+    und messt beide Male die Dauer (`time …`).
+
+    Lasst parallel `tcpdump` mitlaufen und vergleicht, wie viele Pakete und
+    wie viele Bytes tatsächlich über die Leitung gingen – im Verhältnis zur
+    Größe der Nutzdaten. Der Unterschied ist der Preis der Unauffälligkeit:
+    jedes Byte Nutzlast muss in Namen verpackt werden, die wie DNS aussehen.
+
+    Schätzt daraus ab, wie lange eine Datei von 10 MB bräuchte. Die Zahl
+    erklärt besser als jeder Merksatz, wofür solche Kanäle in der Praxis
+    benutzt werden – und wofür nicht.
+
 
 ### Teil 3 – Verdeckte Kanäle über ICMP-Payload und TTL (`hping3`)
 
@@ -229,6 +243,18 @@ bzw. TTL-Manipulation.
     ```bash
     ~/rn-practice/mark-done.sh 06 teil3
     ```
+
+!!! example "Vertiefung (optional): Dieselbe Nachricht, andere Kodierung"
+    Verpackt **denselben** Text noch einmal, aber in einer anderen Kodierung –
+    etwa hexadezimal (`xxd -p`) statt Base64, oder umgekehrt. Vergleicht
+    dann dreierlei: die Länge der entstandenen Zeichenkette, die Anzahl der
+    dafür nötigen Anfragen und das Zeichenvorrat-Bild der Namen.
+
+    Ein einzelnes DNS-Label darf höchstens 63 Zeichen lang sein, ein ganzer
+    Name 253. Rechnet aus, wie viele Nutzbytes euch je Anfrage bei eurer
+    Kodierung bleiben. Je mehr Zeichen eine Kodierung braucht, desto mehr
+    Anfragen entstehen – und desto auffälliger wird der Verkehr, ohne dass
+    sich am Inhalt irgendetwas geändert hätte.
 
 
 ### Teil 4 – DNS over HTTPS im Vergleich zu klassischem DNS
@@ -306,6 +332,21 @@ mittels JA3-Fingerprint.
     ```bash
     ~/rn-practice/mark-done.sh 06 teil5
     ```
+
+!!! example "Vertiefung (optional): Zwei Programme, zwei Fingerabdrücke"
+    Nehmt dasselbe Ziel noch einmal auf, aber mit einem **anderen** Programm –
+    z. B. einmal mit `curl` und einmal mit `openssl s_client` oder `wget`.
+    Vergleicht die ClientHello-Felder beider Mitschnitte nebeneinander.
+
+    Zwei Beobachtungen lohnen die Mühe: Erstens unterscheiden sich die
+    Fingerabdrücke deutlich, obwohl beide Programme *dasselbe* tun. Zweitens
+    bleibt der Fingerabdruck eines Programms gleich, egal welche Seite ihr
+    ansteuert.
+
+    Überlegt, was daraus folgt: Der Fingerabdruck verrät nichts über den
+    **Inhalt** der Verbindung – aber sehr wohl, **womit** sie aufgebaut
+    wurde. Was bedeutet das für jemanden, der verschlüsselten Verkehr
+    beobachtet, ihn aber nicht entschlüsseln kann?
 
 
 ### Teil 6 – NTP-Manipulation und zeitabhängige Angriffe
@@ -452,8 +493,8 @@ Sender und Empfänger sich vorher auf ein Encoding geeinigt haben.
   system (PID 1). Can't operate.`). Die im Original als Ersatz erwogene
   Alternative funktioniert ebenfalls **nicht**: ein direktes `date -s "next
   monday 10:00"` scheitert im real getesteten Container mit `date: cannot
-  set date: Operation not permitted` (der granularen Capability-Set fehlt
-  `CAP_SYS_TIME`, siehe [ADR 0002](../adr/0002-capabilities-not-privileged.md)).
+  set date: Operation not permitted` (dem granularen Capability-Set des
+  Containers fehlt `CAP_SYS_TIME`).
   Teil 6 dieses Aufgabenblatts ist damit auf dem aktuellen Image **nicht
   durchführbar**, weder über den Original- noch über den vorgeschlagenen
   Ersatzweg.

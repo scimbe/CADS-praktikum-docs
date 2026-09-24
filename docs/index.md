@@ -1,7 +1,7 @@
 # Rechnernetze-Praktikum
 
 Diese Seite fasst die Praktikumsaufgaben der modernisierten
-Rechnernetze-Praktikumsumgebung (HAW Hamburg) zusammen. Sie ersetzt die
+Rechnernetze-Praktikumsumgebung der CADS AG zusammen. Sie ersetzt die
 verstreuten Google-Drive-PDFs und Kurz-URLs (`t1p.de/...`) durch eine
 konsolidierte, kontinuierlich gepflegte Fassung im Repository selbst —
 jede Aufgabe ist hier als Text lesbar **und** als PDF herunterladbar.
@@ -16,8 +16,8 @@ jede Aufgabe ist hier als Text lesbar **und** als PDF herunterladbar.
 - **Korrigiert:** bekannte Fehler/Unklarheiten in den Originaltexten sind
   behoben und, wo fachlich relevant, mit einer kurzen Begründung versehen.
 - **Herausforderungen:** jedes Aufgabenblatt nennt jetzt explizit bekannte
-  Stolperfallen (Environment- und fachliche Fallstricke) — siehe auch die
-  zusammenfassende Seite [Potenzielle Herausforderungen](challenges.md).
+  Stolperfallen (Environment- und fachliche Fallstricke) — jeweils im
+  Abschnitt „Potenzielle Herausforderungen“ am Ende des Aufgabenblatts.
 - **Verifiziert statt behauptet:** wo eine Aussage per Playwright-Screenshot
   oder per realem Skript-Test in diesem Environment nachvollzogen wurde,
   ist das vermerkt (siehe [Desktop-/Mininet-Umgebung](reference/umgebung.md)).
@@ -37,7 +37,8 @@ jede Aufgabe ist hier als Text lesbar **und** als PDF herunterladbar.
 ## Umgebung & Zugang
 
 Die Labore laufen in einem browserbasierten Desktop (Selkies/KasmVNC) mit
-Mininet, Wireshark und Routing-Daemons — Zugang per SSO über HAW-GitLab.
+Mininet, Wireshark und Routing-Daemons — Zugang per Single-Sign-on. Welcher
+Anmeldeknopf auf welchem Host erscheint, steht in der Umgebungsreferenz.
 Details: [Desktop-/Mininet-Umgebung](reference/umgebung.md) und
 [rn-practice Setup](reference/rn-practice-setup.md).
 

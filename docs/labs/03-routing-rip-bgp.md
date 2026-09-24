@@ -20,6 +20,9 @@
   (separate Tabellen, weil nicht direkt kompatible Adressfamilien).
 - RP-Filtering als Schutzmechanismus gegen IP-Spoofing verstehen und
   kontrolliert (für Diagnosezwecke) deaktivieren können.
+- Die Zeitkonstanten und den Protokoll-Overhead eines Routing-Protokolls aus
+  einer eigenen Aufzeichnung selbst berechnen, statt sie aus einem Lehrbuch zu
+  übernehmen (Nachrichten je Minute, Byte je Minute, Abstand zweier Updates).
 
 ## Aufgaben
 
@@ -34,21 +37,13 @@ cd ~/rn-practice/topoP03
 ./start-topoP03.sh
 ```
 
-!!! note "Korrektur gegenüber dem Originaldokument"
-    Das Originaldokument (`Labor-03-Routing.tex`) verweist im Einleitungstext
-    fälschlich auf `start-topoP02.sh`, obwohl es sich inhaltlich und laut
-    Verzeichnisangabe (`~/rn-practical/topoP03`) um `topoP03` handelt. Der
-    korrekte Aufruf ist `./start-topoP03.sh` im Verzeichnis
-    `~/rn-practice/topoP03` (auch hier war `rn-practical` im Original ein
-    nicht existierender Pfad).
-
 **Topologie:** Zwei Switches `s1`/`s2`, dazwischen ein Router `r1`. An `s1`
 hängen `h1`/`h2` (Netz 1), an `s2` hängen `h3`/`h4` (Netz 2). Anders als bei
 `topoP02` sind hier **weder Hosts noch Router-Interfaces vorkonfiguriert** –
 das Skript aktiviert auf `r1` lediglich die IP-Weiterleitung
 (`echo 1 > /proc/sys/net/ipv4/ip_forward`), alles andere ist eure Aufgabe.
 
-!!! note "Technischer Hinweis zum Skript"
+!!! info "Hintergrund: warum die Switches nach einem Controller rufen"
     `topoP03.py` verbindet die Switches mit einem `RemoteController` auf
     `127.0.0.1`. Ist kein separater OpenFlow-Controller-Prozess aktiv, bleibt
     die Controller-Verbindung der Switches ungenutzt – funktional
@@ -93,13 +88,11 @@ bekommt `10.0.0.254/24` bzw. `20.0.0.254/24` auf seinen beiden Interfaces,
 anschließende `ping` von `h1` zu `h3` bestätigt die Konnektivität
 (`ttl=63`, ein Hop über `r1`).*
 
-!!! note "ARP-Spoofing-Teil ausgelagert"
-    Das Originaldokument (`Labor-03-Routing.tex`) enthält im Anschluss einen
-    Abschnitt "Man in the Middle" (ARP-Spoofing mit `arpspoof` zwischen `h3`
-    und `h4`). Dieser Teil gehört inhaltlich zu Angriffstechniken, nicht zu
-    reinem Routing, und wurde daher nach
-    [Lab 05 – ARP-Spoofing & Denial-of-Service](05-arp-spoofing-dos.md)
-    verschoben. Er ist hier bewusst nicht enthalten.
+Ihr habt jetzt einen Router, der zwei Netze verbindet, und beide Seiten
+vertrauen darauf, dass die Antworten von der richtigen Station kommen. Was
+passiert, wenn sich ein dritter Rechner genau in diesen Weg drängt? Das ist
+ARP-Spoofing – und dafür gibt es ein eigenes Blatt:
+[Lab 05 – ARP-Spoofing & Denial-of-Service](05-arp-spoofing-dos.md).
 
 !!! tip "Fortschritt festhalten (optional)"
     Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
@@ -108,6 +101,18 @@ anschließende `ping` von `h1` zu `h3` bestätigt die Konnektivität
     ```bash
     ~/rn-practice/mark-done.sh 03 teil1
     ```
+
+!!! example "Vertiefung (optional): Wenn nur eine Richtung stimmt"
+    Ihr habt eben auf **beiden** Seiten Routen gesetzt. Nehmt eine davon
+    testweise wieder weg – löscht auf dem Zielrechner die Rückroute
+    (`ip route del …`) und pingt erneut von `h1` aus.
+
+    Der Ping schlägt fehl. Lasst dabei auf dem Zielrechner
+    `tcpdump -i any icmp` mitlaufen: die Anfragen kommen dort sehr wohl an,
+    nur die Antwort findet nicht zurück. Ein fehlgeschlagener Ping heißt
+    also nicht „das Paket kam nicht an", sondern nur „ich habe keine Antwort
+    gesehen" – und Routing ist **je Richtung** zu betrachten, nicht je
+    Verbindung. Setzt die Route danach wieder, bevor ihr weitermacht.
 
 
 ### Teil 2 – Dynamisches Routing mit RIP und BGP (`topo03`, FRR/`vtysh`)
@@ -145,6 +150,39 @@ führt in Konzepte wie Pfadvektoren, Routing-Policies und Multi-Homing ein.
 Beide Protokolle unterscheiden sich grundlegend darin, wie sie eine Route
 "bewerten" und weitergeben – RIP zählt nur Hops, BGP wägt AS-Pfade und
 Policies ab.
+
+!!! info "Hintergrund: RIP kann nur bis 15 zählen – und das ist Absicht"
+    RIPs Metrik ist die Zahl der Zwischenstationen, und bei **16** gilt ein
+    Ziel als unerreichbar. Das wirkt wie eine willkürliche Grenze, löst aber
+    ein echtes Problem. In einem Distance-Vector-Verfahren erzählt jeder
+    Router seinen Nachbarn nur, *wie weit* ein Ziel entfernt ist – nicht,
+    *worüber* der Weg führt. Fällt eine Verbindung aus, können sich zwei
+    Router deshalb gegenseitig immer größere Entfernungen zurückmelden, ohne
+    je zu merken, dass jeder den Weg über den anderen meint. Dieses
+    *Count-to-Infinity*-Problem würde ohne Obergrenze niemals enden.
+
+    RIP erklärt darum einfach 16 zu „unendlich". Der Preis: in Netzen mit
+    mehr als 15 Zwischenstationen ist RIP nicht einsetzbar. Genau diese
+    Abwägung – Einfachheit gegen Reichweite – ist einer der Gründe, warum
+    später Link-State-Verfahren wie OSPF entstanden sind.
+
+!!! info "Hintergrund: die Nummern, an denen das Internet hängt"
+    Die Zahlen 65001, 65002 und 65003, die euch in dieser Übung begegnen,
+    sind **AS-Nummern** (Autonomous System). Ein autonomes System ist ein
+    Netz unter einheitlicher Verwaltung – ein Rechenzentrum, ein
+    Internetanbieter, ein großes Unternehmen. BGP ist das Protokoll, mit dem
+    diese Systeme einander mitteilen, welche Adressbereiche über sie
+    erreichbar sind. Weltweit sind gut hunderttausend AS aktiv, und
+    praktisch jede Verbindung, die euer Browser aufbaut, verlässt sich auf
+    Ankündigungen, die über BGP verteilt wurden.
+
+    Der Bereich 64512–65534 ist ausdrücklich für den privaten Gebrauch
+    reserviert – vergleichbar mit `192.168.x.x` bei IP-Adressen. Deshalb
+    stehen hier 65001 bis 65003 und keine echten, registrierten Nummern.
+    Und weil BGP darauf aufbaut, dass man diesen Ankündigungen glaubt, hat
+    eine falsche Ankündigung schon mehrfach ganze Landesnetze vom Internet
+    abgeschnitten. Wer wissen will, wie folgenreich das ist, sucht nach
+    *BGP-Hijacking*.
 
 Startet die Topologie:
 
@@ -210,20 +248,19 @@ also ausschließlich am RIP-Verbund teil, nicht am BGP-Verbund zwischen
 konkurrierenden Routen zu `192.168.3.0/24` (einmal über `r2` per BGP, einmal
 über `r4` per RIP), die im weiteren Verlauf untersucht werden.
 
-!!! note "Korrektur/Präzisierung gegenüber dem Originaldokument"
-    Das Originaldokument spricht durchgehend von "Quagga/FRR". In diesem
-    Repository läuft konkret **FRR** (`routertype = 'frr'` als Default in
-    `lib/topotest.py`, Konfigurationsverzeichnis `/etc/frr`) – Quagga selbst
-    kommt nicht zum Einsatz. Da FRR ein Fork von Quagga mit weitgehend
-    kompatibler `vtysh`-Syntax ist, bleiben alle im Original beschriebenen
-    Befehle unverändert gültig.
+!!! info "Hintergrund: Zebra, Quagga, FRR – und warum die Befehle dieselben bleiben"
+    Routing-Software auf Linux hat eine kleine Familiengeschichte. Aus dem
+    Projekt *Zebra* entstand **Quagga**, aus Quagga wiederum **FRR**
+    (FRRouting) – heute der De-facto-Standard und das, was in dieser Umgebung
+    läuft (Konfigurationsverzeichnis `/etc/frr`). In Büchern und älteren
+    Anleitungen stehen die Namen deshalb oft nebeneinander.
 
-!!! note "Playwright-Screenshot-Referenz"
-    Für den Beleg der `vtysh -c "show ip route"`-Ausgabe eignet sich ein
-    **Zeilen-/Locator-Screenshot** (siehe `tests/e2e/specs/screenshots.spec.ts`)
-    deutlich besser als ein Fenster-Screenshot: Entscheidend ist der Inhalt
-    einzelner Zeilen (das führende `B`/`R`/`C` und der Wert vor `via`, siehe
-    unten), nicht der gesamte sichtbare Terminalzustand.
+    Für euch ist das eine gute Nachricht: FRR ist ein Fork von Quagga und hat
+    dessen `vtysh`-Syntax weitgehend übernommen. Ein Befehl, den ihr in einer
+    Quagga-Anleitung findet, funktioniert hier in der Regel unverändert – und
+    umgekehrt lässt sich das, was ihr hier lernt, auf Anlagen anwenden, die
+    noch Quagga fahren. Genau deshalb lohnt es sich, `vtysh` zu beherrschen
+    statt einzelne Konfigurationsdateien auswendig zu lernen.
 
 Prüft zunächst (noch vor Aktivierung der Routing-Protokolle, also in Stufe 1
 direkt nach dem Start) die Routing-Tabelle von `r1` und versucht einen Ping
@@ -258,13 +295,36 @@ das aussagekräftigere Werkzeug. Ihr solltet sehen, dass der Pfad über
 
 #### Administrative Distanz: Warum gewinnt BGP?
 
-Startet `vtysh` auf `r1` und lasst euch die Routing-Tabelle der
-Routing-Software anzeigen:
+Bis hierher habt ihr die Routing-Tabelle des Linux-Kernels gelesen. Für den
+nächsten Schritt braucht ihr ein zweites Werkzeug.
+
+`vtysh` ist die Befehlszeilenschnittstelle der Routing-Software. Sie sieht
+wie eine gewöhnliche Shell aus, ist aber keine: Statt Linux-Befehlen erwartet
+sie die Kommandosprache, die auch auf kommerziellen Routern üblich ist. Aus
+dem bekannten `ip route show` wird dort `show ip route` – dieselbe
+Information, andere Wortstellung. Ein Fragezeichen zeigt an jeder Stelle die
+möglichen Fortsetzungen an; das ist der schnellste Weg, sich ohne Handbuch
+zurechtzufinden.
+
+Genau deshalb lohnt sich dieses Werkzeug über die Übung hinaus: Wer sich in
+`vtysh` zurechtfindet, findet sich auch auf einem Gerät im Rechenzentrum
+zurecht – die Befehle sind dort weitgehend dieselben.
 
 ```bash
 r1$ vtysh
-r1# show ip route
+r1# show ip route          # die Tabelle der Routing-Software
+r1# ?                      # zeigt die moeglichen Fortsetzungen
+r1# exit                   # zurueck zur Linux-Shell
 ```
+
+!!! warning "Zwei Tabellen, nicht eine"
+    `ip route` zeigt die Tabelle des **Linux-Kernels** – das, was
+    tatsächlich weitergeleitet wird. `show ip route` in `vtysh` zeigt die
+    Tabelle der **Routing-Software** – alles, was sie gelernt hat,
+    einschließlich der Routen, für die sie sich *nicht* entschieden hat. Die
+    zweite Tabelle ist deshalb größer als die erste. Dieser Unterschied ist
+    der Gegenstand des nächsten Schritts, also vergleicht beide Ausgaben
+    bewusst.
 
 Die Tabelle wirkt größer und mit Dopplungen versehen: `192.168.3.0`
 erscheint mehrfach – einmal `via 193.1.1.2` (mit vorangestelltem `B` für
@@ -297,32 +357,45 @@ r1$ traceroute 192.168.3.1
 r1$ ip route
 ```
 
-!!! note "Korrektur (2026-09-09): Der Nexthop bleibt `r2`, nur das Protokoll wechselt"
-    Eine frühere Fassung dieses Abschnitts behauptete an dieser Stelle, der
-    Pfad führe jetzt über `193.1.1.4` (`r4`). Ein unabhängiger Nachtest auf
-    einem frischen Container widerlegt das: `r1` hat **keinen** eigenen
-    RIP-Nachbarn `r4` – `show ip rip` auf `r1` zeigt ausschließlich von
-    `193.1.1.2` (`r2`) gelernte RIP-Routen, nie von `r4`, obwohl beide auf
-    demselben Switch-Segment hängen. `r1` selbst ist also gar nicht zwischen
-    einem Pfad über `r2` und einem über `r4` entscheidungsfähig; es hat für
-    `192.168.3.0/24` durchgehend nur den Nachbarn `r2` als Nexthop zur
-    Auswahl, einmal als BGP-Route (`Known via "bgp"`) und einmal als
-    RIP-Route (`Known via "rip"`, ebenfalls `via 193.1.1.2`) gelernt. Der
-    Pfad führt nach dem Distanz-Wechsel also weiterhin über denselben
-    Nexthop `193.1.1.2` – nur der in `ip route`/`show ip route` vermerkte
-    **Quell-Routing-Prozess** wechselt von `bgp` auf `rip`, weil dessen
-    administrative Distanz (120) jetzt niedriger ist als die soeben auf 200
-    gesetzte BGP-Distanz. `r4` wird erst in Teil 3 weiter unten tatsächlich
-    relevant – dort allerdings aus der Perspektive von `r2`, nicht von `r1`.
+!!! question "Beobachtet genau: wechselt wirklich der Weg – oder nur die Quelle?"
+    Es liegt nahe zu erwarten, dass der Verkehr jetzt über `193.1.1.4` (`r4`)
+    läuft, denn das war ja die RIP-Route. Prüft diese Erwartung, bevor ihr
+    weiterlest:
 
-!!! note "Rauschen in der Routing-Tabelle: eine vorkonfigurierte Route ohne Bezug zur Aufgabe"
-    In `r3/zebra.conf` findet sich eine statische Route
-    `ip route 192.168.2.0/24 192.168.3.10`. Das Netz `192.168.2.0/24`
-    taucht in dieser Übung nirgends sonst auf – die Route ist ein Überbleibsel
-    aus der ursprünglichen FRR/NetDEF-Testtopologie
-    (`test_rip_topo1.py`, siehe Lizenzkopf in `topo03.py`), aus der dieses
-    Skript abgeleitet wurde, und für die eigentliche Aufgabe irrelevant.
-    Lasst euch von dieser Zeile in `show ip route` nicht verwirren.
+    ```bash
+    r1# show ip rip
+    ```
+
+    Ihr werden dort ausschließlich RIP-Routen finden, die von `193.1.1.2`
+    (`r2`) gelernt wurden – keine einzige von `r4`, obwohl `r1` und `r4` am
+    selben Switch-Segment hängen. `r1` hat für `192.168.3.0/24` also
+    überhaupt nur **einen** Nexthop zur Auswahl: `r2`. Er ist ihm zweimal
+    bekannt, einmal per BGP (`Known via "bgp"`) und einmal per RIP
+    (`Known via "rip"`, ebenfalls `via 193.1.1.2`).
+
+    Was die geänderte Distanz bewirkt, ist deshalb **nicht** ein anderer Weg,
+    sondern ein anderer **Quell-Routing-Prozess** in der Tabelle: aus `bgp`
+    wird `rip`, weil RIPs Distanz von 120 nun unter dem gerade auf 200
+    gesetzten BGP-Wert liegt. Die Pakete nehmen exakt denselben Weg wie
+    vorher.
+
+    Das ist eine Unterscheidung, die in der Praxis viel Fehlersuche kostet:
+    eine veränderte Routing-Tabelle heißt nicht automatisch veränderter
+    Datenfluss. `r4` wird dennoch gebraucht – aber aus der Sicht von `r2`,
+    und genau davon handelt Teil 3.
+
+!!! info "Hintergrund: eine Route, die nirgends hinführt"
+    In `show ip route` auf `r3` steht eine statische Route nach
+    `192.168.2.0/24` über `192.168.3.10`. Dieses Netz kommt in der ganzen
+    Übung nicht vor, und die Adresse gehört keinem Gerät hier. Die Zeile
+    stammt aus `r3/zebra.conf` und ist eine Altlast der Testtopologie, aus
+    der dieses Szenario abgeleitet wurde.
+
+    Lasst euch davon nicht verwirren – und nehmt es als Vorgeschmack auf den
+    Berufsalltag: In gewachsenen Netzen enthält fast jede Routing-Tabelle
+    solche Einträge, deren Zweck niemand mehr kennt. Sie zu erkennen und
+    einzuordnen, statt sie für einen Teil der Aufgabe zu halten, ist eine der
+    Fähigkeiten, die man nur durch Hinsehen erwirbt.
 
 #### Lokale Gültigkeit manueller Routen
 
@@ -376,21 +449,27 @@ Danach gelingt der Ping mit der erzwungenen Quelladresse.
 
 #### Ausfall eines Pfads beobachten
 
-!!! note "Korrektur (2026-09-09): `r4-eth1` hat aus `r1`s Sicht keine Wirkung"
-    Eine frühere Fassung dieses Abschnitts beschrieb hier, dass ein
-    Herunterfahren von `r4-eth1` eine kurze Latenzerhöhung im Ping von `r1`
-    auslöst, bevor der Pfad zurückschwenkt. Ein realer Nachtest auf einem
-    frischen Container widerlegt das: Wie im Hinweis weiter oben erklärt,
-    hat `r1` für `192.168.3.0/24` (weder als BGP- noch als RIP-Route) *nie*
-    `r4` als Nexthop – nur `r2`. Ein `ifconfig r4-eth1 down` auf `r4` bleibt
-    aus `r1`s Sicht daher komplett folgenlos: `show ip route
-    192.168.3.0/24` auf `r1` zeigt vorher und nachher denselben Eintrag
-    ohne neuen Zeitstempel, und ein `ping 192.168.3.1` von `r1` läuft dabei
-    mit durchgehend 0 % Verlust und unveränderter Latenz weiter (real
-    geprüft: 2 von 2 Paketen angekommen, 0,1–1,1 ms, keine Veränderung).
-    Eine Topologie, in der ein Link-Ausfall tatsächlich eine Rekonvergenz
-    auslöst, folgt unten in Teil 3 – dort aus der Sicht von `r2`, dessen
-    Pfad zu `r3` von `r4` als Backup tatsächlich abhängt.
+!!! question "Ein Ausfall, der niemanden trifft – schaltet `r4-eth1` ab und begründet das Ergebnis"
+    Schaltet auf `r4` das Interface in Richtung `r3` ab und beobachtet dabei
+    `r1`:
+
+    ```bash
+    r4$ ifconfig r4-eth1 down
+    r1$ vtysh -c "show ip route 192.168.3.0/24"
+    r1$ ping -c 4 192.168.3.1
+    ```
+
+    Ihr werdet feststellen: für `r1` ändert sich **nichts**. Derselbe
+    Routen-Eintrag, kein Paketverlust, keine erhöhte Laufzeit. Erklärt,
+    warum das so sein muss – der Hinweis oben zu `show ip rip` enthält alles,
+    was ihr dazu braucht.
+
+    Die Denkfigur dahinter ist im Betrieb wertvoller als das Ergebnis: bei
+    einer Störungsmeldung ist „**wen** trifft dieser Ausfall überhaupt?" fast
+    immer die ergiebigere Frage als „ist etwas ausgefallen?". Eine Topologie,
+    in der ein Link-Ausfall wirklich eine Rekonvergenz erzwingt, kommt gleich
+    in Teil 3 – dort aus der Sicht von `r2`, dessen Weg zu `r3` tatsächlich
+    von `r4` als Reserve abhängt.
 
 !!! tip "Fortschritt festhalten (optional)"
     Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
@@ -481,36 +560,32 @@ gemeldet). Beobachtet dabei auch euren laufenden Ping auf `r1`: erwartet
 nicht, dass er lückenlos durchläuft – haltet fest, ob und wie lange er
 tatsächlich aussetzt, bevor er von selbst wieder Antworten bekommt.
 
-!!! success "Real geprüft (korrigiert 2026-09-09)"
-    Auf einem frisch gestarteten Container installierte `r2` die
-    Ersatzroute über `r4` bereits **innerhalb von 13-16 Sekunden** nach dem
-    `ifconfig r2-eth1 down` – deutlich schneller, als ein rein periodisches
-    30-Sekunden-Update es erklären könnte (Beleg für ein *triggered
-    update*, in drei unabhängigen Testläufen reproduziert). Die Ausgabe
-    zeigte danach durchgehend `Known via "rip", ... 193.1.1.4, via
-    r2-eth0` als beste Route auf `r2`.
+??? info "Erwartungshorizont – erst öffnen, wenn ihr selbst gemessen habt"
+    **Auf `r2`:** Die Ersatzroute über `r4` erscheint typischerweise
+    **13 bis 16 Sekunden** nach dem `ifconfig r2-eth1 down`. Das ist der
+    entscheidende Befund: deutlich früher, als ein rein periodisches
+    30-Sekunden-Update es erklären könnte. Genau daran erkennt man ein
+    *triggered update*. Danach steht dort dauerhaft
+    `Known via "rip", ... 193.1.1.4, via r2-eth0`.
 
-    Eine frühere Fassung dieses Abschnitts behauptete hier zusätzlich, der
-    parallel laufende Ping von `r1` überstehe den Ausfall ganz ohne
-    Paketverlust und `r1`s eigene Route ändere sich dabei nicht. Ein
-    unabhängiger Nachtest widerlegt beides: `r1` sitzt (wie oben erklärt)
-    auf demselben Switch-Segment wie `r4` und ist damit selbst ebenfalls
-    ein direkter RIP-Nachbar von `r4`. Nach vollständiger
-    netzwerkweiter Rekonvergenz zeigte `r1`s eigene Kernel-Route zu
-    `192.168.3.1` **direkt** `via 193.1.1.4 dev r1-eth1` – nicht mehr
-    `via 193.1.1.2` (`r2`). Diese vollständige Rekonvergenz (bei der auch
-    `r1` selbst und `r3`s Rückweg zu `r1` aktualisiert werden müssen)
-    braucht spürbar länger als `r2`s eigene, oben gemessene
-    Routenaktualisierung: ein einzelner `ping -c 3` auf `r1`, 20-35
-    Sekunden nach dem `ifconfig r2-eth1 down` abgesetzt, zeigte in zwei von
-    zwei Testläufen **100 % Paketverlust** (0 von 3 Paketen angekommen).
-    Praktisch heißt das: euer dauerhafter Ping auf `r1` wird während dieses
-    Übergangs voraussichtlich einige Sekunden lang Antworten verlieren,
-    bevor er von selbst wieder funktioniert – das ist das erwartete,
-    normale Verhalten einer echten RIP-Rekonvergenz, kein Fehler in eurer
-    Topologie. (Die direkten Verbindungen bleiben davon unberührt: `r4`
-    konnte während des gesamten Tests `r2` und `r3` jeweils mit 0 %
-    Verlust anpingen.)
+    **Auf `r1`:** Hier wird es interessanter, als man zunächst denkt. `r1`
+    hängt am selben Switch-Segment wie `r4` und ist damit selbst RIP-Nachbar
+    von `r4`. Nach vollständiger Rekonvergenz zeigt `r1`s Kernel-Route zu
+    `192.168.3.1` deshalb **direkt** `via 193.1.1.4 dev r1-eth1` – nicht
+    mehr den Umweg über `r2`.
+
+    Bis dahin muss aber auch `r3`s Rückweg neu gelernt sein, und das dauert
+    länger als `r2`s eigene Umstellung. Ein `ping -c 3` auf `r1`, etwa 20 bis
+    35 Sekunden nach dem Abschalten abgesetzt, kann daher **100 % Verlust**
+    zeigen. Ein Aussetzer von einigen Sekunden ist hier also das erwartete
+    Verhalten einer echten RIP-Rekonvergenz und kein Defekt eurer Topologie.
+    Die direkten Nachbarschaften bleiben die ganze Zeit intakt – `r4`
+    erreicht `r2` und `r3` durchgehend ohne Verlust.
+
+    **Der Merksatz dahinter:** Konvergenz ist kein Zeitpunkt, sondern ein
+    Verlauf, und verschiedene Knoten erreichen sie zu verschiedenen Zeiten.
+    Wer nur an einer Stelle misst, hält die Umstellung für schneller oder
+    langsamer, als sie für das Netz als Ganzes ist.
 
 Prüft abschließend, dass die Wiederherstellung ebenso funktioniert:
 
@@ -532,122 +607,277 @@ Die Route sollte innerhalb weniger Sekunden wieder auf den direkten Pfad
     ```
 
 
-## Potenzielle Herausforderungen
+### Teil 4 – Protokollspuren vermessen statt anschauen (`topo03`)
 
-!!! success "topoP03 (Teil 1) verifiziert (2026-09-09)"
-    `topoP03` hatte einen eigenständigen Skript-Bug (`net.cmd(...)` in
-    `topoP03.py` – `Mininet`-Objekte haben keine `cmd()`-Methode, harter
-    `AttributeError` direkt nach dem Switch-Start, noch vor dem ersten
-    CLI-Prompt), unabhängig vom Capability-Set. Nach Fix (`quietRun(...)`
-    statt `net.cmd(...)`) läuft Teil 1 real gegen einen echten Container:
-    manuelle Adressierung, Routen über `r1` und Ping zwischen den beiden
-    Netzen wurden nachgestellt und funktionieren wie oben beschrieben
-    (inklusive des anfänglich hohen ersten Ping-RTTs durch MAC-Lernen der
-    beiden im Skript bereits auf `standalone` gesetzten Switches).
+In Teil 2 habt ihr den Paketaustausch von RIP und BGP in Wireshark *gesehen*.
+Sehen ist aber nicht messen. Ein Routing-Protokoll hat Zeitkonstanten und einen
+Preis, und beides steht in keiner Ausgabe: Wie oft meldet sich ein Router, auch
+wenn sich gar nichts geändert hat? Was kostet das an Byte je Minute, während
+kein einziges Nutzdatenpaket unterwegs ist? In diesem Teil zeichnet ihr eine
+Spur auf und rechnet diese Zahlen selbst aus ihr heraus.
 
-!!! info "topo03 (Teil 2, vier FRR-Router): zwei aufeinanderfolgende FRR-10.x-Probleme behoben, RIP/BGP konvergieren real"
-    `topo03` hatte zunächst zwei reine Skript-Bugs, unabhängig vom
-    Capability-Set: einen toten `import pytest` (Modul nicht installiert,
-    Absturz schon beim Parsen der Datei) und einen harten `assert` beim
-    Setzen mehrerer Sysctls (`net.ipv4.ip_forward` u. a.), die unter dem
-    granularen Capability-Set
-    (`NET_ADMIN`+`NET_RAW`+`SYS_ADMIN`+`apparmor:unconfined`, siehe
-    [ADR 0002](../adr/0002-capabilities-not-privileged.md)) mit "permission
-    denied" abgelehnt werden – beide behoben (siehe `topo03.py` und
-    `lib/topotest.py`). Danach zeigte sich ein **tieferes Problem**: das im
-    Container installierte FRR (`10.3-3+deb13u1`) lehnte beim Start von
-    `zebra` über `--config_file` die vendorierten `interface <name>` /
-    `ip address ...`-Blöcke in `zebra.conf` mit "No such command" ab – keiner
-    der vier Router bekam dadurch je eine IP-Adresse zugewiesen. Ursache: das
-    aus `test_rip_topo1.py` (NetDEF) vendorierte Test-Framework startete nie
-    `mgmtd`, das seit FRR's Northbound-Umstellung (nach 8.x) neben
-    `zebra`/`staticd` immer mitlaufen muss, damit `interface`/`ip
-    address`-Konfiguration angewendet werden kann. Behoben in
-    `lib/topotest.py`: `mgmtd` wird jetzt mitgestartet, und `zebra`
-    bekommt sein `zebra.conf` – wie schon zuvor bei `ripd` – per `vtysh -f`
-    zugestellt statt per `--config_file`.
+Der Unterschied zu Teil 2 und 3 ist auch ein praktischer: eine Aufzeichnung ist
+ein **dauerhaftes Artefakt**. Die Topologie braucht ihr nur zum Aufnehmen. Die
+Auswertung könnt ihr danach beliebig oft wiederholen, verfeinern und mit den
+Spuren eurer Kommiliton:innen vergleichen – auch in einer späteren Sitzung, in
+der nichts mehr läuft.
 
-    **Korrektur (2026-09-09):** Der vorherige Stand dieses Abschnitts hatte
-    an dieser Stelle bereits "vollständig gelöst" mit BGP-`Established`-
-    Sessions und erfolgreichem Ping/Traceroute vermeldet. Diese Verifikation
-    war **fehlerhaft** (vermutlich ein zu kurzer Beobachtungszeitraum, der
-    den unten beschriebenen `bgpd`-Hang nicht aufgedeckt hat) – ein
-    unabhängiger Nachtest auf einem frischen Container zeigte `r1 ping
-    192.168.3.1` weiterhin als "Network is unreachable", `show ip bgp
-    summary` weiterhin dauerhaft `Idle` auf allen drei eBGP-Sessions. Die
-    tatsächliche Ursache: `r1/bgpd.conf`, `r2/bgpd.conf` und `r3/bgpd.conf`
-    enthielten – als Altlast aus dem `zebra.conf`-Vendoring – ebenfalls
-    `interface`/`ip address`-Blöcke (bei `r3` zusätzlich eine `ip
-    route`-Zeile). Anders als vermutet wurden diese von `bgpd` **nicht**
-    harmlos ignoriert: `bgpd`s `--config_file`-Lader blieb an diesen
-    Northbound-Kommandos in einer Dauerschleife hängen (alle `bgpd`-Threads
-    dauerhaft bei 100–200 % CPU), sodass `bgpd` nie fertig startete – kein
-    `bgpd.vty`-Socket, keine Registrierung bei `zebra`s zapi-Socket, keine
-    einzige BGP-Verbindung wurde je versucht (`Connections established 0;
-    dropped 0`, `FD used: -1`). Da die Stub-Netze `192.168.1.0/24` und
-    `192.168.3.0/24` ausschließlich über BGP (nicht über RIP) verteilt
-    werden, blieb `r1`↔`r3`-Konnektivität dadurch kaputt, obwohl RIP selbst
-    die ganze Zeit korrekt konvergierte. **Behoben**: die `interface`/`ip
-    address`/`ip route`/`ip forwarding`-Zeilen wurden aus allen drei
-    `bgpd.conf`-Dateien entfernt (bgpd braucht sie nicht – `zebra` wendet die
-    echte Interface-Konfiguration bereits an); das Adressierungsschema selbst
-    ist unverändert. Zusätzlich fehlte in `start-topo03.sh` ein `killall
-    mgmtd` (nur `zebra`/`ripd`/`bgpd` wurden beim Start/Stop beendet) –
-    ergänzt, damit wiederholte Lab-Läufe im selben Container keine
-    verwaisten `mgmtd`-Prozesse anhäufen.
+!!! note "Warum ihr selbst aufzeichnet und nicht mit fertigen Spuren arbeitet"
+    Das Lehrbuch *Computer Networking: Principles, Protocols and Practice*
+    (Olivier Bonaventure, UCLouvain) bringt für genau diese Übungsform 19
+    fertige `pcap`-Dateien mit (`exercises/traces/` im Repository `cnp3/ebook`,
+    darunter `ospf6-r1`…`r3`, `ripng-r1`…`r3`, `stp-s1`…`s9`,
+    `bgp-as1`…`as3`). Diese Dateien sind in diesem Praktikumscontainer
+    **nicht vorhanden** (das gesamte Dateisystem wurde am 2026-09-24 danach
+    durchsucht: kein Treffer), und der Container hat keinen Zugang zum
+    Buch-Repository. Eine Aufgabe, die sie voraussetzt, wäre eine Anleitung zu
+    Dateien, die es hier nicht gibt.
 
-    Real gegen einen genuinely-frischen, nie zuvor verwendeten, über den
-    echten `s6-overlay`-Entrypoint gebauten Container verifiziert (nicht nur
-    gegen die Logik des Fixes selbst): alle vier Router bekommen ihre
-    IP-Adressen; `show ip route rip` zeigt echte RIP-Routen auf `r1`, `r2`,
-    `r3`, `r4`; `show ip bgp summary` zeigt alle drei eBGP-Sessions
-    `Established` mit realen `PfxRcd`/`PfxSnt` > 0; `show ip route` zeigt auf
-    `r1` und `r3` genau die von diesem Abschnitt weiter oben beschriebene
-    Dopplung (`B>*` für die per BGP gewählte Route, `R` für dieselbe, nicht
-    gewählte RIP-Route); ein echter `ping -c 4 192.168.3.1` von `r1` sowie
-    der Rückweg-`ping` von `r3` nach `192.168.1.1` kommen mit 0 % Verlust an;
-    `traceroute` zeigt in beide Richtungen den erwarteten Zwei-Hop-Pfad über
-    `r2`. Details und Belege siehe
-    [ADR 0002](../adr/0002-capabilities-not-privileged.md).
+    Deshalb nehmt ihr die Spur aus **eurer eigenen** Topologie auf. Das ist
+    didaktisch kein Verlust, sondern ein Gewinn: Ihr wisst genau, welche vier
+    Router gesprochen haben und wie sie konfiguriert sind – bei einer fremden
+    Spur müsstet ihr das erst erraten.
 
-!!! warning "Korrektur (2026-09-09): zwei bisherige Aussagen zur administrativen Distanz und zu `r4` waren falsch"
-    Beim Entwerfen von Teil 3 (neue Übung, s. o.) wurde real nachgeprüft,
-    *welche* Nexthops `r1` für `192.168.3.0/24` tatsächlich kennt
-    (`show ip rip` auf `r1`). Ergebnis: `r1` lernt RIP-Routen ausschließlich
-    von `r2` (`193.1.1.2`), nie von `r4` – beide Aussagen weiter oben, dass
-    der administrative-Distanz-Wechsel den Pfad auf `r4` umlenkt bzw. dass
-    ein Herunterfahren von `r4-eth1` eine Latenzerhöhung auf `r1` auslöst,
-    waren dadurch **nicht haltbar** und wurden oben direkt an den
-    betroffenen Stellen korrigiert (`r1` bleibt in beiden Fällen bei
-    Nexthop `r2` – nur der Quell-Routing-Prozess wechselt zwischen `bgp`
-    und `rip`). `r4` ist trotzdem kein funktionsloser Router: Er bildet eine
-    reale Backup-Route zwischen `r2` und `r3` – das wird jetzt korrekt in
-    der neuen Teil 3 demonstriert und aus `r2`s (nicht `r1`s) Perspektive
-    gemessen. Diese Korrektur betrifft ausschließlich die Interpretation
-    bereits vorhandener, korrekt konvergierender RIP/BGP-Daten – an der
-    zugrunde liegenden Konfiguration oder den Fixes oben ändert sich nichts.
+#### Schritt 1 – Erst rechnen, dann aufzeichnen
 
-- **Falscher Skriptname im Original** (`start-topoP02.sh` statt
-  `start-topoP03.sh`, s. o.) sowie ein nicht existierender Pfad
-  (`rn-practical` statt `rn-practice`).
-- **`RemoteController`-Abhängigkeit in `topoP03.py`** – ohne laufenden
-  Controller-Prozess funktional unproblematisch (Fail-Mode `standalone`),
-  kann aber zu Verbindungsfehlern in den Logs führen.
-- **Rauschen in der Routing-Tabelle**: die statische Route
-  `192.168.2.0/24 via 192.168.3.10` in `r3/zebra.conf` stammt aus der
-  ursprünglichen FRR/NetDEF-Testtopologie und ist für die Aufgabe
-  irrelevant (s. o.).
-- **`r4` läuft ohne BGP** (keine `bgpd.conf`) – das ist kein Fehler, sondern
-  die Grundlage für die Administrative-Distanz-Übung (zwei konkurrierende
-  Routen aus RIP und BGP).
-- **"Quagga/FRR"**: Diese Umgebung nutzt konkret FRR, nicht Quagga (s. o.);
-  die `vtysh`-Bedienung ist davon nicht betroffen.
-- **Zweistufiger Start** von `start-topo03.sh`: ein `exit` am
-  `mininet>`-Prompt beendet die Emulation *nicht* sofort, sondern startet
-  erst die Routing-Dienste (s. o.) – leicht mit einem Abbruch zu verwechseln.
-- **`mininet> xterm <node>` funktioniert weiterhin**, öffnet aber intern
-  `xfce4-terminal` statt eines echten `xterm` (Shim, siehe
-  [Lab 01](01-netzwerkgrundlagen-tools.md#potenzielle-herausforderungen)).
+Füllt diese Tabelle **bevor** ihr etwas startet. Alles, was ihr dafür braucht,
+steht in Teil 2 und 3 dieses Blattes.
+
+| Frage | Eure Vorhersage |
+|---|---|
+| In welchem Abstand sendet ein RIP-Router seine Tabelle, wenn sich nichts ändert? | ? s |
+| Wie viele RIP-Nachrichten sind das in 2,5 Minuten, von **einem** Sprecher? | ? |
+| Wie viele Router auf `193.1.1.0/26` sprechen überhaupt RIP – und wie viele davon hört `r1` auf `r1-eth1`? | ? |
+| Welchen Transportweg nutzt RIP, welchen BGP? | ? |
+| Wie viele Byte je Minute kostet RIP auf diesem Segment im Ruhezustand? | ? Byte/min |
+
+Die letzte Zeile ist die interessanteste, weil sie sich nicht erraten lässt:
+Ihr braucht die Nachrichtengröße **und** die Häufigkeit. Schätzt trotzdem eine
+Größenordnung – zehn, hundert oder tausend Byte je Minute? – und notiert sie.
+
+#### Schritt 2 – Die Spur aufzeichnen
+
+Startet `topo03` wie in Teil 2 und bleibt zunächst in **Stufe 1**, also vor dem
+ersten `exit`. Die Routing-Dienste laufen dann noch nicht, das Segment ist
+still – genau der richtige Zeitpunkt, um mit dem Mitschnitt zu beginnen:
+
+```bash
+cd ~/rn-practice/topo03
+./start-topo03.sh
+```
+
+Legt das Verzeichnis für Aufzeichnungen an und startet `tcpdump` auf `r1`:
+
+```bash
+mininet> xterm r1
+r1$ mkdir -p ~/rn-practice/pcaps
+r1$ tcpdump -i r1-eth1 -w ~/rn-practice/pcaps/03-teil4-protokollspuren.pcap -U -n
+```
+
+`-i r1-eth1` ist die Schnittstelle zum gemeinsamen Segment mit `r2` und `r4`,
+`-w` schreibt in eine Datei statt auf den Bildschirm, `-U` schreibt jedes Paket
+sofort (ohne `-U` verliert ein abgebrochener Mitschnitt den letzten Puffer),
+`-n` verzichtet auf Namensauflösung – die im Container ohnehin nicht nach außen
+gelangt.
+
+Wechselt nun auf der `mininet`-Konsole mit einmaligem `exit` in **Stufe 2**
+(RIP und BGP starten) und lasst den Mitschnitt **mindestens 2,5 Minuten**
+laufen. Diese Dauer ist kein Zufall: Ihr braucht mehrere Abstände zwischen
+periodischen Updates, um aus ihnen einen Mittelwert bilden zu können – bei
+einem einzigen Abstand wäre jede Aussage über die Streuung erfunden. Beendet
+`tcpdump` danach mit ++ctrl+c++ und prüft, dass die Datei wirklich gefüllt ist:
+
+```bash
+r1$ ls -l ~/rn-practice/pcaps/03-teil4-protokollspuren.pcap
+```
+
+!!! warning "`tshark` ist in diesem Container nicht installiert"
+    Viele Anleitungen im Netz werten `pcap`-Dateien mit `tshark` aus. Das
+    Werkzeug fehlt hier (die grafische Wireshark-Oberfläche ist vorhanden, das
+    Kommandozeilenwerkzeug nicht). Für alles, was in dieser Aufgabe gebraucht
+    wird, genügen `tcpdump` und `capinfos` – beide sind vorhanden und beide
+    arbeiten auf derselben Datei.
+
+#### Schritt 3 – Die Zahlen aus der Datei holen
+
+Legt euch den Pfad in eine Variable, damit die folgenden Befehle kurz bleiben:
+
+```bash
+r1$ P=~/rn-practice/pcaps/03-teil4-protokollspuren.pcap
+```
+
+**Das Ganze zuerst.** `capinfos` beantwortet „wie viel, über wie lange":
+
+```bash
+r1$ capinfos -c -d -u "$P"
+```
+
+`-c` gibt die Zahl der Pakete, `-d` die Summe der Nutzdaten in Byte, `-u` die
+Dauer der Aufzeichnung in Sekunden. Aus diesen drei Zahlen berechnet ihr den
+Overhead je Minute selbst – nicht ausrechnen lassen, sondern ausrechnen:
+
+```text
+Byte je Minute = Data size / Capture duration * 60
+```
+
+**Dann je Protokoll.** Dieselbe Rechnung wird erst aussagekräftig, wenn ihr RIP
+und BGP getrennt betrachtet. `tcpdump` kann eine Datei lesen und gefiltert in
+eine neue schreiben:
+
+```bash
+r1$ tcpdump -r "$P" -w /tmp/rip.pcap udp port 520
+r1$ capinfos -c -d -u /tmp/rip.pcap
+r1$ tcpdump -r "$P" -w /tmp/bgp.pcap tcp port 179
+r1$ capinfos -c -d -u /tmp/bgp.pcap
+```
+
+**Und schließlich die Zeitkonstante.** Der Abstand zweier Updates steckt in den
+Zeitstempeln. `-tt` gibt sie als reine Sekundenzahl aus, `awk` bildet die
+Differenz zur Vorzeile:
+
+```bash
+r1$ tcpdump -tt -n -r "$P" 'udp port 520 and src 193.1.1.2' \
+      | awk '{if (p != "") printf "%.2f s\n", $1-p; p=$1}'
+```
+
+Beachtet die Einschränkung auf **einen** Sprecher (`src 193.1.1.2`, also `r2`).
+Ohne sie mischt ihr die Zeitreihen mehrerer Router und erhaltet Abstände, die
+kein einzelner Router je eingehalten hat – ein Messfehler, der sich in echten
+Netzanalysen ständig einschleicht. Wiederholt den Aufruf mit `src 193.1.1.4`
+(`r4`) und vergleicht.
+
+Dasselbe für BGP. Hier interessieren nur die Nachrichten mit Inhalt, nicht die
+reinen TCP-Bestätigungen – `greater 60` filtert die leeren Segmente heraus:
+
+```bash
+r1$ tcpdump -tt -n -r "$P" 'tcp port 179 and greater 60' \
+      | awk '{if (p != "") printf "%.1f s\n", $1-p; p=$1}'
+```
+
+#### Schritt 4 – Auswerten
+
+**Aufgabe:** Vergleicht jede Zeile eurer Vorhersage aus Schritt 1 mit dem
+gemessenen Wert und begründet jede Abweichung. Die drei Fragen, an denen sich
+zeigt, ob ihr die Messung verstanden habt:
+
+1. **Die Abstände sind nicht alle gleich.** RIP nennt 30 Sekunden, ihr messt
+   Werte darunter und darüber. Das ist kein Messfehler: RIP versieht seinen
+   Zeitgeber absichtlich mit einer Zufallsschwankung. Überlegt, was passieren
+   würde, wenn alle Router eines Segments ihre Tabelle *exakt* gleichzeitig
+   senden würden – und warum die Schwankung damit kein Schönheitsfehler,
+   sondern eine Notwendigkeit ist.
+2. **BGP sendet seltener, kostet aber mehr.** Rechnet beide Byte-je-Minute-Werte
+   aus und stellt sie nebeneinander. Begründet das Ergebnis damit, dass RIP auf
+   UDP aufsetzt und BGP auf TCP – und dass zu jeder TCP-Nachricht eine
+   Bestätigung gehört, die in eurer gefilterten Datei mitzählt.
+3. **Der Preis des Ruhezustands.** Rechnet euren RIP-Wert auf eine Woche hoch
+   und stellt ihn der Nutzlast eines einzigen Bildes im Browser gegenüber.
+   Formuliert in einem Satz, warum dieser Aufwand trotzdem gerechtfertigt ist.
+
+!!! success "Real geprüft (2026-09-24)"
+    Die Aufzeichnung und **alle** Auswertungsbefehle oben wurden in einem
+    Wegwerfcontainer gegen `topo03` ausgeführt. Zwei unabhängige Läufe, je rund
+    150 Sekunden auf `r1-eth1`:
+
+    | Größe | Lauf A | Lauf B |
+    |---|---|---|
+    | Pakete gesamt / Dauer | 72 / 145,2 s | 75 / 147,8 s |
+    | Daten gesamt | – | 5.608 Byte |
+    | RIP (UDP/520): Pakete / Byte / Dauer | 15 / – | 16 / 1.276 Byte / 144,1 s |
+    | BGP (TCP/179): Pakete / Byte / Dauer | 24 / – | 25 / 2.356 Byte / 120,0 s |
+    | Abstände der RIP-Updates von `r2` | 34,94 / 30,00 / 31,01 / 35,02 s | 23,97 / 31,00 / 32,01 / 25,01 / 30,00 s |
+    | Abstand der BGP-Keepalives | – | 60,0 s |
+
+    Daraus ergibt sich für Lauf B: RIP rund **6,7 Nachrichten je Minute** und
+    **531 Byte je Minute**, BGP rund **1.178 Byte je Minute** – BGP kostet auf
+    diesem Segment also mehr als das Doppelte von RIP, obwohl es deutlich
+    seltener sendet. Die gemessenen RIP-Abstände liegen zwischen **24 und 35
+    Sekunden** um den Nennwert von 30. Die RIP-Nachrichten selbst waren 24 Byte
+    groß (die anfängliche Anfrage) bzw. 44 Byte (die Antworten mit Routen), der
+    Ethernet-Rahmen jeweils 66 Byte.
+
+    **Nicht geprüft:** Die Aufzeichnung wurde von einem Skript gestartet, das
+    dieselbe Topologie ohne grafische Oberfläche aufbaut. Der Weg über
+    `mininet> xterm r1` und ein von Hand abgesetztes `tcpdump` ist damit
+    **nicht** nachgemessen – er entspricht aber genau dem, was Teil 2 dieses
+    Blattes bereits beschreibt und was dort verifiziert ist. Eure Zahlen werden
+    von den obigen abweichen; das ist erwartet und Teil der Aufgabe.
+
+!!! info "Offener Punkt für die Kursleitung"
+    Würden die 19 `pcap`-Dateien aus `cnp3/ebook` (`exercises/traces/`) ins
+    Desktop-Abbild aufgenommen, ließe sich diese Aufgabe **ganz ohne laufende
+    Emulation** bearbeiten – und zusätzlich um Protokolle erweitern, die
+    `topo03` nicht fährt: OSPFv3, RIPng und Spanning Tree. Die dafür nötigen
+    FRR-Daemons (`ospf6d`, `ripngd`) sind im Abbild vorhanden (geprüft am
+    2026-09-24, FRR 10.3), die Spuren nicht. Das Abbild wurde für diese
+    Ergänzung **nicht** verändert; die Aufnahme der Dateien samt Lizenzhinweis
+    (CC BY-SA 3.0) braucht eine Entscheidung der Kursleitung.
+
+!!! tip "Fortschritt festhalten (optional)"
+    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
+    (rein lokal, keine Netzwerkverbindung):
+
+    ```bash
+    ~/rn-practice/mark-done.sh 03 teil4
+    ```
+
+
+## Wenn etwas nicht wie erwartet läuft
+
+Vier Dinge irritieren in dieser Übung regelmäßig, ohne dass etwas kaputt
+ist. Wer sie kennt, verliert keine Zeit damit.
+
+- **Verbindungsfehler in den Mininet-Meldungen.** `topoP03.py` meldet die
+  Switches bei einem Controller an, der hier nicht läuft. Das ist ohne
+  Folgen – das Skript schaltet die Switches unmittelbar danach auf
+  Normalbetrieb (`fail-mode standalone`). Die Meldungen könnt ihr ignorieren.
+- **`r4` hat kein BGP.** Absichtlich: `r4` nimmt nur am RIP-Verbund teil.
+  Genau daraus entstehen die zwei konkurrierenden Routen zu
+  `192.168.3.0/24`, an denen sich die administrative Distanz zeigen lässt.
+  Ohne diese Asymmetrie gäbe es nichts zu vergleichen.
+- **Ein `exit` beendet die Emulation nicht.** `start-topo03.sh` läuft in zwei
+  Stufen; das erste `exit` am `mininet>`-Prompt startet erst die
+  Routing-Dienste. Das sieht wie ein versehentlicher Abbruch aus, ist aber
+  der vorgesehene Weg – erst ein zweites `exit` beendet wirklich.
+- **`xterm` ist nicht `xterm`.** `mininet> xterm <node>` funktioniert, öffnet
+  aber ein `xfce4-terminal`. Für die Übung macht das keinen Unterschied;
+  Hintergrund siehe
+  [Lab 01](01-netzwerkgrundlagen-tools.md#potenzielle-herausforderungen).
+- **`tshark` fehlt** (geprüft 2026-09-24). Für Teil 4 ist das ohne Folgen:
+  `tcpdump` und `capinfos` sind vorhanden und genügen. Anleitungen aus dem
+  Netz, die `tshark -q -z io,stat` verwenden, laufen hier nicht.
+- **Beim Start von `topo03` erscheinen `sysctl: permission denied`-Warnungen**
+  (z. B. für `net.ipv4.ip_forward` auf `r4`). Sie stammen aus dem
+  Capability-Set des Containers, werden von der Topologie abgefangen
+  ("continuing") und verhindern den RIP-/BGP-Austausch nicht – am 2026-09-24
+  liefen alle vier Router trotz dieser Meldungen mit FRR 10.3 hoch und
+  tauschten Routen aus.
+
+## Fazit
+
+Ihr habt Routing in dieser Übung von zwei Seiten kennengelernt. In Teil 1
+habt ihr jede Route selbst eingetragen und dabei gesehen, dass ein Netz ohne
+Routing-Wissen nicht weiter reicht als bis zum eigenen Switch – und dass
+Routing **je Richtung** zu betrachten ist, nicht je Verbindung. In Teil 2
+haben RIP und BGP dieselbe Arbeit selbstständig übernommen, und an der
+administrativen Distanz konntet ihr nachvollziehen, wie ein Router zwischen
+zwei Quellen für dasselbe Ziel entscheidet – und dass eine veränderte
+Tabelle nicht automatisch einen veränderten Weg bedeutet. Teil 3 hat
+gezeigt, dass Konvergenz kein Zeitpunkt ist, sondern ein Verlauf, den
+verschiedene Knoten zu verschiedenen Zeiten erreichen.
+
+Damit habt ihr vier Werkzeuge in der Hand, mit denen in echten Netzen
+gearbeitet wird: `ip route` für den Kernel, `vtysh` für die
+Routing-Software, `traceroute` für den tatsächlich genommenen Weg und
+Wireshark für die Frage, wer eigentlich mit wem spricht. Wer diese vier
+beherrscht, kann in einem fremden Netz begründen, *warum* ein Paket den Weg
+nimmt, den es nimmt. Das ist der Unterschied zwischen Raten und Diagnose –
+und er fällt in jedem Betriebsteam sofort auf.
+
+In der Vorlesung werden die Konzepte dahinter vertieft: Distance Vector
+gegen Link State, das Count-to-Infinity-Problem und seine Gegenmittel,
+autonome Systeme, und die Frage, warum ein Netz von der Größe des Internets
+überhaupt mit einem Protokoll wie BGP zusammenhält.
 
 ## Quellen
 
@@ -659,4 +889,13 @@ Die Route sollte innerhalb weniger Sekunden wieder auf den direkten Pfad
   für Teil 1
 - `mininet-labs/rn-practice/topo03/` (`topo03.py`, `start-topo03.sh`,
   `tryping.sh`, FRR-Configs `r1`–`r4` (`zebra.conf`, `ripd.conf`,
-  `bgpd.conf`), `lib/topotest.py`, `lib/topolog.py`) – für Teil 2
+  `bgpd.conf`), `lib/topotest.py`, `lib/topolog.py`) – für Teil 2 und Teil 4
+- Olivier Bonaventure u. a.: *Computer Networking: Principles, Protocols and
+  Practice*, UCLouvain (Université catholique de Louvain), Repository
+  `cnp3/ebook`, Verzeichnis `exercises/traces/` – Lizenz **CC BY-SA 3.0**.
+  (Einzelne Übungskapitel dieses Werks tragen im Dateikopf CC BY 3.0; die
+  Angaben widersprechen sich, hier wird konservativ von **BY-SA** ausgegangen.)
+  Von dort stammt die **Idee** zu Teil 4, aus fertigen Protokollspuren
+  Zeitkonstanten und Overhead selbst zu berechnen. Es wird **keine Datei** aus
+  diesem Werk verwendet oder weiterverbreitet – die Spur in Teil 4 entsteht in
+  der eigenen Topologie (Begründung siehe Teil 4).

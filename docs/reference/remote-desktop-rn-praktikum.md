@@ -11,23 +11,22 @@ mit anderem Login-Anbieter und Branding — siehe
 ## 1. Login
 
 1. `https://rn-praktikum.bunsenbrenner.org/` im Browser oeffnen.
-2. Auf "Anmelden mit HAW GitLab" klicken. Der Login ist fest auf den
-   HAW-GitLab-Account verdrahtet (kein Auswahlbildschirm mit anderen
-   Anbietern) — siehe [ADR 0010](../adr/0010-per-host-branding-and-idp-choice.md).
+2. Auf **„Anmelden mit HAW GitLab“** klicken. Der Login ist auf diesem Host
+   fest auf den HAW-GitLab-Account verdrahtet (kein Auswahlbildschirm mit
+   anderen Anbietern).
 3. Nach erfolgreichem SSO-Login geht es automatisch weiter zu `/start`.
 
 ## 2. Erstes Mal: auf Freigabe warten
 
 Bevor ein Desktop startet, muss ein Admin die eigene Identitaet einmalig
-freischalten ([ADR 0012](../adr/0012-session-launcher.md)). Beim allerersten
-Login erscheint dafuer eine Wartesseite statt des Desktops:
+freischalten. Beim allerersten Login erscheint dafuer eine Wartesseite
+statt des Desktops:
 
 - Text sinngemaess: "Warte auf Freigabe durch den Administrator" — die
   Seite aktualisiert sich automatisch alle 30 Sekunden, ein manuelles
   Neuladen ist nicht noetig.
-- Das kann **bis zu 24 Stunden** dauern
-  ([ADR 0013](../adr/0013-approval-lifecycle.md)). Der Admin wird bei jeder
-  neuen Anfrage automatisch per E-Mail benachrichtigt.
+- Das kann **bis zu 24 Stunden** dauern. Der Admin wird bei jeder neuen
+  Anfrage automatisch per E-Mail benachrichtigt.
 - Ist die Freigabe einmal erteilt, bleibt sie bestehen — ein erneutes
   Warten ist erst wieder noetig, wenn der Admin sie manuell entzieht oder
   sie nach 6 Monaten automatisch abgelaufen ist.
@@ -49,9 +48,9 @@ aktualisiert; ein manuelles Neuladen fuehrt zum selben Ergebnis, ist aber
 nicht noetig.
 
 Direkt beim allerersten Start eines Containers werden die Aufgabenblatt-Skripte
-automatisch nach `~/rn-practice` kopiert (Mechanismus `init-seed-labs`, siehe
-[ADR 0014](../adr/0014-lab-scripts-in-image.md)) — der Ordner ist danach
-sofort vorhanden, ein manuelles Auschecken oder Kopieren ist nicht noetig.
+automatisch nach `~/rn-practice` kopiert (Mechanismus `init-seed-labs`) —
+der Ordner ist danach sofort vorhanden, ein manuelles Auschecken oder
+Kopieren ist nicht noetig.
 Die Unterordner (`topo01`, `topo02`, `topo03`, `topo-base`, `topoP02`–`topoP04`,
 `setup`) entsprechen der Tabelle in
 [rn-practice Setup](rn-practice-setup.md).
@@ -60,13 +59,12 @@ Die Unterordner (`topo01`, `topo02`, `topo03`, `topo-base`, `topoP02`–`topoP04
 
 Der Container selbst ist **ephemer**: bei laengerer Inaktivitaet wird er
 automatisch gestoppt und beim naechsten Login neu aus dem aktuellen Image
-erzeugt (Pruefungshygiene, siehe
-[ADR 0001](../adr/0001-no-terraform-for-sessions.md)). Das eigene
-Home-Verzeichnis (`~`, inklusive `~/rn-practice` und aller eigenen
-Aenderungen daran) liegt dagegen in einem separaten, persistenten Volume und
-uebersteht das Entfernen des Containers unveraendert. Nach einem erneuten
-Login ist der eigene Stand — inklusive selbst bearbeiteter Skripte — wieder
-da, ohne dass dafuer etwas Besonderes zu tun ist.
+erzeugt (Pruefungshygiene). Das eigene Home-Verzeichnis (`~`, inklusive
+`~/rn-practice` und aller eigenen Aenderungen daran) liegt dagegen in einem
+separaten, persistenten Volume und uebersteht das Entfernen des Containers
+unveraendert. Nach einem erneuten Login ist der eigene Stand — inklusive
+selbst bearbeiteter Skripte — wieder da, ohne dass dafuer etwas Besonderes
+zu tun ist.
 
 ## 5. Orientierung im Desktop
 
@@ -83,11 +81,10 @@ da, ohne dass dafuer etwas Besonderes zu tun ist.
 
 Am Ende einer Sitzung **im Desktop selbst ueber das Anwendungsmenue
 "Log Out" waehlen** — nicht einfach den Browser-Tab schliessen. Nur der
-In-Desktop-Logout beendet zuverlaessig auch die SSO-Sitzung im Browser
-(siehe [ADR 0011](../adr/0011-in-desktop-logout.md)); ein blosses
-Schliessen des Tabs laesst die SSO-Sitzung aktiv, sodass ein erneuter
-Aufruf der Seite ohne neuen Login direkt wieder in den (ggf. neu erzeugten)
-Desktop fuehrt.
+In-Desktop-Logout beendet zuverlaessig auch die SSO-Sitzung im Browser; ein
+blosses Schliessen des Tabs laesst die SSO-Sitzung aktiv, sodass ein
+erneuter Aufruf der Seite ohne neuen Login direkt wieder in den (ggf. neu
+erzeugten) Desktop fuehrt.
 
 !!! warning "Geteilte Geraete"
     Auf einem gemeinsam genutzten Rechner unbedingt ueber "Log Out"

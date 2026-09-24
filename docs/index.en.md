@@ -1,7 +1,7 @@
 # Networking Lab (Rechnernetze-Praktikum)
 
 This page summarizes the lab sheets of the modernized networking lab
-environment ("Rechnernetze-Praktikum") at HAW Hamburg. It replaces the
+environment ("Rechnernetze-Praktikum") of CADS AG. It replaces the
 scattered Google Drive PDFs and short URLs (`t1p.de/...`) with a
 consolidated, continuously maintained version inside the repository itself —
 every lab sheet is readable here as text **and** downloadable as a PDF.
@@ -16,8 +16,8 @@ every lab sheet is readable here as text **and** downloadable as a PDF.
 - **Corrected:** known errors/ambiguities in the original texts have been
   fixed and, where technically relevant, given a short justification.
 - **Challenges called out:** every lab sheet now explicitly names known
-  pitfalls (environment-related and subject-matter pitfalls) — see also the
-  summary page [Potential Challenges](challenges.md).
+  pitfalls (environment-related and subject-matter pitfalls) — each in the
+  "Potenzielle Herausforderungen" section at the end of the lab sheet.
 - **Verified, not just claimed:** where a statement has been confirmed via a
   Playwright screenshot or an actual script test in this environment, that
   is noted (see [Desktop/Mininet Environment](reference/umgebung.md)).
@@ -37,8 +37,9 @@ every lab sheet is readable here as text **and** downloadable as a PDF.
 ## Environment & access
 
 The labs run in a browser-based desktop (Selkies/KasmVNC) with Mininet,
-Wireshark and routing daemons — access via SSO through HAW GitLab. Details:
-[Desktop/Mininet Environment](reference/umgebung.md) and
+Wireshark and routing daemons — access via single sign-on. Which login
+button appears on which host is documented in the environment reference.
+Details: [Desktop/Mininet Environment](reference/umgebung.md) and
 [rn-practice setup](reference/rn-practice-setup.md).
 
 !!! warning "Safety notice"

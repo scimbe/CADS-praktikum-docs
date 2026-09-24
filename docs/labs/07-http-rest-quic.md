@@ -188,6 +188,21 @@ Internet-Zugriff, keinen NAT-Uplink einer Mininet-Topologie.
     ~/rn-practice/mark-done.sh 07 teil2
     ```
 
+!!! example "Vertiefung (optional): Wenn die API nein sagt"
+    Bisher habt ihr nur den Erfolgsfall gesehen – und `jq` zeigt ohnehin nur
+    den Rumpf der Antwort. Wiederholt eure Abfrage mit `curl -i`, damit
+    Statuszeile und Kopfzeilen sichtbar werden.
+
+    Provoziert dann Fehler und schaut euch jeweils **beides** an, Status und
+    Rumpf: ein absichtlich falscher API-Schlüssel, ein Ort, den es nicht
+    gibt, ein Parameter, den ihr weglasst. Notiert, welcher Statuscode
+    jeweils kommt.
+
+    Achtet zuletzt auf Kopfzeilen, die etwas über Grenzen sagen (Namen mit
+    `RateLimit` oder `Retry-After`). Ein Programm, das nur den Rumpf liest
+    und den Status wegwirft, hält eine Fehlermeldung für ein Ergebnis –
+    REST ist HTTP, und der Statuscode ist Teil der Antwort.
+
 !!! example "Stretch Goal (optional): Euer eigener HTTP-Client"
     Ihr habt HTTP jetzt zweimal von Hand getippt – gegen `h1` in Teil 1 und
     gegen eine echte API in Teil 2. Schreibt als freiwilliges Stretch-Goal
