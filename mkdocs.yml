@@ -4,6 +4,7 @@ site_description: >-
   Rechnernetze-Praktikumsumgebung.
 site_url: https://scimbe.github.io/CADS-praktikum-docs/
 docs_dir: docs
+copyright: "&copy; 2026 CADS AG"
 
 theme:
   name: material
