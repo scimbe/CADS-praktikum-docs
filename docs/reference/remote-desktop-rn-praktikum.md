@@ -71,7 +71,7 @@ zu tun ist.
 - **Terminal**: Icon in der Taskleiste bzw. Anwendungsmenue startet
   `xfce4-terminal` — **nicht** `xterm` verwenden/erwarten (Hintergrund dazu
   in [Desktop-/Mininet-Umgebung](umgebung.md#terminal)).
-- **Wireshark**: ueber das Anwendungsmenue oder per `wireshark` im Terminal
+- **Wireshark**: ueber das Anwendungsmenue oder per `sudo wireshark` im Terminal
   startbar; ist vorinstalliert, keine separate Installation noetig.
 - **Mininet-Topologien**: liegen unter `~/rn-practice/<topoXX>/`, Start je
   per `./start-topoXX.sh` — Details in

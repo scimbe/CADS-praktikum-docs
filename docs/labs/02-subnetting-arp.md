@@ -596,6 +596,309 @@ $ ovs-vsctl remove bridge s1 other-config mac-aging-time
     ```
 
 
+### Teil 6 – ARP von Hand auslösen und die Zustände lesen (`topo02`)
+
+Teil 1 hat ARP als Beiwerk des Routings gezeigt: auf jedem Segment eine eigene
+Auflösung. Jetzt betrachtet ihr ARP als eigenständiges Protokoll und macht **eine
+einzelne** Auflösung sichtbar – Frage und Antwort, und was der Kernel danach im
+Nachbarschafts-Cache über den Nachbarn notiert.
+
+!!! info "Werkzeug: `nping --arp` und `ip neigh` – was sie zeigen"
+    `nping --arp` (aus der Nmap-Sammlung) verschickt **eine** ARP-Anfrage und
+    zeigt Frage und Antwort im Klartext. **Was es zeigt:** genau einen
+    Auflösungsvorgang, ohne das Rauschen eines Dauer-Mitschnitts.
+    `ip neigh` zeigt den Nachbarschafts-Cache mit einem **Zustand** je Eintrag:
+    `REACHABLE` (kürzlich bestätigt), `STALE` (alt, aber nutzbar), `DELAY`/`PROBE`
+    (wird gerade neu geprüft). **Typische Fehldeutung:** `STALE` für einen Fehler
+    zu halten. `STALE` heißt nur „lange nicht bestätigt" – der Eintrag wird beim
+    nächsten Verkehr ohne neue Anfrage weiterverwendet und erst bei Bedarf geprüft.
+    `arping` ist im Abbild **nicht** vorhanden (geprüft 2026-09-24); `nping --arp`
+    ist der vorhandene Ersatz.
+
+**Ziel:** Eine ARP-Auflösung erzwingen, Anfrage und Antwort sehen und den
+Übergang der Cache-Zustände nachvollziehen.
+
+**Vorbedingung:** `topo02` läuft (`cd ~/rn-practice/topo02 && ./start-topo02.sh`).
+`h0` (`10.0.10.10`) und das Gateway `r1` (`10.0.10.1`) liegen am selben Segment.
+
+**Schritte:**
+
+```bash
+h0$ ip neigh flush all
+h0$ ip neigh show 10.0.10.1          # jetzt leer
+h0$ nping --arp -c 1 10.0.10.1       # eine ARP-Anfrage, Antwort im Klartext
+h0$ ping -c 1 10.0.10.1 ; ip neigh show 10.0.10.1
+```
+
+**Erwartete Ausgabe:** `nping` zeigt `ARP who has 10.0.10.1? Tell 10.0.10.10`
+und darunter `RCVD … ARP reply 10.0.10.1 is at <MAC>`. `ip neigh` ist nach dem
+Flush leer und nennt nach dem Ping die MAC mit Zustand `REACHABLE`.
+
+!!! success "Real geprüft (2026-09-24)"
+    In einem Wegwerfcontainer gegen ein real gebautes `topo02`: nach
+    `ip neigh flush all` war `ip neigh show 10.0.10.1` leer; `nping --arp -c 1
+    10.0.10.1` lieferte `ARP who has 10.0.10.1? Tell 10.0.10.10` und
+    `RCVD (0.0245s) ARP reply 10.0.10.1 is at 00:00:00:00:00:05`; nach einem
+    `ping` stand `10.0.10.1 dev h0-eth0 lladdr 00:00:00:00:00:05 REACHABLE`.
+
+!!! quote "Fun Fact (belegt): ARP ist älter als das Sicherheitsdenken"
+    ARP wurde im **November 1982** von David C. Plummer in **RFC 826** definiert
+    (Titel: „An Ethernet Address Resolution Protocol"). Es ist bis heute
+    Internet Standard (STD 37) und praktisch unverändert – und genau deshalb
+    kennt es keinerlei Schutz gegen gefälschte Antworten. Das ist kein Versäumnis
+    der Umgebung, sondern Protokollgeschichte: RFC 826 entstand, bevor die
+    Absicherung von LANs ein Thema war. Genau diese Sorglosigkeit nutzt der
+    Angriff in [Lab 05](05-arp-spoofing-dos.md) aus.
+
+    - RFC 826 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc826.html> (Abruf 2026-09-24)
+    - IETF-Datatracker, Status STD 37: <https://datatracker.ietf.org/doc/rfc826/> (Abruf 2026-09-24)
+
+    Hinweis zur Zitierweise: **RFC 826 hat keine nummerierten Abschnitte** – der
+    Algorithmus steht im Abschnitt *Packet Reception*, das Format in
+    *Packet format*. Eine Angabe wie „RFC 826, Abschnitt 3" wäre falsch.
+
+!!! tip "Fortschritt festhalten (optional)"
+    ```bash
+    ~/rn-practice/mark-done.sh 02 teil6
+    ```
+
+
+### Teil 7 – Longest-Prefix-Match selbst entscheiden, bevor der Kernel es tut (`topoP02`)
+
+In Teil 1 habt ihr die Routing-Tabellen *gelesen*. Jetzt trefft ihr selbst die
+Entscheidung, die ein Router bei **überlappenden** Routen treffen muss: Wenn
+zwei Einträge auf dasselbe Ziel passen, gewinnt der mit dem **längeren Präfix**.
+`topoP02` liefert dafür einen echten Fall auf `r2`.
+
+!!! info "Hintergrund: warum das längste Präfix gewinnt (CNP3, RFC 1519)"
+    Als die starren Adressklassen A/B/C nicht mehr reichten, führte
+    **RFC 1519** variabel lange Subnetze ein. Damit kann dieselbe Zieladresse
+    auf mehrere Routen passen. Die Regel dagegen ist eindeutig: Das Lehrbuch
+    CNP3 formuliert sie als „when a router knows several routes towards the same
+    destination address, it must forward packets along the route having the
+    longest prefix length." `0.0.0.0/0` passt auf alles und ist deshalb die
+    Default-Route – das kürzeste mögliche Präfix, der letzte Ausweg.
+
+    Quelle: *Computer Networking: Principles, Protocols and Practice*,
+    O. Bonaventure u. a., UCLouvain, Kapitel „IP version 4" (CC BY-SA 3.0),
+    zitiert RFC 1519; <https://www.computer-networking.info> (Abruf 2026-09-24).
+
+**Ziel:** Für eine Zieladresse, auf die zwei Routen passen, von Hand die
+gewinnende Route bestimmen und mit `ip route get` prüfen.
+
+**Vorbedingung:** `topoP02` läuft (`cd ~/rn-practice/topoP02 && ./start-topoP02.sh`).
+Öffnet ein Terminal auf `r2` (`mininet> xterm r2`).
+
+**Schritte:** Schaut euch zuerst die Routing-Tabelle von `r2` an:
+
+```bash
+r2$ ip route
+```
+
+Ihr findet dort für das Verkaufsnetz **zwei** passende Einträge:
+`128.155.192.0/19` (direkt angeschlossen, `dev r2-eth0`) und
+`128.155.192.0/18 via 10.0.1.2` (der Weg über `r3`). Entscheidet **auf Papier**,
+über welchen der beiden ein Paket an `128.155.192.5` (ein Host im Verkaufsnetz)
+geht, und prüft erst dann:
+
+```bash
+r2$ ip route get 128.155.192.5
+r2$ ip route get 128.155.240.2     # h4, nur ueber /18 erreichbar
+```
+
+**Erwartete Ausgabe:** `ip route get 128.155.192.5` nennt `dev r2-eth0` **ohne**
+`via` (das direkt angeschlossene `/19` gewinnt, weil sein Präfix länger ist);
+`ip route get 128.155.240.2` nennt dagegen `via 10.0.1.2` (nur das `/18` passt).
+
+!!! success "Real geprüft (2026-09-24)"
+    Gegen ein real gebautes `topoP02` zeigte `ip route` auf `r2` beide
+    überlappenden Einträge nebeneinander: `128.155.192.0/19 dev r2-eth0` und
+    `128.155.192.0/18 via 10.0.1.2 dev r2-eth2`. `ip route get 128.155.240.2`
+    lieferte `via 10.0.1.2 dev r2-eth2 src 10.0.1.1` – das `/18` greift für
+    Ziele, die das direkt angeschlossene `/19` nicht abdeckt, während ein Ziel
+    innerhalb des `/19` über das längere Präfix direkt zugestellt wird.
+
+!!! tip "Fortschritt festhalten (optional)"
+    ```bash
+    ~/rn-practice/mark-done.sh 02 teil7
+    ```
+
+
+### Teil 8 – IPv6 nebenher: Link-Local-Adressen und Neighbor Discovery statt ARP (`topo02`)
+
+Bisher war alles IPv4, und ARP war die Antwort auf „welche MAC gehört zu dieser
+IP?". Unter IPv6 gibt es **kein ARP** – dieselbe Aufgabe erledigt das *Neighbor
+Discovery Protocol* (NDP). Und ihr müsst dafür nichts konfigurieren: Jede
+Schnittstelle bekommt automatisch eine **Link-Local-Adresse** (`fe80::/10`),
+mit der Nachbarn auf demselben Segment sich schon vor jeder IPv6-Konfiguration
+erreichen.
+
+!!! info "Werkzeug: `ip -6 neigh` und `ping6` – was ihr seht"
+    `ip -6 addr` zeigt die automatisch vergebene `fe80:...`-Adresse je
+    Schnittstelle. `ping6 <ziel>%<schnittstelle>` erreicht einen Link-Local-
+    Nachbarn – der Zusatz `%h0-eth0` ist Pflicht, weil `fe80::`-Adressen auf
+    **jeder** Schnittstelle gelten und der Kernel sonst nicht weiß, welche
+    gemeint ist. `ip -6 neigh` ist das IPv6-Gegenstück zu `ip neigh`. **Typische
+    Fehldeutung:** eine `fe80:`-Adresse für „nicht konfiguriert / kaputt" zu
+    halten. Sie ist der Normalzustand und für NDP unverzichtbar.
+
+**Ziel:** Zeigen, dass IPv6-Nachbarn sich ohne Konfiguration und ohne ARP
+finden, und den NDP-gefüllten Nachbar-Cache lesen.
+
+**Vorbedingung:** `topo02` läuft. Terminal auf `h0`.
+
+**Schritte:**
+
+```bash
+h0$ ip -6 addr show h0-eth0            # die fe80:...-Adresse ablesen
+h0$ ping6 -c 2 ff02::1%h0-eth0         # all-nodes-Multicast auf dem Segment
+h0$ ip -6 neigh show dev h0-eth0       # von NDP gefuellte Nachbarn
+```
+
+**Erwartete Ausgabe:** `ip -6 addr` zeigt eine `inet6 fe80::…/64 scope link`.
+Nach dem `ping6` an die All-Nodes-Adresse stehen in `ip -6 neigh` die
+Link-Local-Adressen der Nachbarn mit ihrer MAC – gefüllt durch NDP, nicht durch
+ARP.
+
+!!! success "Real geprüft (2026-09-24)"
+    Gegen ein real gebautes `topo02`: `ip -6 addr show h0-eth0` lieferte
+    `inet6 fe80::200:ff:fe00:1/64 scope link`; nach `ping6 ff02::1%h0-eth0`
+    zeigte `ip -6 neigh` die Nachbarn `fe80::200:ff:fe00:5` und
+    `fe80::200:ff:fe00:2` mit ihren MAC-Adressen (Zustand `DELAY`) – ganz ohne
+    ARP und ohne eine einzige manuell gesetzte IPv6-Adresse.
+
+!!! info "Hintergrund: NDP ist RFC 4861"
+    Was ARP (RFC 826) für IPv4 tut, erledigt für IPv6 das *Neighbor Discovery
+    Protocol* (RFC 4861) – allerdings nicht über einen eigenen Ethertype,
+    sondern als Teil von ICMPv6. Die `fe80::…`-Adresse leitet sich in dieser
+    Umgebung erkennbar aus der MAC ab (`…00:ff:fe00:5` gehört zur MAC
+    `00:00:00:00:00:05`) – das ist das historische EUI-64-Verfahren, an dem man
+    Adresse und Hardware einander zuordnen kann.
+
+!!! tip "Fortschritt festhalten (optional)"
+    ```bash
+    ~/rn-practice/mark-done.sh 02 teil8
+    ```
+
+
+### Teil 9 – Die offene Frage aus Teil 5 selbst beantworten: Überlauf ja, Flutung nein? (`topo02`)
+
+Teil 5 endete mit einer bewusst offenen Frage: Ihr habt die Lerntabelle mit
+`macof` zum Überlaufen gebracht (Einträge wurden verdrängt), aber **nicht**
+gezeigt, dass der Switch daraufhin fremden Verkehr an euren Port flutet. Genau
+diese Messung legt ihr jetzt an – und das Ergebnis ist lehrreicher als ein
+einfaches „Angriff funktioniert".
+
+**Ziel:** Prüfen, ob der Überlauf der Lerntabelle dazu führt, dass ein
+Unbeteiligter (`h1`) den Unicast-Verkehr zwischen `h0` und dem Gateway `r1`
+mitsieht.
+
+**Vorbedingung:** `topo02` läuft. Terminals auf `h0` und `h1`. Denkt an die
+Namens-Eigenheit aus Teil 5: `h1`s Schnittstelle heißt `h0-eth0`.
+
+**Schritte:**
+
+```bash
+# 1. h1 lauscht auf Verkehr, an dem es NICHT beteiligt ist (h0 <-> r1):
+h1$ tcpdump -i h0-eth0 -n icmp and host 10.0.10.1
+# 2. Baseline OHNE Angriff: h0 pingt r1, h1 sollte nichts sehen
+h0$ ping -c 3 10.0.10.1
+# 3. Tabelle klein machen und mit macof ueberfluten:
+$  ovs-vsctl set bridge s1 other-config:mac-table-size=16
+h0$ timeout 6 macof -i h0-eth0 &
+# 4. waehrend macof laeuft: h0 pingt r1 erneut, h1 weiter beobachten
+h0$ ping -c 8 -i 0.3 10.0.10.1
+$  ovs-appctl fdb/stats-show s1
+$  ovs-vsctl remove bridge s1 other-config mac-table-size
+```
+
+**Erwartete Ausgabe:** `fdb/stats-show` zeigt eine hohe Zahl verdrängter
+(`evicted`) Einträge – der Überlauf ist real. `h1` sieht in `tcpdump` dennoch
+**keinen** oder kaum Verkehr zwischen `h0` und `r1`.
+
+!!! success "Real geprüft (2026-09-24)"
+    Gegen ein real gebautes `topo02` mit `mac-table-size=16`: `fdb/stats-show`
+    meldete **131.243 verdrängte** Einträge (Tabelle konstant bei 16/16), der
+    Überlauf war also massiv. Trotzdem sah `h1` **0** Pakete des
+    `h0`↔`r1`-Unicasts – sowohl in der Baseline als auch während des
+    `macof`-Angriffs.
+
+!!! question "Warum der Lehrbuch-Angriff hier nicht zündet – und wann er es täte"
+    Das Ergebnis widerspricht der verbreiteten Erzählung „MAC-Flooding macht
+    den Switch zum Hub". Der Grund ist präzise: Verdrängt werden die **zufälligen**
+    Absenderadressen von `macof`. Die Einträge für `h0` und `r1` bleiben
+    dagegen frisch, weil beide **während der Messung ununterbrochen senden** –
+    jedes ihrer Pakete lernt der Switch sofort neu, schneller als die Alterung
+    sie entfernen könnte. Geflutet würde nur Verkehr zu einer Adresse, deren
+    Eintrag **zwischen** zwei seltenen Paketen verdrängt wurde.
+
+    Damit erfüllt ihr genau, was Teil 5 verlangt hat: nicht die Vermutung
+    übernehmen, sondern messen. Formuliert, welche Topologie den Angriff
+    *zeigen* würde – Hinweis: Ihr braucht **drei** Parteien, die nichts mit dem
+    Angreifer zu tun haben, und Verkehr zwischen zweien davon, der selten genug
+    ist, um zwischen den Paketen aus der verkleinerten Tabelle zu fallen.
+    `topo02` hat dafür zu wenige Geräte am Switch (`h0`, `h1`, `r1`) – der
+    Unterschied zwischen „die Voraussetzung ist hergestellt" und „der Angriff
+    funktioniert" ist derselbe wie in Teil 5.
+
+!!! quote "Fun Fact (belegt): `macof` und die dsniff-Sammlung"
+    `macof` gehört wie `arpspoof` (siehe [Lab 05](05-arp-spoofing-dos.md)) zur
+    **dsniff**-Sammlung von Dug Song. dsniff 1.0 erschien am 17. Dezember 1999;
+    die Werkzeuge sind also über 25 Jahre alt – und funktionieren bis heute,
+    weil die zugrundeliegenden Protokolle (ARP, Ethernet-Lernen) unverändert sind.
+
+    - dsniff-Projektseite (Dug Song): <https://www.monkey.org/~dugsong/dsniff/> (Abruf 2026-09-24)
+    - dsniff CHANGES (v1.0, 17.12.1999): <https://raw.githubusercontent.com/tecknicaltom/dsniff/master/CHANGES> (Abruf 2026-09-24)
+
+!!! tip "Fortschritt festhalten (optional)"
+    ```bash
+    ~/rn-practice/mark-done.sh 02 teil9
+    ```
+
+
+### Teil 10 – Der Preis der starren Aufteilung: VLSM-Verschnitt selbst ausrechnen (`topoP02`, Handrechnung)
+
+Teil 4 hat euch am Ende gefragt, wie viele gleich große `/19`-Subnetze in das
+`/17` passen. Jetzt rechnet ihr den **Verschnitt** aus – den Adressverlust, den
+eine starre, gleich große Aufteilung gegenüber VLSM verursacht. Das ist reine
+Handrechnung; ihr braucht keine laufende Topologie.
+
+**Ziel:** Den Adress-Overhead einer gleich großen Aufteilung gegen VLSM
+beziffern und begründen, warum VLSM überhaupt existiert.
+
+**Vorbedingung:** Die VLSM-Tabelle aus Teil 1 (Entwicklung `/18`, Verkauf `/19`,
+Einkauf `/20`, Lager `/23`) und der Adressraum `128.155.128.0/17`.
+
+**Schritte (auf Papier):**
+
+1. Bestimmt für jede der vier Abteilungen die Zahl der **tatsächlich benötigten**
+   Hosts (aus Teil 1) und die Zahl der **im gewählten VLSM-Präfix nutzbaren**
+   Hosts. Die Differenz ist der VLSM-Verschnitt je Netz.
+2. Rechnet nun die Alternative: Alle vier Abteilungen bekommen ein gleich großes
+   Präfix, groß genug für die **größte** Abteilung (Entwicklung, 10.000 Hosts →
+   welches Präfix?). Wie viele Adressen verbraucht diese starre Variante
+   insgesamt, und passt sie überhaupt noch in das `/17`?
+3. Stellt beide Summen nebeneinander: Wie viele nutzbare Adressen „verschenkt"
+   die starre Aufteilung gegenüber VLSM?
+
+**Erwartete Ausgabe:** Eine kleine Tabelle mit „benötigt / nutzbar / Verschnitt"
+je Abteilung für beide Varianten und ein Satz, der den Unterschied benennt.
+
+!!! info "Zur Kontrolle (nicht vorher lesen)"
+    Die größte Abteilung (10.000 Hosts) braucht ein `/18` (16.382 nutzbare
+    Hosts). Vier gleich große `/18` wären `4 × 2¹⁴`-Adressblöcke – das sind vier
+    `/18`, also der **gesamte** `/16`-Bereich und damit doppelt so viel Adressraum
+    wie das vorgegebene `/17` überhaupt hergibt. Schon daran zeigt sich, dass die
+    starre Variante hier gar nicht in den zugewiesenen Adressraum passt, während
+    VLSM (`/18` + `/19` + `/20` + `/23`) bequem hineinpasst. Genau das ist der
+    Grund, warum RFC 1519 variabel lange Subnetze eingeführt hat (siehe Teil 7).
+
+!!! tip "Fortschritt festhalten (optional)"
+    ```bash
+    ~/rn-practice/mark-done.sh 02 teil10
+    ```
+
+
 ## Potenzielle Herausforderungen
 
 !!! success "Capability-Set für topoP02/topoP03/topoP04 verifiziert (2026-09-09)"
@@ -648,6 +951,22 @@ $ ovs-vsctl remove bridge s1 other-config mac-aging-time
   passt (reines Routing zwischen zwei Netzen als Einstieg vor dynamischem
   Routing) – hier daher nur als Hinweis, dass das Skript aus derselben
   `rn-practice`-Familie stammt.
+- **Teil 6: `arping` fehlt im Abbild** (geprüft 2026-09-24). `nping --arp`
+  ist der vorhandene Ersatz für eine einzelne ARP-Anfrage. `ip neigh`-Zustände
+  wie `STALE` sind kein Fehler, sondern der normale Alterungszyklus.
+- **Teil 8: die `fe80:`-Adressen sind Absicht.** IPv6-Link-Local wird ohne jede
+  Konfiguration vergeben; ein `ping6` an eine `fe80:`-Adresse braucht **zwingend**
+  den `%<schnittstelle>`-Zusatz, sonst meldet der Kernel `Invalid argument`.
+- **Teil 9: der MAC-Flooding-Angriff „zündet" auf `topo02` nicht** – und das ist
+  der Befund, nicht ein Defekt. Verdrängt werden die zufälligen `macof`-Adressen;
+  aktive Endpunkte (`h0`, `r1`) behalten ihren Eintrag. Real gemessen
+  (2026-09-24): 131.243 verdrängte Einträge, aber 0 geflutete Pakete beim
+  Beobachter. Wer hier „Angriff erfolgreich" erwartet, misst am falschen Aufbau
+  (Begründung in Teil 9).
+- **Teil 7/10: `ip route get` ist die Kontrolle, nicht der Anfang.** Erst
+  rechnen (welches Präfix ist länger?), dann prüfen – sonst übt man das Ablesen
+  statt des Verstehens. `128.155.192.0/19` schlägt `128.155.192.0/18`, weil sein
+  Präfix länger ist (real geprüft 2026-09-24).
 
 ## Quellen
 

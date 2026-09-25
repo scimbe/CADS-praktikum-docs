@@ -822,6 +822,238 @@ zeigt, ob ihr die Messung verstanden habt:
     ```
 
 
+### Teil 5 – Drei Tabellen, drei Wahrheiten: Kernel, RIP und BGP nebeneinander (`topo03`)
+
+Teil 2 hat schon angedeutet, dass es *zwei* Tabellen gibt: die des Kernels
+(`ip route`) und die der Routing-Software (`show ip route`). Tatsächlich sind
+es sogar drei, denn die Routing-Software hält je Protokoll eine eigene: `show
+ip rip` und `show ip bgp` zeigen, was **RIP** bzw. **BGP** jeweils für sich
+gelernt haben, bevor die administrative Distanz entscheidet, welcher Eintrag es
+in die Kernel-FIB schafft. In diesem Teil legt ihr alle drei nebeneinander und
+verfolgt ein einzelnes Präfix durch sie hindurch.
+
+!!! info "Werkzeug: die drei `show`-Ansichten von `vtysh`"
+    `show ip route` ist die **Entscheidung** (was tatsächlich weitergeleitet
+    wird, mit Protokoll-Kennbuchstabe und `[Distanz/Metrik]`). `show ip rip` und
+    `show ip bgp` sind die **Kandidaten** je Protokoll. **Typische
+    Fehldeutung:** `show ip rip` als „die aktiven RIP-Routen" zu lesen. Es zeigt
+    *alles*, was RIP kennt – auch Routen, die BGP im Wettbewerb um die FIB
+    geschlagen hat.
+
+**Ziel:** Für das Präfix `192.168.3.0/24` zeigen, dass es in RIP **und** BGP
+existiert, mit unterschiedlichen Distanzen, und dass nur einer der beiden die
+Kernel-Route stellt.
+
+**Vorbedingung:** `topo03` läuft in Stufe 2 (RIP und BGP aktiv, siehe Teil 2).
+Terminal auf `r1` (`mininet> xterm r1`).
+
+**Schritte:**
+
+```bash
+r1$ vtysh -c "show ip route 192.168.3.0/24"
+r1$ vtysh -c "show ip rip"
+r1$ vtysh -c "show ip bgp"
+```
+
+**Erwartete Ausgabe:** In `show ip route` erscheint `192.168.3.0/24` zweimal –
+einmal mit `B` (BGP, Distanz 20) und `>*` (in die FIB gewählt), einmal mit `R`
+(RIP, Distanz 120) ohne `>*`. `show ip rip` listet dasselbe Präfix mit seiner
+RIP-Metrik, `show ip bgp` mit seinem AS-Pfad.
+
+!!! success "Real geprüft (2026-09-24)"
+    In einem Wegwerfcontainer, `topo03` mit FRR 10.3 headless hochgezogen und
+    konvergiert, lieferte `show ip route` auf `r1` genau das erwartete Bild:
+    `B>* 192.168.3.0/24 [20/0] via 193.1.1.2, r1-eth1` (BGP, gewählt) **neben**
+    `R 192.168.3.0/24 [120/3] via 193.1.1.2, r1-eth1` (RIP, nicht gewählt) –
+    dasselbe Präfix, derselbe Nexthop, zwei Quellen, und die kleinere Distanz
+    (BGP 20 < RIP 120) gewinnt die FIB. Auch `193.1.2.0/24` stand doppelt da
+    (`B` und `R [120/2]`). `show ip rip` zeigte `192.168.3.0/24` mit Metrik 3
+    und `193.1.1.0/26` mit Metrik 1 (`C(i)`, direkt).
+
+!!! info "Hintergrund: administrative Distanz ist Konvention, kein Standard"
+    Die Zahl vor der Metrik (20 für BGP, 120 für RIP) ist die *administrative
+    Distanz*. Sie steht in **keinem** RFC – sie ist eine Hersteller-Konvention
+    (ursprünglich von Cisco), die praktisch alle Router übernommen haben, damit
+    ein Gerät zwischen mehreren Protokollen, die dieselbe Route kennen,
+    reproduzierbar wählt. Die *Metrik* dahinter ist dagegen protokolldefiniert:
+    RIPs Hop-Zahl steht in RFC 2453, BGPs Entscheidungsprozess in RFC 4271
+    (siehe Teil 6 und 7).
+
+!!! tip "Fortschritt festhalten (optional)"
+    ```bash
+    ~/rn-practice/mark-done.sh 03 teil5
+    ```
+
+
+### Teil 6 – BGP-Nachbarschaften und der AS-Pfad lesen (`topo03`)
+
+BGP ist das Protokoll, das das Internet zusammenhält (siehe die Hintergrundbox
+in Teil 2). In `topo03` seht ihr es im Kleinen: drei autonome Systeme
+(65001/65002/65003), die einander Präfixe ankündigen. In diesem Teil lest ihr
+die Nachbarschaftstabelle und den AS-Pfad – die beiden Dinge, an denen sich in
+einem echten Betrieb entscheidet, ob eine Route geglaubt wird.
+
+**Ziel:** Die BGP-Peerings von `r1` und den AS-Pfad zu einem gelernten Präfix
+ablesen.
+
+**Vorbedingung:** `topo03` in Stufe 2, Terminal auf `r1`.
+
+**Schritte:**
+
+```bash
+r1$ vtysh -c "show ip bgp summary"
+r1$ vtysh -c "show ip bgp"
+r1$ vtysh -c "show ip bgp 192.168.3.0/24"
+```
+
+**Erwartete Ausgabe:** `summary` zeigt `r1`s lokale AS-Nummer (65001), den
+Nachbarn (`193.1.1.2`, AS 65002), wie lange die Sitzung schon steht (`Up/Down`)
+und wie viele Präfixe empfangen wurden. `show ip bgp 192.168.3.0/24` zeigt den
+**AS-Pfad**, über den das Präfix zu `r1` kam.
+
+!!! success "Real geprüft (2026-09-24)"
+    `show ip bgp summary` auf `r1` (headless hochgezogenes `topo03`, FRR 10.3):
+    `local AS number 65001`, ein Nachbar `193.1.1.2  4  65002` im Zustand
+    `Up 00:01:10` mit `State/PfxRcd = 3` (drei empfangene Präfixe) und
+    `PfxSnt = 4`. Die BGP-Sitzung war also etabliert und tauschte Präfixe aus –
+    genau die Grundlage, auf der die konkurrierende Route aus Teil 5 überhaupt
+    entsteht.
+
+!!! quote "Fun Fact (belegt): das Zwei-Servietten-Protokoll"
+    BGP wurde **1989** von Kirk Lougheed (Cisco) und Yakov Rekhter (IBM) bei
+    einem IETF-Treffen auf Papierservietten skizziert – daher der Spitzname
+    „two-napkin protocol". Die Servietten selbst sind verloren; im Cisco Archive
+    des Computer History Museum liegen nur Fotokopien (3 Seiten). Ob es zwei oder
+    drei Servietten waren, ist widersprüchlich überliefert – Rekhter selbst
+    spricht von drei.
+
+    - Computer History Museum, „The Two-Napkin Protocol": <https://computerhistory.org/blog/the-two-napkin-protocol/> (Abruf 2026-09-24)
+    - Cisco Archive / CHM Katalog (Identifier 2014-57-001, „3 pages"): <http://ciscoarchive.lunaimaging.com/luna/servlet/detail/CHMC~4~4~265~943> (Abruf 2026-09-24)
+
+    Der AS-Pfad, den ihr oben lest, ist übrigens genau das, was BGP vor dem
+    Count-to-Infinity-Problem von RIP schützt: **RFC 4271, Abschnitt 9.1.2**
+    schreibt vor, dass ein Router eine Route verwirft, deren AS-Pfad seine
+    eigene AS-Nummer schon enthält – eine Schleife ist damit sofort erkennbar,
+    ohne bis „unendlich" zu zählen.
+
+!!! tip "Fortschritt festhalten (optional)"
+    ```bash
+    ~/rn-practice/mark-done.sh 03 teil6
+    ```
+
+
+### Teil 7 – Die RIP-Metrik und die Grenze bei 16 selbst ablesen (`topo03`)
+
+Die Hintergrundbox in Teil 2 hat behauptet, RIP könne nur bis 15 zählen und 16
+bedeute „unerreichbar". Jetzt lest ihr die Metrik direkt aus `show ip rip` und
+verbindet die Zahl mit dem, was ihr in Teil 3 über Rekonvergenz gemessen habt.
+
+**Ziel:** Die Hop-Metrik der RIP-Routen ablesen und begründen, warum die
+Obergrenze 15 (nicht 16) das Distance-Vector-Verfahren überhaupt erst
+brauchbar macht.
+
+**Vorbedingung:** `topo03` in Stufe 2, Terminal auf `r1`.
+
+**Schritte:**
+
+```bash
+r1$ vtysh -c "show ip rip"
+```
+
+Notiert die Spalte `Metric` für jede Route. Fragt euch: `192.168.3.0/24` steht
+mit welcher Metrik da, und wie viele Router-Hops entspricht das im Bild aus
+Teil 2?
+
+**Erwartete Ausgabe:** Eine Tabelle mit `Network / Next Hop / Metric`. Direkt
+angeschlossene Netze haben Metrik 1 (`C(i)`), entfernte eine Metrik, die der
+Hop-Zahl entspricht.
+
+!!! success "Real geprüft (2026-09-24)"
+    `show ip rip` auf `r1` (headless `topo03`, FRR 10.3): `R(n) 192.168.3.0/24
+    … Metric 3 … From 193.1.1.2` und `C(i) 193.1.1.0/26 … Metric 1 … self` –
+    das entfernte Stub-Netz von `r3` ist drei RIP-Hops entfernt, das eigene
+    Segment eins.
+
+!!! quote "Fun Fact (belegt): warum 15 und nicht 255"
+    RIP ist auf Pfade von höchstens **15** Hops begrenzt; der Metrikwert **16**
+    bedeutet „unerreichbar" (RFC 2453, Abschnitt 3.2 nennt die 15-Hop-Grenze,
+    Abschnitt 3.4.1 definiert 16 als „infinity"). Die niedrige Grenze ist kein
+    Sparzwang, sondern die Bremse gegen das *Count-to-Infinity*-Problem: Ohne
+    ein kleines, schnell erreichbares „unendlich" würden sich zwei Router nach
+    einem Ausfall gegenseitig immer größere Entfernungen zurückmelden, ohne je
+    zu enden (RFC 2453, Abschnitt 3.4.2).
+
+    - RFC 2453 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc2453.txt> (Abruf 2026-09-24)
+    - Cisco, „An unreachable network has a metric of 16": <https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/iproute_rip/configuration/15-mt/irr-15-mt-book/irr-cfg-info-prot.html> (Abruf 2026-09-24)
+
+    Randnotiz zur Quellenarbeit: Das CNP3-Lehrbuch nennt für RIP den UDP-Port
+    **521** – das ist falsch, 521 ist der RIPng-Port (RFC 2080, Abschnitt 2.1).
+    Klassisches RIP über IPv4 nutzt **Port 520** (RFC 2453, Abschnitt 3.6), wie
+    ihr es in Teil 4 selbst mitgeschnitten habt.
+
+!!! tip "Fortschritt festhalten (optional)"
+    ```bash
+    ~/rn-practice/mark-done.sh 03 teil7
+    ```
+
+
+### Teil 8 – Nachrichtentypen ohne `tshark`: `tcpdump` dekodiert RIP und BGP selbst (`topo03`)
+
+Teil 4 hat die Protokollspur *vermessen* (wie viele Byte, wie oft). Jetzt schaut
+ihr in die Nachrichten **hinein** – und zwar ohne `tshark` (das im Abbild fehlt).
+`tcpdump` bringt eigene Dekoder für RIP und BGP mit und benennt jeden
+Nachrichtentyp im Klartext. Damit unterscheidet ihr eine RIP-*Anfrage* von einer
+RIP-*Antwort* und eine BGP-*Open*- von einer *Keepalive*-Nachricht – allein aus
+der Aufzeichnung.
+
+!!! info "Werkzeug: `tcpdump -v` als Protokoll-Dekoder"
+    Mit `-v` (verbose) wertet `tcpdump` den Inhalt bekannter Protokolle aus,
+    nicht nur die Header. Für RIP druckt es `RIPv2, Request/Response, length: …`,
+    für BGP `Open Message (1)`, `Update Message (2)`, `Keepalive Message (4)`.
+    **Was es kann:** die Nachrichtentypen benennen. **Was es nicht ersetzt:** die
+    tiefe, feldweise Zerlegung und Statistik von Wireshark/`tshark` – für das
+    Erkennen der Typen genügt es aber vollständig.
+
+**Ziel:** In der eigenen Aufzeichnung aus Teil 4 die RIP- und BGP-Nachrichten
+nach Typ auseinanderhalten.
+
+**Vorbedingung:** Die `pcap`-Datei aus Teil 4
+(`~/rn-practice/pcaps/03-teil4-protokollspuren.pcap`) oder eine frische
+Aufzeichnung von `r1-eth1` (siehe Teil 4, Schritt 2).
+
+**Schritte:**
+
+```bash
+r1$ P=~/rn-practice/pcaps/03-teil4-protokollspuren.pcap
+r1$ tcpdump -r "$P" -v -n udp port 520 | grep RIPv2      # Request vs Response
+r1$ tcpdump -r "$P" -v -n tcp port 179 | grep Message    # Open/Update/Keepalive
+```
+
+**Erwartete Ausgabe:** Für RIP Zeilen wie `RIPv2, Request, length: 24` und
+`RIPv2, Response, length: 44`; für BGP `Open Message (1)`, `Keepalive Message
+(4)` und, während der Konvergenz, `Update Message (2)`.
+
+!!! success "Real geprüft (2026-09-24)"
+    Gegen eine 65-Sekunden-Aufzeichnung von `r1-eth1` (headless `topo03`,
+    FRR 10.3) dekodierte `tcpdump -v`: `RIPv2, Request, length: 24` und
+    `RIPv2, Response, length: 24` bzw. `length: 44` (die längeren Antworten
+    tragen mehr Routen), sowie auf TCP/179 `Open Message (1), length: 99` und
+    `Keepalive Message (4), length: 19`. Die Aufzeichnung enthielt 10 RIP-
+    (UDP/520) und 23 BGP-Pakete (TCP/179) – die Zahlen decken sich mit Teil 4.
+
+!!! info "Hintergrund: warum die Antwort länger ist als die Anfrage"
+    Eine RIP-*Anfrage* fragt „schick mir deine Tabelle" und ist minimal
+    (24 Byte). Eine *Antwort* trägt je Route einen 20-Byte-Eintrag – deshalb
+    wächst ihre Länge mit der Zahl der Routen (im Mitschnitt: 24 Byte für eine
+    Route, 44 Byte für zwei). Das RIP-Nachrichtenformat mit genau diesen Feldern
+    steht in RFC 2453, Abschnitt 3.6.
+
+!!! tip "Fortschritt festhalten (optional)"
+    ```bash
+    ~/rn-practice/mark-done.sh 03 teil8
+    ```
+
+
 ## Wenn etwas nicht wie erwartet läuft
 
 Vier Dinge irritieren in dieser Übung regelmäßig, ohne dass etwas kaputt
@@ -852,6 +1084,21 @@ ist. Wer sie kennt, verliert keine Zeit damit.
   ("continuing") und verhindern den RIP-/BGP-Austausch nicht – am 2026-09-24
   liefen alle vier Router trotz dieser Meldungen mit FRR 10.3 hoch und
   tauschten Routen aus.
+- **Teil 5–8 setzen Stufe 2 voraus.** `show ip rip`/`show ip bgp` sind erst
+  gefüllt, nachdem ihr am `mininet>`-Prompt einmal `exit` gedrückt habt (RIP/BGP
+  gestartet). In Stufe 1 sind die Protokoll-Tabellen leer – das ist kein Fehler.
+- **`show ip rip` zeigt mehr als die Kernel-Route.** Ein Präfix kann dort mit
+  einer RIP-Metrik stehen, obwohl im `ip route` des Kernels die BGP-Variante
+  gewählt ist (Teil 5). Wer beide verwechselt, hält eine nicht-gewählte Route
+  für aktiv.
+- **FRR-Daemons starten nicht von selbst** (`/etc/frr/daemons` steht auf `no`,
+  geprüft 2026-09-24). Das übernimmt `topo03` beim Wechsel in Stufe 2; ein
+  manuelles `vtysh` in Stufe 1 meldet daher „failed to connect to any daemons".
+  Der Handstart-Weg ist `/usr/lib/frr/frrinit.sh start` bzw. – wie in `topo03` –
+  die direkten Daemon-Aufrufe (`/usr/lib/frr/ripd -d`, `bgpd -d`).
+- **`tshark` fehlt** (geprüft 2026-09-24). Für Teil 8 ist das ohne Folgen:
+  `tcpdump -v` dekodiert RIP (Request/Response) und BGP (Open/Update/Keepalive)
+  selbst. Anleitungen mit `tshark -O bgp` laufen hier nicht.
 
 ## Fazit
 

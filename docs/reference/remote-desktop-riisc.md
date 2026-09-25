@@ -65,7 +65,7 @@ vorinstallierten Werkzeuge:
 
 - **Terminal**: Taskleisten-/Menue-Icon startet `xfce4-terminal`, nicht
   `xterm` (siehe [Desktop-/Mininet-Umgebung](umgebung.md#terminal)).
-- **Wireshark**: vorinstalliert, ueber Anwendungsmenue oder `wireshark` im
+- **Wireshark**: vorinstalliert, ueber Anwendungsmenue oder `sudo wireshark` im
   Terminal.
 - **Mininet-Topologien**: unter `~/rn-practice/<topoXX>/`, Start per
   `./start-topoXX.sh` ([rn-practice Setup](rn-practice-setup.md#start-eines-labs-kurzform)).
