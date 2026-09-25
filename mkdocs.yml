@@ -35,6 +35,9 @@ theme:
 
 plugins:
   - search
+  - glightbox:
+      auto_caption: true
+      caption_position: bottom
   - i18n:
       docs_structure: suffix
       languages:
@@ -65,6 +68,16 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - toc:
       permalink: true
+  # Fuer den wiederverwendbaren Verbesserungslink-Baustein
+  # (docs/.snippets/issue-feedback.md), damit der Linktext nicht in jeder
+  # Datei von Hand gepflegt werden muss.
+  - pymdownx.snippets:
+      base_path:
+        - docs/.snippets
+      check_paths: true
+
+extra_javascript:
+  - assets/js/issue-feedback.js
 
 nav:
   - Start: index.md

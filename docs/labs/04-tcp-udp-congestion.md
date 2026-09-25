@@ -22,6 +22,8 @@
   gemessenen Wert halten, die Abweichung in Prozent angeben und sie benennen
   können – statt einer Konfigurationsangabe zu glauben.
 
+--8<-- "issue-feedback.md"
+
 ## Aufgaben
 
 ### Teil A — Fehlerrate, MTU und IP-Fragmentation
@@ -445,6 +447,8 @@ Werten hängen zu bleiben?
     ~/rn-practice/mark-done.sh 04 teilc
     ```
 
+
+--8<-- "issue-feedback.md"
 
 ### Teil D — Störungen selbst erzeugen: Verzögerung, Verlust und Bandbreite mit `tc` (`topo02`)
 
@@ -1110,6 +1114,8 @@ begleitet von `mss:` und `cwnd:`.
     ~/rn-practice/mark-done.sh 04 teilj
     ```
 
+
+--8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
 

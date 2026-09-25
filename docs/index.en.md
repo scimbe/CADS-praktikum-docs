@@ -26,6 +26,8 @@ every lab sheet is readable here as text **and** downloadable as a PDF.
 | [06](labs/06-advanced-covert-channels.md) | Advanced: DNS tunneling, covert channels, JA3, NTP | Lab 5 | *(no script yet, see Challenges)* |
 | [07](labs/07-http-rest-quic.md) | HTTP/REST/QUIC by hand (netcat/telnet) | Labor-05 | `rn-practice/topo01` (HTTP(S) server) |
 
+--8<-- "issue-feedback.en.md"
+
 ## Environment & access
 
 The labs run in a browser-based desktop (Selkies/KasmVNC) with Mininet,
@@ -39,3 +41,5 @@ Details: [Desktop/Mininet Environment](reference/umgebung.md) and
     channels). These run **exclusively** inside the isolated Mininet network
     namespace environment of each participant's container — never against
     the host network or third parties.
+
+--8<-- "issue-feedback.en.md"

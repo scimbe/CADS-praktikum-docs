@@ -25,6 +25,8 @@
   (topo01-HTTP(S)-Server) und einer echten, externen Web-API
   (OpenWeatherMap) im eigenen Netzwerkverkehr beobachten können.
 
+--8<-- "issue-feedback.md"
+
 ## Aufgaben
 
 ### Teil 1 – Manuelles HTTP gegen die lokale Gegenstelle (topo01)
@@ -108,6 +110,8 @@ schiefgehen kann.
     ~/rn-practice/mark-done.sh 07 teil1
     ```
 
+
+--8<-- "issue-feedback.md"
 
 ### Teil 2 – Manuelles HTTP/REST gegen die externe OpenWeatherMap-API
 
@@ -296,6 +300,8 @@ Header, Body) identisch? Was genau hat `openssl s_client` für euch
     ~/rn-practice/mark-done.sh 07 teil3
     ```
 
+
+--8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
 

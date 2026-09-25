@@ -24,6 +24,8 @@
 - Nachvollziehen, warum in einer gerouteten Topologie nicht jeder Rechner
   jeden anderen direkt erreicht (asymmetrisches Routing).
 
+--8<-- "issue-feedback.md"
+
 ## Aufgaben
 
 ### Teil 1 – Das TCP/IP-Schichtenmodell in echtem Verkehr (außerhalb von Mininet)
@@ -116,6 +118,8 @@ uns die kontrollierte, emulierte Topologie von `topo01` ansehen.
     das funktioniert nur, weil euer Verzeichnis wirklich persistent ist und
     nicht wie in einem Pool-Rechner beim Abmelden verschwindet.
 
+
+--8<-- "issue-feedback.md"
 
 ### Teil 2 – Werkzeuge in der emulierten Topologie `topo01`
 
@@ -597,6 +601,8 @@ kein Fehler, sondern eine direkte Folge der Subnetz-Struktur ist.
     ~/rn-practice/mark-done.sh 01 teil3
     ```
 
+
+--8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
 

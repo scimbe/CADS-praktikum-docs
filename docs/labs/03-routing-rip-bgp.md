@@ -24,6 +24,8 @@
   einer eigenen Aufzeichnung selbst berechnen, statt sie aus einem Lehrbuch zu
   übernehmen (Nachrichten je Minute, Byte je Minute, Abstand zweier Updates).
 
+--8<-- "issue-feedback.md"
+
 ## Aufgaben
 
 ### Teil 1 – Manuelles Routing zwischen zwei Netzen (`topoP03`)
@@ -822,6 +824,8 @@ zeigt, ob ihr die Messung verstanden habt:
     ```
 
 
+--8<-- "issue-feedback.md"
+
 ### Teil 5 – Drei Tabellen, drei Wahrheiten: Kernel, RIP und BGP nebeneinander (`topo03`)
 
 Teil 2 hat schon angedeutet, dass es *zwei* Tabellen gibt: die des Kernels
@@ -1053,6 +1057,8 @@ r1$ tcpdump -r "$P" -v -n tcp port 179 | grep Message    # Open/Update/Keepalive
     ~/rn-practice/mark-done.sh 03 teil8
     ```
 
+
+--8<-- "issue-feedback.md"
 
 ## Wenn etwas nicht wie erwartet läuft
 

@@ -21,6 +21,8 @@
   flutet, gelernte Einträge nach einer Alterungszeit wieder vergisst und dass
   seine Lerntabelle endlich ist.
 
+--8<-- "issue-feedback.md"
+
 ## Aufgaben
 
 ### Teil 1 – VLSM-Subnetting nachvollziehen (`topoP02`)
@@ -596,6 +598,8 @@ $ ovs-vsctl remove bridge s1 other-config mac-aging-time
     ```
 
 
+--8<-- "issue-feedback.md"
+
 ### Teil 6 – ARP von Hand auslösen und die Zustände lesen (`topo02`)
 
 Teil 1 hat ARP als Beiwerk des Routings gezeigt: auf jedem Segment eine eigene
@@ -898,6 +902,8 @@ je Abteilung für beide Varianten und ein Satz, der den Unterschied benennt.
     ~/rn-practice/mark-done.sh 02 teil10
     ```
 
+
+--8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
 

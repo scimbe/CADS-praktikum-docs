@@ -26,6 +26,8 @@ jede Aufgabe ist hier als Text lesbar **und** als PDF herunterladbar.
 | [06](labs/06-advanced-covert-channels.md) | Advanced: DNS-Tunneling, Covert Channels, JA3, NTP | Lab 5 | *(noch kein Skript, siehe Herausforderungen)* |
 | [07](labs/07-http-rest-quic.md) | HTTP/REST/QUIC von Hand (netcat/telnet) | Labor-05 | `rn-practice/topo01` (HTTP(S)-Server) |
 
+--8<-- "issue-feedback.md"
+
 ## Umgebung & Zugang
 
 Die Labore laufen in einem browserbasierten Desktop (Selkies/KasmVNC) mit
@@ -39,3 +41,5 @@ Details: [Desktop-/Mininet-Umgebung](reference/umgebung.md) und
     SYN-Flood, Covert Channels). Diese laufen **ausschließlich** in der
     isolierten Mininet-Netzwerk-Namespace-Umgebung des jeweiligen
     Teilnehmer-Containers — niemals gegen das Host-Netzwerk oder Dritte.
+
+--8<-- "issue-feedback.md"

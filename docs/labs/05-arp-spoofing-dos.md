@@ -24,6 +24,8 @@
 - Grundlegende Gegenmaßnahmen benennen können (statische ARP-Einträge,
   Dynamic ARP Inspection, SYN-Cookies).
 
+--8<-- "issue-feedback.md"
+
 ## Aufgaben
 
 ### Teil A — ARP-Spoofing als Aufwärmübung (Zwei-Netz-Routing-Topologie)
@@ -354,6 +356,8 @@ Prinzip (Änderung einer IP-zu-MAC-Zuordnung erkennen) automatisieren.
     ```
 
 
+--8<-- "issue-feedback.md"
+
 ### Teil E — SYN-Flood quantitativ: den Schaden messen und SYN-Cookies wirken sehen (`topo02`)
 
 Teil C hat den SYN-Flood *gestartet* und über den Browser beobachtet. Das ist
@@ -606,6 +610,8 @@ h3$ editcap -r "$P" ~/rn-practice/pcaps/05-teilh-auszug.pcap 1-3   # Beweis-Auss
     ~/rn-practice/mark-done.sh 05 teilh
     ```
 
+
+--8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
 
