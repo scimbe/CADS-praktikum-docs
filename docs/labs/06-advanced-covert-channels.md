@@ -44,6 +44,8 @@
 - Verstehen, welche Risiken eine Manipulation der Systemzeit für andere
   sicherheitsrelevante Mechanismen hat (insbesondere TLS-Zertifikatsprüfung).
 
+--8<-- "issue-feedback.md"
+
 ## Aufgaben
 
 ### Teil 1 – Passive Traffic-Inspection mit Wireshark/`tcpdump`
@@ -257,6 +259,8 @@ bzw. TTL-Manipulation.
     sich am Inhalt irgendetwas geändert hätte.
 
 
+--8<-- "issue-feedback.md"
+
 ### Teil 4 – DNS over HTTPS im Vergleich zu klassischem DNS
 
 **Ziel:** Führt DNS-Anfragen über HTTPS durch und analysiert, was im
@@ -469,6 +473,8 @@ Sender und Empfänger sich vorher auf ein Encoding geeinigt haben.
     ~/rn-practice/mark-done.sh 06 teil7
     ```
 
+
+--8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
 
