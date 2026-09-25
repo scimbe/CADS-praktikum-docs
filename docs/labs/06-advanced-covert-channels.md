@@ -221,7 +221,7 @@ bzw. TTL-Manipulation.
 
     ![Wireshark-Fenster mit geoeffnetem secret.pcap, Paketliste mit 10 ICMP-Paketen (5 Request/5 Reply), im Hex-Dump-Bereich des ausgewaehlten Requests ist der ASCII-Text "TOP_SECR" sichtbar](../assets/screenshots/06-advanced-covert-channels/wireshark-secret-payload.png)
     *Der Mitschnitt auf `h1` bestätigt den verdeckten Kanal: Im
-    Hex-/ASCII-Bereich des ICMP-Echo-Requests (Paket 7) ist der Anfang der
+    Hex-/ASCII-Bereich des markierten ICMP-Echo-Requests ist der Anfang der
     "geheimen" Nachricht `TOP_SECR…` im Klartext lesbar – ICMP-Payload wird
     von den meisten einfachen Firewalls nicht inspiziert.*
 

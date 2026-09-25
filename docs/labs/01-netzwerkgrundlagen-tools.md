@@ -234,9 +234,12 @@ einem NAT-Uplink ins echte Internet.
         `9.9.9.9` jeweils 100 % Verlust, `1.1.1.1:443` per TCP erreichbar,
         `traceroute` endet nach der zweiten Station.*
 
-    !!! warning "h1 ↔ h2 direkt: kein Ping möglich"
-        Ein direkter `ping` zwischen `h1` und `h2` schlägt in dieser Topologie
-        fehl bzw. liefert Paketverlust. Das ist **kein Fehler der Umgebung**,
+    !!! info "h1 ↔ h2 direkt: erreichbar, aber spürbar langsam"
+        Ein direkter `ping` zwischen `h1` und `h2` kommt an. Am 2026-09-25 in
+        dieser Umgebung gemessen: `5 packets transmitted, 5 received, 0% packet
+        loss`, Laufzeit `min/avg/max = 60,2/72,5/121,0 ms`. Auffällig ist nicht
+        Verlust, sondern die **Laufzeit**: rund 60 ms statt Bruchteilen einer
+        Millisekunde. Das ist **kein Fehler der Umgebung**,
         sondern Absicht: `h1` und `h2` liegen in unterschiedlichen Subnetzen
         und sind nur über die Router `r1`/`r2` mit asymmetrischem Routing
         verbunden. Genau das ist die Beobachtung, die die nächste Teilaufgabe
