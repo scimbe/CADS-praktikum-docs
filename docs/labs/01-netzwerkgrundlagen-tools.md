@@ -239,11 +239,11 @@ einem NAT-Uplink ins echte Internet.
         dieser Umgebung gemessen: `5 packets transmitted, 5 received, 0% packet
         loss`, Laufzeit `min/avg/max = 60,2/72,5/121,0 ms`. Auffällig ist nicht
         Verlust, sondern die **Laufzeit**: rund 60 ms statt Bruchteilen einer
-        Millisekunde. Das ist **kein Fehler der Umgebung**,
-        sondern Absicht: `h1` und `h2` liegen in unterschiedlichen Subnetzen
-        und sind nur über die Router `r1`/`r2` mit asymmetrischem Routing
-        verbunden. Genau das ist die Beobachtung, die die nächste Teilaufgabe
-        von euch einfordert – siehe auch
+        Millisekunde. Das ist **kein Fehler der Umgebung**, sondern Absicht:
+        `h1` und `h2` liegen in unterschiedlichen Subnetzen und sind nur über
+        die Router `r1`/`r2` mit asymmetrischem Routing verbunden. Genau das
+        ist die Beobachtung, die die nächste Teilaufgabe von euch einfordert –
+        siehe auch
         [Potenzielle Herausforderungen](#potenzielle-herausforderungen).
 
 3. **Ping mit Wireshark beobachten.** Öffnet auf `h2` Wireshark im
