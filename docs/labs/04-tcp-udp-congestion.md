@@ -43,7 +43,7 @@ cd ~/rn-practice/topoP04
 ```
 
 Die Topologie besteht aus zwei Hosts und einem Switch. Die Verbindung ist auf
-eine Bandbreite von 10 Mbit/s, eine MTU von 500 Byte und eine Fehlerrate von
+eine Bandbreite von 10 Mbit/s, eine MTU von 536 Byte und eine Fehlerrate von
 10 % begrenzt.
 
 #### Herausforderung der Fehlerrate
@@ -109,7 +109,7 @@ der Performance von TCP im Vergleich zu UDP ein?
 
 #### Zu große MTU bei UDP
 
-Da die MTU auf 500 Byte begrenzt ist, werden Pakete, die größer als diese
+Da die MTU auf 536 Byte begrenzt ist, werden Pakete, die größer als diese
 Grenze sind, in IP-Fragmente aufgeteilt (oder verworfen, falls die
 Fragmentierung nicht gelingt). Beobachtet dies, indem ihr größere
 UDP-Nachrichten sendet. Damit der Text nicht selbst eingetippt werden muss,
@@ -350,7 +350,7 @@ Verlustbehandlung, Rate-Limiting auf Anwendungsebene).
 ### Teil C — Das TCP Congestion Window unter Paketverlust live beobachten (`topoP04`)
 
 Teil A hat gezeigt, dass der verlustbehaftete Link aus `topoP04` (10 %
-Fehlerrate, 10 Mbit/s, MTU 500 Byte) TCP zu Retransmissions zwingt. In
+Fehlerrate, 10 Mbit/s, MTU 536 Byte) TCP zu Retransmissions zwingt. In
 diesem Teil macht ihr sichtbar, *wie* TCP auf diesen Verlust reagiert:
 Linux erlaubt euch, das aktuelle Congestion Window (`cwnd`) einer laufenden
 Verbindung direkt beim Kernel zu erfragen – kein Wireshark, kein

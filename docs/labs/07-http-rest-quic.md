@@ -72,7 +72,7 @@ schiefgehen kann.
     Antwort: Status-Zeile, Header, Leerzeile, HTML-Body.
 
     !!! note "Namensauflösung schlägt ohne laufenden dnsmasq fehl"
-        Real getestet: `netcat h1 80` liefert `getaddrinfo for host "h1"
+        `netcat h1 80` liefert `getaddrinfo for host "h1"
         port 80: Temporary failure in name resolution`, solange kein
         DNS-Forwarder (`dnsmasq`, siehe [Aufgabenblatt 01](01-netzwerkgrundlagen-tools.md))
         läuft, der den Namen `h1` auflöst. Verwendet ersatzweise die
@@ -226,8 +226,8 @@ h1$ python3 startHTTPsServer.py
 ```
 
 !!! warning "PEM-Passphrase erforderlich – bisher undokumentiert"
-    Real geprüft (2026-09-09): Der Server fragt beim Start interaktiv nach
-    einer Passphrase für `key.pem`, bevor er auf Port 443 lauscht. Die
+    Der Server fragt beim Start interaktiv nach einer Passphrase für
+    `key.pem`, bevor er auf Port 443 lauscht. Die
     Passphrase ist **`mininet`**. Ohne sie bleibt der Server hängen und
     öffnet nie einen Port – dieselbe, bisher nirgends dokumentierte
     Voraussetzung gilt auch für den bereits bestehenden HTTPS-Schritt in
@@ -259,17 +259,6 @@ Connection: close
 denselben Server auf Port 80). Ist der HTTP-Teil der Antwort (Status-Zeile,
 Header, Body) identisch? Was genau hat `openssl s_client` für euch
 übernommen, das bei purem `netcat`/`telnet` fehlte?
-
-!!! success "Real geprüft"
-    Auf einem frisch gestarteten Container lieferte dieser Ablauf eine
-    vollständige, reale `HTTP/1.0 200 OK`-Antwort inklusive Headern
-    (`Server: SimpleHTTP/0.6 Python/3.13.5`) und dem kompletten
-    HTML-Inhalt der Startseite – durch den TLS-Tunnel hindurch von Hand
-    eingetippt. Der Handshake zeigte davor sichtbar die erwarteten
-    Zertifikatsdetails (`CN=noway`, `O=Not your buisness`,
-    `verify error:num=18:self-signed certificate`), exakt passend zu der
-    in Aufgabenblatt 01 beschriebenen, absichtlich fehlerhaften
-    Zertifikatskonfiguration.
 
 !!! question "Kurz nachgedacht"
     `openssl s_client` hat den TLS-Handshake übernommen, die HTTP-Zeilen
@@ -317,13 +306,6 @@ einzigen TCP-Verbindung binär gerahmte, gemultiplexte Ströme, während
 HTTP/1.1 pro Anfrage seriell arbeitet. Beide sind – anders als HTTP/3 in
 Teil 5 – **TCP**.
 
-!!! success "Real geprüft (2026-09-25)"
-    In einer Wegwerf-Topologie (`h1` als Server, `h2` als Client, `topo01`-artige
-    TCLink-Strecke) lieferte `curl --http1.1` die Aushandlung `HTTP/1.1` und
-    `curl --http2` die Aushandlung `HTTP/2`, beide mit HTTP-Status 200 gegen
-    dieselbe Seite auf `h1`. Der Mitschnitt zeigte in beiden Fällen TCP auf
-    Port 443.
-
 !!! quote "Fun Fact (belegt): HTTP/2 löst nur das halbe Blockier-Problem"
     HTTP/2 ersetzte den Textklartext von HTTP/1.1 durch **binäre Frames**
     (RFC 9113, Abschnitt 4) und schickt alle Anfragen als parallele Ströme über
@@ -367,13 +349,6 @@ Auf welcher Transportschicht (Protokoll, Port) läuft HTTP/3? Warum sieht ein
 Filter wie `tcp port 443` hier **nichts**, obwohl ihr eine „HTTPS"-Seite
 abgerufen habt?
 
-!!! success "Real geprüft (2026-09-25)"
-    `curl --http3-only` handelte gegen den lokalen nginx-Server `HTTP/3` aus
-    und lieferte Status 200. Der Mitschnitt enthielt ausschließlich
-    **UDP**-Pakete auf Port 443 (z. B. `10.0.1.3.44691 > 10.0.1.2.443: UDP,
-    length 1200`) – kein einziges TCP-Segment. Genau dieselbe Seite, ein
-    völlig anderes Transport-Bild als in Teil 4.
-
 !!! quote "Fun Fact (belegt): „QUIC" ist kein Akronym – und läuft absichtlich in UDP"
     QUIC ist kein neues Transportprotokoll neben TCP und UDP, sondern läuft
     *in* UDP-Datagrammen: „QUIC packets are carried in UDP datagrams … to
@@ -408,12 +383,6 @@ der Client sein erstes Paket auf mindestens 1200 Byte **auffüllt** (Padding).
 das erste Paket vor? (Stichwort: Ein Angreifer könnte mit einer kleinen,
 gefälschten Anfrage eine große Antwort an ein Opfer auslösen – eine
 *Amplification*. Wie verhindert eine Mindestgröße der Anfrage genau das?)
-
-!!! success "Real geprüft (2026-09-25)"
-    Im Mitschnitt waren die ersten Client-Datagramme jeweils `UDP, length
-    1200`, während die erste Server-Antwort deutlich kleiner war (im Test
-    `length 51`). Das 1200-Byte-Padding des QUIC-Initials ist damit direkt
-    im `tcpdump`-Output ablesbar.
 
 !!! quote "Fun Fact (belegt): warum das erste QUIC-Paket auf 1200 Byte aufgeblasen wird"
     Ein QUIC-Client muss jedes UDP-Datagramm, das ein Initial-Paket trägt, mit
@@ -461,11 +430,6 @@ kann HTTP/3 nicht einfach „von Anfang an" benutzt werden, ohne dass der Client
 den Server vorher kennt? (Stichwort: Der Client weiß vor dem `Alt-Svc`-Hinweis
 nicht, ob der Server QUIC überhaupt spricht – und ein blindes UDP/443 könnte
 unterwegs gesperrt sein, wie in dieser Umgebung nach außen.)
-
-!!! success "Real geprüft (2026-09-25)"
-    `curl -I` gegen den lokalen Server lieferte über TCP die Kopfzeile
-    `alt-svc: h3=":443"; ma=86400`. Ein anschließendes `curl --http3` nutzte
-    dann tatsächlich HTTP/3 (Status 200), wie in Teil 5.
 
 !!! quote "Fun Fact (belegt): `Alt-Svc` – und was 2023 an seine Stelle trat"
     Ein über HTTP/1.1 oder HTTP/2 verbundener Client erfährt von HTTP/3 durch
@@ -584,24 +548,6 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     Vergleicht `ip route` auf `h2` mit dem auf `h1` (`h2$ ip route`, dann
     `h1$ ip route`) und erklärt, warum der zweite Aufruf technisch scheitert
     (Timeout/"Network unreachable"), während der erste funktioniert.
-
-    !!! success "Real geprüft (2026-09-25)"
-        In einer Wegwerf-Reproduktion der `topo01`-Adressierung (Network-
-        Namespaces mit denselben `ip route`-Befehlen wie in `topo01.py`,
-        ohne Mininet/OVS, aber ohne die an `h1` hängende NAT-Brücke)
-        lieferte `curl` gegen `/suche` den unescaped reflektierten Payload,
-        der Gästebuch-Eintrag blieb dauerhaft gespeichert (im zweiten Abruf
-        erneut sichtbar), und `/sammler` protokollierte den übertragenen
-        Cookie-Wert serverseitig. Im Mitschnitt der Strecke waren alle drei
-        Anfragen im Klartext sichtbar: `GET /suche?q=%3Cscript%3E...` (Paket
-        9 von 82), der Gästebuch-Eintrag mit dem `fetch`-Payload (Paket 21)
-        und die Cookie-Übertragung an `/sammler` (Paket 45). `httrack` gegen
-        `10.0.1.2:8080` spiegelte erfolgreich `index.html`; derselbe Aufruf
-        gegen `1.1.1.1` endete nach Timeout ergebnislos, weil der Router
-        `r1` keine Route zu `1.1.1.1` kennt (`ip route get 1.1.1.1` →
-        "Network is unreachable") – exakt dieselbe Route (bzw. deren
-        Fehlen), die auch `ping -c1 1.1.1.1` von `h2` aus mit "Destination
-        Net Unreachable" quittiert.
 
 --8<-- "issue-feedback.md"
 ## Potenzielle Herausforderungen

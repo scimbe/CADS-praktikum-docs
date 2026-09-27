@@ -56,12 +56,18 @@ cd ~/rn-practice/topo02
 ./start-topo02.sh
 ```
 
-1. **Legitimen Server starten:** Auf dem Server-Host den echten Webserver
-    starten (liefert `index.html`, mit deaktiviertem Caching):
+1. **Legitimen Server prüfen:** Der echte Webserver (liefert `index.html`,
+    mit deaktiviertem Caching) läuft bereits automatisch auf `h1`, sobald
+    `./start-topo02.sh` durchgelaufen ist. Prüft das:
 
     ```bash
-    $ python3 startHTTPD.py
+    h1$ pgrep -f startHTTPD.py
     ```
+
+    Ein zusätzliches manuelles `python3 startHTTPD.py` scheitert mit
+    `OSError: [Errno 98] Address already in use`, weil der Port bereits
+    belegt ist — das ist kein Fehler, sondern der Beleg, dass der Server
+    schon läuft.
 
 2. **Normalzustand prüfen:** Vom Opfer-Host aus den Server per Browser/`curl`
     aufrufen und den unveränderten Inhalt (`index.html`) bestätigen.
@@ -164,11 +170,12 @@ Server mit halboffenen Verbindungen, bis er keine neuen Clients mehr
 annehmen kann (Denial-of-Service). Nutzt weiterhin die aus Teil B laufende
 `topo02`-Topologie.
 
-1. **Ziel-Server starten** (falls nicht mehr aktiv): auf `h1` den
-    HTTP-Dienst, der bereits in Teil B verwendet wurde:
+1. **Ziel-Server prüfen:** Der HTTP-Dienst aus Teil B läuft auf `h1`
+    normalerweise noch (er startet automatisch mit der Topologie). Prüft das
+    zuerst, statt ihn blind neu zu starten:
 
     ```bash
-    h1$ python3 startHTTPD.py
+    h1$ pgrep -f startHTTPD.py || python3 startHTTPD.py
     ```
 
 2. **Normalverhalten prüfen:** Öffnet auf `h3` Firefox und ruft `http://10.0.10.11`
@@ -329,18 +336,35 @@ dass SYN-Cookies sie zurückholen.
 gestartet (`python3 startHTTPD.py`). Angreifer ist `h0`, ein unbeteiligter
 legitimer Client ist `h3`.
 
+!!! warning "`sysctl -w` allein schlägt hier fehl"
+    `/proc/sys` ist in diesem Container schreibgeschützt; ein direktes
+    `sysctl -w net.ipv4.tcp_syncookies=0` bricht mit `sysctl: permission
+    denied on key "net.ipv4.tcp_syncookies"` ab (real geprüft 2026-09-27).
+    Da `tcp_syncookies` eine Eigenschaft je Netzwerk-Namespace ist, genügt ein
+    auf den eigenen Host beschränkter Umweg über eine neue Sicht auf
+    `/proc/sys`:
+
+    ```bash
+    h1$ unshare -m sh -c 'mount -o remount,rw /proc/sys && sysctl -w net.ipv4.tcp_syncookies=0'
+    ```
+
+    Der Kernelwert bleibt danach für diesen Host gesetzt, auch wenn jeder
+    weitere Befehl wieder in der ursprünglichen, weiterhin schreibgeschützten
+    Sicht läuft — geprüft, indem ein anschließendes einfaches `sysctl
+    net.ipv4.tcp_syncookies` (ohne `unshare`) den neuen Wert zeigt.
+
 **Schritte:**
 
 ```bash
 # 1. Legitimer Zugriff im Normalzustand:
 h3$ curl -s -o /dev/null -w '%{http_code}\n' http://10.0.10.11/
 # 2. SYN-Cookies AUS, dann fluten und waehrenddessen messen:
-h1$ sysctl -w net.ipv4.tcp_syncookies=0
+h1$ unshare -m sh -c 'mount -o remount,rw /proc/sys && sysctl -w net.ipv4.tcp_syncookies=0'
 h0$ hping3 -S -p 80 --flood --rand-source 10.0.10.11 &
 h1$ ss -tan state syn-recv | grep -c :80      # halboffene Verbindungen
 h3$ curl -s -o /dev/null -m 3 -w '%{http_code}\n' http://10.0.10.11/   # legitim?
 # 3. SYN-Cookies AN, erneut fluten und legitim testen:
-h1$ sysctl -w net.ipv4.tcp_syncookies=1
+h1$ unshare -m sh -c 'mount -o remount,rw /proc/sys && sysctl -w net.ipv4.tcp_syncookies=1'
 h3$ curl -s -o /dev/null -m 3 -w '%{http_code}\n' http://10.0.10.11/
 ```
 
@@ -351,17 +375,18 @@ eine `SYN-RECV`-Zahl in Höhe des Server-Backlogs und ein legitimer Abruf, der
 mit `000` (keine Verbindung) scheitert. Bei `syncookies=1` unter demselben
 Flood: wieder `200`.
 
-!!! success "Real geprüft (2026-09-24)"
+!!! success "Real geprüft (2026-09-27)"
     Gegen ein real gebautes `topo02` mit `hping3 -S --flood --rand-source` gegen
     `h1:80`: legitimer `curl` von `h3` vor dem Angriff `200`. Unter Flood mit
-    `net.ipv4.tcp_syncookies=0`: `ss … syn-recv` zählte **6** halboffene
-    Verbindungen (das entspricht dem kleinen Listen-Backlog des Python-Servers),
-    und der legitime `curl` lieferte **`000`** – der Angriff war erfolgreich.
-    Nach `sysctl -w net.ipv4.tcp_syncookies=1` bei weiterlaufendem Flood lieferte
-    derselbe `curl` wieder **`200`**, obwohl `ss` weiter 6 halboffene
-    Verbindungen zeigte. Genau das ist der Trick: SYN-Cookies halten für die
-    Flut **keinen** Zustand vor, sondern kodieren ihn in die Sequenznummer –
-    der Backlog kann gar nicht erst volllaufen.
+    `net.ipv4.tcp_syncookies=0` (gesetzt über den `unshare`-Umweg oben): `ss …
+    syn-recv` zählte **6** halboffene Verbindungen (das entspricht dem kleinen
+    Listen-Backlog des Python-Servers), und der legitime `curl` lieferte
+    **`000`** – der Angriff war erfolgreich. Nach demselben `unshare`-Umweg mit
+    `net.ipv4.tcp_syncookies=1` lieferte bei weiterlaufendem Flood derselbe
+    `curl` wieder **`200`**, obwohl `ss` weiter 6 halboffene Verbindungen
+    zeigte. Genau das ist der Trick: SYN-Cookies halten für die Flut **keinen**
+    Zustand vor, sondern kodieren ihn in die Sequenznummer – der Backlog kann
+    gar nicht erst volllaufen.
 
 !!! info "Hintergrund: warum `--rand-source` den Angriff erst wirksam macht"
     `--rand-source` fälscht für jedes SYN eine andere Absender-IP. Dadurch (a)
@@ -398,7 +423,7 @@ ihr die Wirkung der Firewall-Regel isoliert seht.
 **Schritte:**
 
 ```bash
-h1$ sysctl -w net.ipv4.tcp_syncookies=0
+h1$ unshare -m sh -c 'mount -o remount,rw /proc/sys && sysctl -w net.ipv4.tcp_syncookies=0'
 h1$ nft add table ip fw
 h1$ nft add chain ip fw input '{ type filter hook input priority 0; }'
 h1$ nft add rule ip fw input tcp dport 80 tcp flags syn limit rate 20/second burst 20 packets accept
@@ -411,7 +436,7 @@ h1$ nft flush ruleset          # aufraeumen
 **Erwartete Ausgabe:** Der legitime `curl` scheitert **weiterhin** (`000`),
 obwohl die Firewall-Regel aktiv ist.
 
-!!! success "Real geprüft (2026-09-24)"
+!!! success "Real geprüft (2026-09-27)"
     Gegen ein real gebautes `topo02` blieb der legitime `curl` von `h3` unter
     Flood auch **mit** der `nft`-SYN-Ratenbegrenzung bei **`000`** – exakt wie
     ohne Regel. Der Grund ist präzise: Die Ratenbegrenzung verwirft SYN-Pakete
@@ -438,31 +463,42 @@ Gegenmaßnahme vorgeschlagen. Jetzt messt ihr, dass er wirklich hält: Mit einem
 `arpspoof` nicht mehr umgebogen werden kann – und dass genau derselbe Angriff
 ohne ihn (Teil D) die MAC-Adresse tauscht.
 
-**Vorbedingung:** `topo02` läuft. Opfer ist `h1` (`10.0.10.11`), Gateway `r1`
-(`10.0.10.1`), Angreifer `h2`.
+**Vorbedingung:** `topo02` läuft. Opfer ist `h3` (`10.0.20.11`), Gateway `r2`
+(`10.0.20.1`), Angreifer `h2` — dieselben drei Rollen wie in Teil B/D, denn
+`startARP-AttackerOnNodeH2.sh` greift fest verdrahtet `10.0.20.11` über
+`10.0.20.1` an (siehe Skriptinhalt in Teil B). `h1`/`r1` liegen auf der
+anderen Seite der Topologie und werden von diesem Skript gar nicht erreicht.
 
 **Schritte:**
 
 ```bash
 # 1. echte Gateway-MAC lernen und FEST eintragen:
-h1$ ip neigh flush all; ping -c1 10.0.10.1
-h1$ ip neigh show 10.0.10.1                      # echte MAC merken
-h1$ ip neigh replace 10.0.10.1 lladdr <echte-MAC> dev h0-eth0 nud permanent
+h3$ ip neigh flush all; ping -c1 10.0.20.1
+h3$ ip neigh show 10.0.20.1                      # echte MAC merken
+h3$ ip neigh replace 10.0.20.1 lladdr <echte-MAC> dev h3-eth0 nud permanent
 # 2. Angriff starten und Eintrag erneut prüfen:
 h2$ ./startARP-AttackerOnNodeH2.sh &
-h1$ ip neigh show 10.0.10.1                      # unveraendert?
+h3$ ip neigh show 10.0.20.1                      # unveraendert?
 ```
 
 **Erwartete Ausgabe:** Nach dem `permanent`-Eintrag bleibt die MAC-Adresse für
-`10.0.10.1` trotz laufendem `arpspoof` unverändert die **echte** MAC des
+`10.0.20.1` trotz laufendem `arpspoof` unverändert die **echte** MAC des
 Gateways – anders als in Teil D, wo sie auf die MAC des Angreifers umsprang.
 
-!!! success "Real geprüft (2026-09-24)"
+!!! success "Real geprüft (2026-09-27)"
     Gegen ein real gebautes `topo02`: nach `ip neigh flush all` + `ping` lernte
-    `h1` die echte Gateway-MAC (`00:00:00:00:00:05`). Nach dem Setzen als
-    `permanent` und dem Start von `arpspoof` blieb `ip neigh show 10.0.10.1`
-    unverändert bei `00:00:00:00:00:05` – der Angriff, der in Teil D die MAC
-    nachweislich tauscht, lief ins Leere.
+    `h3` die echte Gateway-MAC von `r2` (`00:00:00:00:00:06`). Nach dem Setzen
+    als `permanent` und dem Start von `arpspoof` auf `h2` blieb
+    `ip neigh show 10.0.20.1` unverändert bei `00:00:00:00:00:06` – der Angriff,
+    der in Teil D die MAC nachweislich tauscht, lief ins Leere.
+
+!!! warning "Kontrolliert, dass der Angriff wirklich euer Segment trifft"
+    Ein unveränderter Eintrag beweist die Abwehr nur, wenn in diesem Moment
+    tatsächlich ein Angriff auf **dieses** Segment läuft. Prüft das an `h2`s
+    eigener Ausgabe (`arp reply 10.0.20.1 is-at ...`) und nicht nur am
+    Ergebnis auf `h3` – ein Eintrag, der sich nicht ändert, weil der Angriff
+    ein ganz anderes Segment trifft, sieht identisch aus wie ein Eintrag, der
+    sich dank `nud permanent` nicht ändern *lässt*, belegt aber nichts.
 
 !!! example "Vertiefung: warum das trotzdem selten eingesetzt wird"
     Ihr habt eine Maßnahme gefunden, die technisch **funktioniert**. Rechnet nun

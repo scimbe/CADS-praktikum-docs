@@ -2,15 +2,31 @@
 
 [:material-file-pdf-box: Als PDF herunterladen](../../pdf/06-advanced-covert-channels.pdf){ .md-button }
 
-!!! warning "Zwei Werkzeuge müssen zur Laufzeit nachinstalliert werden"
+!!! warning "Zwei Werkzeuge vor dem Start von `topo01` installieren, nicht in den Knoten-Fenstern"
     Für dieses Aufgabenblatt gibt es kein eigenes Topologie-Skript – ihr
     arbeitet in der euch bereits bekannten Topologie `topo01`. Zwei der
     verwendeten Werkzeuge sind nicht vorinstalliert (siehe
     [Desktop-/Mininet-Umgebung](../reference/umgebung.md)): `iodine` für
-    DNS-Tunneling (Teil 2) und `tshark` für JA3-Fingerprinting (Teil 5). Der
-    Container hat ausgehenden Internetzugriff, `apt-get update` und
-    `apt-get install -y tshark iodine` laufen fehlerfrei durch – die genauen
-    Befehle stehen im jeweiligen Aufgabentext.
+    DNS-Tunneling (Teil 2) und `tshark` für JA3-Fingerprinting (Teil 5).
+
+    Installiert **beide vorab im normalen Desktop-Terminal, bevor ihr
+    `./start-topo01.sh` startet**:
+
+    ```bash
+    sudo apt-get update
+    sudo apt-get install -y iodine tshark jq
+    ```
+
+    Das Desktop-Terminal hat einen funktionierenden Internetzugriff und
+    einen funktionierenden Namens-Resolver. Die Knoten-Fenster `h1`/`h2`
+    (die `mininet> xterm h1`/`xterm h2` bzw. `start-topo01.sh` euch öffnen)
+    haben dagegen **keinen funktionierenden Standard-DNS-Resolver** – ein
+    `apt install` dort scheitert mit `Temporary failure resolving
+    '<host>'`, selbst wenn `curl`/`dig` gegen eine fest angegebene IP wie
+    `1.1.1.1` in denselben Fenstern anschließend funktioniert. Einmal im
+    Desktop-Terminal installiert, stehen die Programme danach auch in
+    `h1`/`h2` zur Verfügung (gemeinsames Dateisystem, nur die
+    Netzwerk-Namensräume unterscheiden sich).
 
 ## Lernziele
 
@@ -116,21 +132,43 @@ cd ~/rn-practice/topo01
 **Ziel:** Ein Tunnel über DNS-Anfragen soll aufgebaut, genutzt und in
 Wireshark sichtbar gemacht werden.
 
-1. Installiert und startet `iodine` auf `h1` als Server:
+1. `iodine` sollte bereits installiert sein (siehe Hinweis oben – vor dem
+    Start von `topo01`, im Desktop-Terminal). Auf `h1` fehlt zusätzlich das
+    Tunnel-Gerät `/dev/net/tun`, das im Container-Image standardmäßig nicht
+    angelegt ist (ohne dieses Gerät brechen sowohl Server als auch Client
+    sofort mit `open_tun: /dev/net/tun: No such file or directory` ab; das
+    Gerät liegt im geteilten Dateisystem und muss daher nur einmal angelegt
+    werden):
 
     ```bash
-    h1$ apt install iodine
-    h1$ iodine -f -T null 10.99.0.1 tunnel.h1
+    h1$ sudo mkdir -p /dev/net && sudo mknod /dev/net/tun c 10 200 && sudo chmod 666 /dev/net/tun
     ```
 
-2. Konfiguriert auf `h1` `dnsmasq` so, dass `h2` seine DNS-Anfragen über
-    `h1` sendet (siehe `dnsmasq`-Konfiguration, die `topo01` bereits für die
-    `dig`-Übung in Lab 01 verwendet).
-
-3. Verbindet euch auf `h2` als Client:
+    Startet danach den Server – das ist `iodined`, **nicht** `iodine` (das
+    ist der Client für Schritt 3):
 
     ```bash
-    h2$ iodine tunnel.h2
+    h1$ sudo iodined -f -P geheim123 10.99.0.1 tunnel.h1
+    ```
+
+    Ohne `-P` fragt `iodined` interaktiv nach einem Passwort; Server und
+    Client müssen dasselbe verwenden.
+
+2. **Optional, für die transparente Variante:** Konfiguriert auf `h1`
+    `dnsmasq` so, dass `h2` seine DNS-Anfragen über `h1` sendet (siehe
+    `dnsmasq`-Konfiguration, die `topo01` bereits für die `dig`-Übung in
+    Lab 01 verwendet; `dnsmasq` ist im Kurs-Image nicht vorinstalliert, siehe
+    [Aufgabenblatt 01](01-netzwerkgrundlagen-tools.md)). Für den Tunnel
+    selbst reicht Schritt 3 unten auch ohne diesen Schritt, weil dort `h1`
+    direkt als Nameserver angegeben wird.
+
+3. Verbindet euch auf `h2` als Client (mit demselben Passwort und demselben
+    Topdomain wie oben), und gebt `h1` explizit als Nameserver an – der
+    Standard-Resolver in `/etc/resolv.conf` zeigt zuerst auf einen von außen
+    unerreichbaren internen Docker-Resolver, nicht auf `h1`:
+
+    ```bash
+    h2$ sudo iodine -P geheim123 10.0.1.2 tunnel.h1
     h2$ ping 10.99.0.1 -I dns0
     ```
 
@@ -172,11 +210,11 @@ bzw. TTL-Manipulation.
     ```
 
     !!! warning "In dieser hping3-Version zusätzlich `-d <Größe>` nötig"
-        Real gegen die Umgebung getestet: `hping3` verweigert `-E` ohne eine
-        explizit angegebene Datengröße mit der Fehlermeldung
-        `Option error: -E option useless without -d`. Ergänzt den Aufruf
-        daher um `-d <Bytegröße-der-Datei>`, z. B. für eine 20 Byte lange
-        Nachricht `hping3 -1 -d 20 -E /tmp/secret.txt -c 5 <IP_h1>`.
+        `hping3` verweigert `-E` ohne eine explizit angegebene Datengröße mit
+        der Fehlermeldung `Option error: -E option useless without -d`.
+        Ergänzt den Aufruf daher um `-d <Bytegröße-der-Datei>`, z. B. für eine
+        20 Byte lange Nachricht
+        `hping3 -1 -d 20 -E /tmp/secret.txt -c 5 <IP_h1>`.
 
     ![Terminalfenster "Node: h2": hping3 -1 -d 20 -E /tmp/secret.txt -c 5 10.0.1.2 mit fuenf beantworteten ICMP-Paketen und Abschlussstatistik "5 packets transmitted, 5 packets received, 0% packet loss"](../assets/screenshots/06-advanced-covert-channels/hping3-icmp-payload.png)
     *`hping3` verschickt fünf ICMP-Echo-Requests von `h2` an `h1`, deren
@@ -262,11 +300,9 @@ Mitschnitt im Vergleich zu klassischem DNS noch sichtbar ist.
 **Ziel:** Identifiziert Client-Software anhand ihres TLS-`ClientHello`
 mittels JA3-Fingerprint.
 
-1. Installiert die benötigten Werkzeuge auf `h1`:
-
-    ```bash
-    h1$ sudo apt install -y jq tshark
-    ```
+1. `jq` und `tshark` sollten bereits installiert sein (siehe Hinweis oben –
+    vor dem Start von `topo01`, im Desktop-Terminal; ein `apt install`
+    direkt in `h1`/`h2` scheitert an deren fehlendem Standard-DNS-Resolver).
 
 2. Wertet den TLS-Handshake aus einem vorhandenen Mitschnitt aus (z. B. dem
     `dns_plain.pcap`/DoH-Mitschnitt aus Teil 4, sofern er TLS-Verkehr
@@ -397,14 +433,6 @@ cd ~/rn-practice/topo01
     `printf "\x$(printf %x <Zahl>)"`) zurück in ein Zeichen. Reiht die
     Zeichen in der Reihenfolge auf, in der die Pakete eingetroffen sind.
 
-!!! success "Real geprüft"
-    Auf einem frisch gestarteten Container liegen zwischen `h2` und `h1`
-    real **zwei** Router-Hops (`h2`→`r2`→`r1`→`h1`). Ein mit TTL 72 (`H`)
-    bzw. TTL 73 (`I`) von `h2` gesendetes Paketpaar kam auf `h1` mit den
-    Werten `ttl 70` bzw. `ttl 71` an – exakt um 2 vermindert, passend zur
-    Hop-Zahl. `70 + 2 = 72` (`H`), `71 + 2 = 73` (`I`) – die Rückrechnung
-    liefert damit korrekt das ursprünglich gesendete Wort zurück.
-
 **Aufgabe:** Erklärt, warum ihr die Hop-Zahl vorher separat ermitteln
 müsst, statt sie zu raten – und warum ein verdecktes TTL-Signal über einen
 Pfad mit *wechselnder* Hop-Zahl (z. B. bei dynamischem Routing wie in
@@ -451,12 +479,6 @@ DNS-Label darf höchstens 63 Zeichen lang sein, ein ganzer Name höchstens 255
 Abfrage bleiben, wenn ihr hex-kodiert (zwei Zeichen je Byte). Woran erkennt
 ein Beobachter im Mitschnitt, dass hier kein normales DNS läuft?
 
-!!! success "Real geprüft (2026-09-25)"
-    Gegen den laufenden `dns-server.py` erschien die Abfrage
-    `48656c6c6f.exfil.h1` (Hex für `Hello`) im `tcpdump`-Mitschnitt als
-    `A?`-Query im Klartext. Die ungewöhnlich lange, zufällig wirkende
-    Subdomain ist genau das Merkmal, an dem DNS-Tunneling auffällt.
-
 !!! quote "Fun Fact (belegt): warum ein DNS-Label bei 63 Zeichen endet"
     Ein DNS-Label endet nach höchstens **63** Oktetten, weil die zwei
     höchstwertigen Bits jedes Längen-Oktetts null sein müssen und nur sechs
@@ -495,11 +517,6 @@ h1$ tcpdump -r /tmp/seqchan.pcap -n -v | grep -o 'seq 305419896'
 Sequenznummer ein besonders schwer zu entdeckendes Versteck ist (Stichwort:
 ein *zufälliger* Wert ist normal, ein *strukturierter* fällt nur bei genauem
 Hinsehen auf). Welche Datenmenge passt pro Paket hinein?
-
-!!! success "Real geprüft (2026-09-25)"
-    Das von `h2` mit `-M 305419896` gesendete SYN kam auf `h1` mit exakt
-    `seq 305419896` an und war so direkt aus dem `tcpdump`-Mitschnitt
-    auslesbar.
 
 !!! quote "Fun Fact (belegt): Craig Rowland versteckte Daten schon 1997 in der Sequenznummer"
     Die Idee, Nutzdaten in Kopffeldern zu verstecken, die eigentlich anderen
@@ -548,12 +565,6 @@ hin z. B. eine Firewall-Regel öffnet) für einen einfachen Portscan
 unsichtbar bleibt – und was den Kanal trotzdem verrät, wenn jemand den
 Gesamtverkehr aufzeichnet.
 
-!!! success "Real geprüft (2026-09-25)"
-    Die Sequenz auf die Ports `7000`, `8000`, `9000` erschien im Mitschnitt
-    auf `h1` vollständig und in der gesendeten Reihenfolge – obwohl auf `h1`
-    keiner dieser Ports einen Dienst betrieb (die SYNs wurden mit RST
-    beantwortet).
-
 !!! quote "Fun Fact (belegt): Port-Knocking – Authentifizierung über geschlossene Ports"
     Martin Krzywinski prägte den Begriff 2003: „port knocking provides an
     authentication system that works across closed ports". Der Clou: Hinter der
@@ -595,10 +606,6 @@ sender­bestimmte 32-Bit-Zeitfelder (RFC 792). Überlegt (als Denkaufgabe, nicht
 als belegte Praxis): warum wären diese drei Felder *strukturell* geeignet, um
 Daten zu transportieren, und warum ist ein selten genutzter, aber völlig
 legitimer ICMP-Typ schwerer zu bemerken als offensichtlicher Sonderverkehr?
-
-!!! success "Real geprüft (2026-09-25)"
-    `hping3 --icmp-ts` löste auf `h1` eine `time stamp reply`-Nachricht aus,
-    die im `tcpdump`-Mitschnitt als solche (nicht als Echo) sichtbar war.
 
 !!! quote "Fun Fact (belegt): der dokumentierte ICMP-Kanal ist die Echo-Nutzlast (Project Loki, 1996)"
     Der klassische, tatsächlich dokumentierte verdeckte ICMP-Kanal steckt nicht
@@ -653,11 +660,6 @@ was das für einen Beobachter bedeutet, der den Inhalt zwar nicht entschlüsseln
 kann, aber sehr wohl sieht, **welche** Seiten ihr ansteuert. (Genau das ist
 die Motivation hinter *Encrypted ClientHello*, ECH.)
 
-!!! success "Real geprüft (2026-09-25)"
-    Nach `openssl s_client ... -servername geheim.example.org` war die
-    Zeichenkette `geheim.example.org` im `tcpdump -A`-Mitschnitt des
-    TLS-`ClientHello` im Klartext lesbar – ganz ohne `tshark`.
-
 !!! quote "Fun Fact (belegt): die SNI im Klartext – und warum es dafür seit 2026 einen RFC-Gegenspieler gibt"
     Die Ziel-Domain reist unverschlüsselt, weil der Server erst *aus* der SNI
     erfährt, welches Zertifikat er überhaupt vorlegen soll (RFC 6066, Abschnitt
@@ -707,10 +709,6 @@ Welcher überträgt am meisten pro Paket? Welcher fällt einem Beobachter am
 schnellsten auf? Was ist der Zielkonflikt jedes verdeckten Kanals
 (Bandbreite gegen Unauffälligkeit)?
 
-!!! success "Real geprüft (2026-09-25)"
-    Die von `h2` gesendete Nutzlast `EXFIL_UDP` war im `tcpdump -A`-Mitschnitt
-    auf `h1` sofort im Klartext lesbar.
-
 ### Teil 14 – Die andere Seite: einen verdeckten Kanal erkennen (`topo01`)
 
 Alle bisherigen Teile haben Kanäle **gebaut**. Zum Abschluss nehmt ihr die
@@ -740,11 +738,6 @@ auffällig **langen** Namen; ein normaler Client fragt selten und kurz. Nennt
 zwei messbare Merkmale (z. B. Anfragerate, mittlere Namenslänge, Verhältnis
 von Anfragen ohne Antwort), an denen ein Verteidiger einen der vorherigen
 Kanäle erkennen könnte – **ohne** eine einzige Nutzlast zu entschlüsseln.
-
-!!! success "Real geprüft (2026-09-25)"
-    `capinfos` gab für einen aufgezeichneten Kanal die Paketzahl direkt aus
-    (im Test `Number of packets: 12` für den TLS-Mitschnitt) – die Grundlage
-    für eine rein statistische Erkennung, ohne Inhalte zu lesen.
 
 --8<-- "issue-feedback.md"
 ## Potenzielle Herausforderungen

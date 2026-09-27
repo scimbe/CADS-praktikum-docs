@@ -229,8 +229,8 @@ Interface-Zusatz, z. B. `ping6 fe80::1%r2-eth0`).
 
 #### Routing-Tabellen im Detail: `topo03` konkret
 
-Die tatsächlich in diesem Repository konfigurierten FRR-Router (`r1`–`r4`,
-siehe `mininet-labs/rn-practice/topo03/r*/zebra.conf` etc.):
+Die tatsächlich vorkonfigurierten FRR-Router (`r1`–`r4`, nachlesbar unter
+`~/rn-practice/topo03/r*/zebra.conf` etc.):
 
 | Router | Schnittstellen (IPv4) | RIP | BGP (AS) |
 |---|---|---|---|
@@ -783,16 +783,6 @@ zeigt, ob ihr die Messung verstanden habt:
     **nicht** nachgemessen – er entspricht aber genau dem, was Teil 2 dieses
     Blattes bereits beschreibt und was dort verifiziert ist. Eure Zahlen werden
     von den obigen abweichen; das ist erwartet und Teil der Aufgabe.
-
-!!! info "Offener Punkt für die Kursleitung"
-    Würden die 19 `pcap`-Dateien aus `cnp3/ebook` (`exercises/traces/`) ins
-    Desktop-Abbild aufgenommen, ließe sich diese Aufgabe **ganz ohne laufende
-    Emulation** bearbeiten – und zusätzlich um Protokolle erweitern, die
-    `topo03` nicht fährt: OSPFv3, RIPng und Spanning Tree. Die dafür nötigen
-    FRR-Daemons (`ospf6d`, `ripngd`) sind im Abbild vorhanden (geprüft am
-    2026-09-24, FRR 10.3), die Spuren nicht. Das Abbild wurde für diese
-    Ergänzung **nicht** verändert; die Aufnahme der Dateien samt Lizenzhinweis
-    (CC BY-SA 3.0) braucht eine Entscheidung der Kursleitung.
 
 --8<-- "issue-feedback.md"
 ### Teil 5 – Drei Tabellen, drei Wahrheiten: Kernel, RIP und BGP nebeneinander (`topo03`)
