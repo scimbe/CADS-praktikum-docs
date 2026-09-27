@@ -3,75 +3,92 @@
 Schritt-fuer-Schritt-Anleitung fuer den Weg von "Browser oeffnen" bis
 "im eigenen Praktikums-Desktop arbeiten" unter `riisc.bunsenbrenner.org`.
 
-`riisc.bunsenbrenner.org` und `rn-praktikum.bunsenbrenner.org` fuehren zum
-**selben Backend, demselben Container-Modell und derselben Desktop-Umgebung**
-— es gibt hier **kein separates Deployment**. Die einzigen tatsaechlichen
-Unterschiede sind Landing-Page-Branding und Login-Anbieter (siehe Schritt 1
-unten). Alles ab dem Login — Freigabe-Wartezeit, erster Start,
-Skript-Seeding, persistenter
-Fortschritt, Logout, Terminal/Wireshark/Mininet-Orientierung — verlaeuft
-**identisch** zu rn-praktikum. Diese Seite fasst den Ablauf trotzdem
-vollstaendig zusammen, damit riisc-Teilnehmer:innen nicht zwischen zwei
-Dokumenten hin- und herspringen muessen; die ausfuehrlichere Fassung mit
-denselben Inhalten steht unter
-[Remote-Desktop: rn-praktikum.bunsenbrenner.org](remote-desktop-rn-praktikum.md).
-
-## 1. Login (host-spezifischer Unterschied)
+## 1. Login
 
 1. `https://riisc.bunsenbrenner.org/` im Browser oeffnen. Die Seite zeigt
    das RIISC-eigene Branding (an `riisc.de` angenaehnte Farb-/Typografie-
-   Sprache), nicht das CADS-Branding von rn-praktikum.
-2. Auf den Login-Button klicken. Hier gibt es **keinen erzwungenen
-   GitLab-Login** — stattdessen zeigt Keycloak seinen eigenen
-   Provider-Auswahlbildschirm mit Google, GitHub oder E-Mail/Passwort als
-   Optionen. Einen der angebotenen Anbieter waehlen und dort anmelden.
-3. Nach erfolgreichem Login geht es automatisch weiter zu `/start` — ab
-   hier gilt exakt derselbe Ablauf wie bei rn-praktikum.
+   Sprache).
+2. Auf den Login-Button klicken. Keycloak zeigt einen Provider-
+   Auswahlbildschirm mit Google, GitHub oder E-Mail/Passwort als Optionen.
+   Einen der angebotenen Anbieter waehlen und dort anmelden.
+3. Nach erfolgreichem Login geht es automatisch weiter zu `/start`.
 
 !!! note "Eigene, getrennte Sitzung"
-    Session-Cookies sind pro Hostname isoliert: eine Anmeldung bei
-    rn-praktikum meldet nicht automatisch auch bei riisc an (und umgekehrt).
-    Fuer beide Hosts ist ggf. ein eigener Login-Vorgang noetig, auch wenn es
-    sich um dieselbe Person/denselben Zugriff auf das Backend handelt.
+    Session-Cookies sind pro Hostname isoliert. Meldet ihr euch auch bei
+    einem anderen Angebot dieses Anbieters an, ist dafuer ein eigener
+    Login-Vorgang noetig.
 
 ## 2. Erstes Mal: auf Freigabe warten
 
-Identisch zu rn-praktikum: die eigene Identitaet muss vom Admin einmalig
-freigeschaltet werden. Beim ersten Login erscheint die Wartesseite
-("Warte auf Freigabe", Auto-Refresh alle 30 Sekunden), das kann **bis zu
-24 Stunden** dauern. Die Freigabe gilt danach, bis der Admin sie entzieht
-oder sie nach 6 Monaten automatisch ablaeuft.
+Bevor ein Desktop startet, muss ein Admin die eigene Identitaet einmalig
+freischalten. Beim allerersten Login erscheint dafuer eine Wartesseite
+statt des Desktops:
+
+- Text sinngemaess: "Warte auf Freigabe durch den Administrator" — die
+  Seite aktualisiert sich automatisch alle 30 Sekunden, ein manuelles
+  Neuladen ist nicht noetig.
+- Das kann **bis zu 24 Stunden** dauern. Der Admin wird bei jeder neuen
+  Anfrage automatisch per E-Mail benachrichtigt.
+- Ist die Freigabe einmal erteilt, bleibt sie bestehen — ein erneutes
+  Warten ist erst wieder noetig, wenn der Admin sie manuell entzieht oder
+  sie nach 6 Monaten automatisch abgelaufen ist.
+
+Nach der Freigabe fuehrt derselbe Login-Vorgang direkt zum Desktop, ohne
+erneute Wartesseite.
+
+!!! tip "Wenn nach 24 Stunden nichts passiert"
+    Kurz beim Admin nachfragen (z. B. per E-Mail) — die Freigabe ist ein
+    manueller Schritt, keine automatische Zusage.
 
 ## 3. Erster Start des Desktops
 
-Identisch zu rn-praktikum: nach der Freigabe dauert der erste Start rund
-30–45 Sekunden (Wartesseite mit Auto-Refresh alle 5 Sekunden). Die
-Aufgabenblatt-Skripte werden automatisch nach `~/rn-practice` kopiert
-(`init-seed-labs`) — siehe [rn-practice Setup](rn-practice-setup.md) fuer
-die Ordnerstruktur.
+Nach der Freigabe braucht der Container beim (jeweils ersten) Start rund
+30–45 Sekunden, bis er tatsaechlich einsatzbereit ist (vollstaendige
+s6-Init-Kette samt Desktop-Streaming). In dieser Zeit zeigt der Browser eine
+"Desktop wird gestartet"-Seite, die sich automatisch alle 5 Sekunden
+aktualisiert; ein manuelles Neuladen fuehrt zum selben Ergebnis, ist aber
+nicht noetig.
+
+Direkt beim allerersten Start eines Containers werden die Aufgabenblatt-Skripte
+automatisch nach `~/rn-practice` kopiert (Mechanismus `init-seed-labs`) —
+der Ordner ist danach sofort vorhanden, ein manuelles Auschecken oder
+Kopieren ist nicht noetig.
+Die Unterordner (`topo01`, `topo02`, `topo03`, `topo-base`, `topoP02`–`topoP04`,
+`setup`) entsprechen der Tabelle in
+[rn-practice Setup](rn-practice-setup.md).
 
 ## 4. Fortschritt & Wiederherstellung
 
-Identisch zu rn-praktikum: der Container ist ephemer und wird bei
-Inaktivitaet automatisch entfernt und beim naechsten Login neu erzeugt; das
-persistente Home-Verzeichnis (`~/rn-practice` inklusive eigener
-Aenderungen) bleibt
-davon unberuehrt und ist nach jedem erneuten Login unveraendert wieder da.
+Der Container selbst ist **ephemer**: bei laengerer Inaktivitaet wird er
+automatisch gestoppt und beim naechsten Login neu aus dem aktuellen Image
+erzeugt (Pruefungshygiene). Das eigene Home-Verzeichnis (`~`, inklusive
+`~/rn-practice` und aller eigenen Aenderungen daran) liegt dagegen in einem
+separaten, persistenten Volume und uebersteht das Entfernen des Containers
+unveraendert. Nach einem erneuten Login ist der eigene Stand — inklusive
+selbst bearbeiteter Skripte — wieder da, ohne dass dafuer etwas Besonderes
+zu tun ist.
 
 ## 5. Orientierung im Desktop
 
-Identisch zu rn-praktikum — dieselbe Desktop-Umgebung, dieselben
-vorinstallierten Werkzeuge:
-
-- **Terminal**: Taskleisten-/Menue-Icon startet `xfce4-terminal`, nicht
-  `xterm` (siehe [Desktop-/Mininet-Umgebung](umgebung.md#terminal)).
-- **Wireshark**: vorinstalliert, ueber Anwendungsmenue oder `sudo wireshark` im
-  Terminal.
-- **Mininet-Topologien**: unter `~/rn-practice/<topoXX>/`, Start per
-  `./start-topoXX.sh` ([rn-practice Setup](rn-practice-setup.md#start-eines-labs-kurzform)).
+- **Terminal**: Icon in der Taskleiste bzw. Anwendungsmenue startet
+  `xfce4-terminal` — **nicht** `xterm` verwenden/erwarten (Hintergrund dazu
+  in [Desktop-/Mininet-Umgebung](umgebung.md#terminal)).
+- **Wireshark**: ueber das Anwendungsmenue oder per `sudo wireshark` im Terminal
+  startbar; ist vorinstalliert, keine separate Installation noetig.
+- **Mininet-Topologien**: liegen unter `~/rn-practice/<topoXX>/`, Start je
+  per `./start-topoXX.sh` — Details in
+  [rn-practice Setup](rn-practice-setup.md#start-eines-labs-kurzform).
 
 ## 6. Richtig ausloggen
 
-Identisch zu rn-praktikum: im Desktop ueber das Anwendungsmenue "Log Out"
-waehlen, nicht nur den Browser-Tab schliessen — nur so wird auch die
-SSO-Sitzung im Browser sauber beendet.
+Am Ende einer Sitzung **im Desktop selbst ueber das Anwendungsmenue
+"Log Out" waehlen** — nicht einfach den Browser-Tab schliessen. Nur der
+In-Desktop-Logout beendet zuverlaessig auch die SSO-Sitzung im Browser; ein
+blosses Schliessen des Tabs laesst die SSO-Sitzung aktiv, sodass ein
+erneuter Aufruf der Seite ohne neuen Login direkt wieder in den (ggf. neu
+erzeugten) Desktop fuehrt.
+
+!!! warning "Geteilte Geraete"
+    Auf einem gemeinsam genutzten Rechner unbedingt ueber "Log Out"
+    ausloggen, sonst bleibt die Sitzung fuer die naechste Person am Geraet
+    angemeldet.

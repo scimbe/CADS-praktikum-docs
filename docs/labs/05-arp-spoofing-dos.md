@@ -5,10 +5,10 @@
 !!! warning "Sicherheits- und Ethikhinweis"
     Dieses Aufgabenblatt behandelt reale Angriffstechniken (ARP-Spoofing,
     SYN-Flood). Diese dürfen **ausschließlich** innerhalb der eigenen,
-    isolierten Mininet-Netzwerk-Namespace-Umgebung Ihres Teilnehmer-Containers
-    angewendet werden — **niemals** gegen das Host-Netzwerk, die
-    Infrastruktur des Betreibers oder Dritte (siehe auch der
-    Sicherheitshinweis auf der [Startseite](../index.md)). Bereits der
+    isolierten Mininet-Netzwerk-Namespace-Umgebung eures
+    Teilnehmer-Containers angewendet werden — **niemals** gegen das
+    Host-Netzwerk, die Infrastruktur des Betreibers oder Dritte (siehe auch
+    der Sicherheitshinweis auf der [Startseite](../index.md)). Bereits der
     Versuch gegen fremde Systeme ist strafbar und ein Verstoß gegen die
     Nutzungsbedingungen der Umgebung.
 
@@ -30,45 +30,22 @@
 
 ### Teil A — ARP-Spoofing als Aufwärmübung (Zwei-Netz-Routing-Topologie)
 
-> Dieser Abschnitt stammt ursprünglich aus `Labor-03-Routing.tex`, Abschnitt
-> "Man in the Middle", wurde aber inhaltlich hierher verschoben, da er
-> fachlich zu den Angriffstechniken (Lab 05) gehört und nicht zum
-> Routing-Thema von [Lab 03](03-routing-rip-bgp.md).
-
-Nutzen Sie die aus Lab 03 bekannte Zwei-Netz-Topologie
+Nutzt die aus [Lab 03](03-routing-rip-bgp.md) bekannte Zwei-Netz-Topologie
 (`10.0.0.0/24` mit h1/h2, `20.0.0.0/24` mit h3/h4, verbunden über einen
 Router) mit funktionierenden Routen zwischen beiden Netzen.
 
-**Aufgabe:** Führen Sie von h4 einen Ping auf h1 aus. Leiten Sie diesen
-Request mittels ARP-Spoofing (`arpspoof`) auf h3 um, sodass h3 die Anfragen
-abfängt. Überprüfen Sie Ihren Erfolg in Wireshark. Lassen Sie h3 den
-abgefangenen Request — irreführenderweise — selbst mit einer Antwort
-beantworten, sodass h4 einen scheinbar erfolgreichen Ping von h1 sieht,
-obwohl h3 geantwortet hat.
-
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 05 teila
-    ```
-
+**Aufgabe:** Führt von h4 einen Ping auf h1 aus. Leitet diesen Request
+mittels ARP-Spoofing (`arpspoof`) auf h3 um, sodass h3 die Anfragen abfängt.
+Überprüft euren Erfolg in Wireshark. Lasst h3 den abgefangenen Request —
+irreführenderweise — selbst mit einer Antwort beantworten, sodass h4 einen
+scheinbar erfolgreichen Ping von h1 sieht, obwohl h3 geantwortet hat.
 
 ### Teil B — ARP-Spoofing mit HTTP-Content-Swap (`topo02`)
 
-*(Quelle: `mininet-labs/rn-practice/topo02/` (Code) sowie
-`mininet-labs/intro/04-arp-and-more-tex.tex`, "Lab 4: Angriffsvektoren"
-(Originaltext) — beide Quellen stimmen im Ablauf überein: `h1` als Server
-via `startHTTPD.py`, `h3` als Opfer via `./user-firefox` gegen
-`http://10.0.10.11`, `h2` als Angreifer, der zunächst per `traceroute
-10.0.10.11` das Gateway `10.0.20.1` identifiziert, es sich per
-IP-Alias aneignet und dann `startARP-AttackerOnNodeH2.sh` startet. Der
-Originaltext wurde bei einer früheren Konsolidierung nicht erfolgreich aus
-Google Drive kopiert; die lokal vendorierte `.tex`-Datei enthält weiterhin
-nur einen TODO-Hinweis, der Originalinhalt wurde für dieses Aufgabenblatt
-erneut geladen und bestätigt die zuvor allein aus dem Code rekonstruierten
-Schritte unten vollständig.)*
+Teil A hat ARP-Spoofing an einem einzelnen umgeleiteten Ping gezeigt. Jetzt
+wechselt ihr zur Topologie `topo02` und einer Angriffsvariante mit echtem
+Schaden: Der Angreifer tauscht nicht nur ARP-Antworten, sondern liefert dem
+Opfer über einen gefälschten Webserver manipulierte Inhalte aus.
 
 `topo02` baut eine Topologie mit zwei Routern und mehreren Hosts auf
 (`h0--s1--r1---r2----s2---h3`, mit weiteren Hosts an den Switches), in der
@@ -123,7 +100,7 @@ cd ~/rn-practice/topo02
 4. **Angriff verifizieren:** Opfer-Host den Server erneut aufrufen (ggf.
     vorher lokalen ARP-Cache mit `clear-cache.sh` leeren, siehe unten) und
     beobachten, dass nun `attack.html` statt `index.html` ausgeliefert wird —
-    der sichtbare Beweis für den erfolgreichen Content-Swap. Bestätigen Sie in
+    der sichtbare Beweis für den erfolgreichen Content-Swap. Bestätigt in
     Wireshark, dass die ARP-Replies für die Gateway-Adresse von der
     MAC-Adresse des Angreifers stammen, nicht vom echten Gateway.
 
@@ -160,14 +137,6 @@ cd ~/rn-practice/topo02
     entfernt daraufhin den IP-Alias und beendet den gefälschten Webserver
     automatisch (siehe `trap`-Behandlung im Skript).
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 05 teilb
-    ```
-
 !!! example "Vertiefung (optional): Ein fester ARP-Eintrag als Gegenmaßnahme"
     ARP glaubt jeder Antwort, auch einer unaufgeforderten – daher funktioniert
     der Angriff überhaupt. Tragt auf dem angegriffenen Rechner die *richtige*
@@ -186,16 +155,14 @@ cd ~/rn-practice/topo02
     Eine Maßnahme, die technisch wirkt, aber im Betrieb nicht durchzuhalten
     ist, ist noch keine Lösung.
 
+### Teil C — SYN-Flood-DoS mit `hping3` (`topo02`)
 
-### Teil C — SYN-Flood-DoS mit `hping3` (`topo02`, Originaltext)
-
-*(Quelle: `mininet-labs/intro/04-arp-and-more-tex.tex`, "Lab 4:
-Angriffsvektoren" — bei einer früheren Konsolidierung war der
-Kopiervorgang dieser Datei aus Google Drive fehlgeschlagen; der vollständige
-Originalinhalt wurde für dieses Aufgabenblatt erneut aus der Quelle geladen
-und ersetzt die zuvor hier stehende, generische Neuentwicklung.)*
-
-Nutzt weiterhin die aus Teil B laufende `topo02`-Topologie.
+Teil A und B haben gezeigt, wie ein Angreifer im selben Segment den
+Datenverkehr eines Opfers umleiten kann (ARP-Spoofing). Dieser Teil
+wechselt die Angriffsart: Statt Verkehr umzuleiten, überflutet ihr einen
+Server mit halboffenen Verbindungen, bis er keine neuen Clients mehr
+annehmen kann (Denial-of-Service). Nutzt weiterhin die aus Teil B laufende
+`topo02`-Topologie.
 
 1. **Ziel-Server starten** (falls nicht mehr aktiv): auf `h1` den
     HTTP-Dienst, der bereits in Teil B verwendet wurde:
@@ -239,18 +206,8 @@ ein SYN-Flood von einer einzelnen, festen Quell-IP, und welche Gegenmaßnahme
     Wer den Effekt lieber quantitativ statt über den Browser beobachten
     möchte, kann zusätzlich auf `h1` mit `ss -tan state syn-recv | wc -l`
     den Anstieg halboffener Verbindungen zählen und mit `curl`/`nc` prüfen,
-    ob eine neue, legitime Verbindung noch rechtzeitig zustande kommt. Das
-    steht so nicht im Original (das ausschließlich über Firefox verifiziert),
-    ist aber eine naheliegende, faktisch korrekte Ergänzung mit denselben
-    bereits vorinstallierten Werkzeugen.
-
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 05 teilc
-    ```
+    ob eine neue, legitime Verbindung noch rechtzeitig zustande kommt —
+    dieselbe Messung, die Teil E im Detail vertieft.
 
 !!! example "Vertiefung (optional): Warum ihr das hier überhaupt dürft"
     ARP-Spoofing und SYN-Flood sind in diesem Aufgabenblatt keine
@@ -268,7 +225,6 @@ ein SYN-Flood von einer einzelnen, festen Quell-IP, und welche Gegenmaßnahme
     funktionierende) Webserver auf `h1` unter der Last zusammen, oder
     bleibt nur die MITM-Umleitung bestehen? In einem gemeinsam genutzten
     Netz wäre schon der erste Versuch nicht erlaubt gewesen.
-
 
 ### Teil D — Selbst zum Verteidiger werden: ARP-Spoofing als Opfer erkennen (`topo02`)
 
@@ -347,15 +303,6 @@ stichwortartig, wie automatisierte Gegenmaßnahmen wie **Dynamic ARP
 Inspection** (auf verwalteten Switches) oder Tools wie **arpwatch** dasselbe
 Prinzip (Änderung einer IP-zu-MAC-Zuordnung erkennen) automatisieren.
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 05 teild
-    ```
-
-
 --8<-- "issue-feedback.md"
 
 ### Teil E — SYN-Flood quantitativ: den Schaden messen und SYN-Cookies wirken sehen (`topo02`)
@@ -426,12 +373,6 @@ Flood: wieder `200`.
     des Angriffs – und der Grund, warum eine Abwehr, die auf der Quell-IP
     aufsetzt, scheitert (siehe Teil F).
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 05 teile
-    ```
-
-
 ### Teil F — Eine naheliegende Gegenmaßnahme, die scheitert: die nft-Ratenbegrenzung (`topo02`)
 
 Bevor man zur richtigen Lösung (SYN-Cookies, Teil E) greift, liegt eine andere
@@ -486,12 +427,6 @@ obwohl die Firewall-Regel aktiv ist.
     gegeben sind. (Hinweis: Was bräuchtet ihr, um Angreifer-SYN von legitimen
     zu *unterscheiden*, und warum nimmt euch `--rand-source` genau das?)
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 05 teilf
-    ```
-
-
 ### Teil G — Der feste ARP-Eintrag als gemessene Gegenmaßnahme (`topo02`)
 
 In Teil B/D habt ihr gesehen, dass ARP jeder Antwort glaubt – auch einer
@@ -537,12 +472,6 @@ Gateways – anders als in Teil D, wo sie auf die MAC des Angreifers umsprang.
     Skalierungsfrage ist der Grund, warum in echten Netzen stattdessen *Dynamic
     ARP Inspection* auf verwalteten Switches eingesetzt wird (siehe Teil D) –
     dieselbe Idee, aber zentral und automatisch statt von Hand auf jedem Host.
-
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 05 teilg
-    ```
-
 
 ### Teil H — Den Angriff forensisch festhalten: gefälschte ARP-Replies mitschneiden und zählen (`topo02`)
 
@@ -605,26 +534,10 @@ h3$ editcap -r "$P" ~/rn-practice/pcaps/05-teilh-auszug.pcap 1-3   # Beweis-Auss
     - tcpdump-Manpage (AUTHORS): <https://www.tcpdump.org/manpages/tcpdump.1.html> (Abruf 2026-09-24)
     - tcpdump CHANGES (v2.0, Jan 1991): <https://raw.githubusercontent.com/the-tcpdump-group/tcpdump/master/CHANGES> (Abruf 2026-09-24)
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 05 teilh
-    ```
-
-
 --8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
 
-- **`topo02` (ARP-Spoofing/`hping3`) ist seit 2026-09-09 unter dem
-  granularen Capability-Set (`NET_ADMIN`+`NET_RAW`+`SYS_ADMIN`+
-  `apparmor:unconfined`, mit dem der Container ohne `--privileged`
-  auskommt) real verifiziert.**
-  `topo02.py` baute vorher wegen eines reinen Skript-Bugs (fehlender
-  `controller=`-Parameter) gar nicht — nach dem Fix wurden `arpspoof -i
-  h2-eth0 -t ...` und das IP-Aliasing per `ifconfig h2-eth0:0 ... up` real
-  getestet: `arpspoof` sendet tatsächlich die gefälschten ARP-Replies
-  (`arp reply 10.0.20.1 is-at <MAC von h2>` im Mitschnitt sichtbar), Rohsockets
-  über `NET_RAW` funktionieren also wie unter `privileged: true`.
 - In `topo02.py` fällt bei genauerem Lesen eine Ungereimtheit in der
   Interface-Benennung auf: mehrere `addLink()`-Aufrufe vergeben für `h1`
   literal den Namen `h0-eth0` statt `h1-eth0` (z. B.
@@ -634,38 +547,11 @@ h3$ editcap -r "$P" ~/rn-practice/pcaps/05-teilh-auszug.pcap 1-3   # Beweis-Auss
   zugewiesen und alle nachfolgenden Befehle referenzieren denselben Namen,
   sodass kein tatsächlicher Namenskonflikt zwischen verschiedenen Nodes
   entsteht (Interface-Namen sind ohnehin pro Netzwerk-Namespace separat).
-  Ein echter, bestätigter Bug lag stattdessen an anderer Stelle, siehe
-  nächster Punkt.
-- **Nachtrag (2026-09-09):** Nach dem `controller=`-Fix (siehe oben) lief
-  `arpspoof`/der HTTP-Content-Swap zwar bereits real, `net.pingAll()` zeigte
-  in derselben `topo02`-Topologie aber weiterhin **100 % Paketverlust auf
-  allen 30 Host-Paaren**, während einzelne manuell abgesetzte `ping`s
-  (inkl. `h0`↔`h1`, `h0`↔`r1`, `h0`↔`h2` über beide Router) fehlerfrei
-  funktionierten. Ursache: `topo02.py` setzt alle IP-Adressen per rohem
-  `ifconfig` statt über Mininets `Intf.setIP()`-API, wodurch Mininets interne
-  IP-Buchführung (von `node.IP()`, das `net.pingAll()` zur Zieladressen-
-  Ermittlung verwendet) auf der beim Linkaufbau automatisch vergebenen
-  `10.0.0.x`-Adresse stehen blieb, statt die real konfigurierte Adresse zu
-  kennen — jeder `pingAll()`-Ping ging dadurch ins Leere. Fix: `topo02.py`
-  synchronisiert nach jedem `ifconfig`-Aufruf die betroffene Schnittstelle
-  per `Intf.updateIP()`. Auf einem frisch gestarteten, zuvor nie benutzten
-  Container real nachgewiesen: `*** Results: 0% dropped (30/30 received)`.
-  Für Teil B/C dieses Aufgabenblatts ändert das nichts an den bereits
-  bestätigten Ergebnissen (die nutzen gezielte Host-Paare, keinen
-  `pingAll()`), stellt aber sicher, dass die volle Netz-Konnektivität der
-  Topologie tatsächlich wie im Docstring beschrieben funktioniert.
 - `--rand-source` bei `hping3` kann innerhalb der Mininet-Namespaces zu
   ungewöhnlichem ARP-/Routing-Verhalten führen, da die vorgetäuschten
   Quell-IPs im Testnetz nicht existieren. Im isolierten Mininet-Setup ist
   das unkritisch, verdeutlicht aber gleichzeitig, warum echte Netze
   IP-Spoofing üblicherweise per Ingress-Filterung (BCP 38) unterbinden.
-- **Teil C nutzt jetzt den originalen Wortlaut** (`04-arp-and-more-tex.tex`,
-  erneut aus Google Drive geladen) statt der zuvor hier stehenden,
-  generischen Neuentwicklung — der `hping3`-Aufruf und die Verifikation über
-  Firefox sind damit direkt aus der Quelle übernommen, nicht mehr erfunden.
-  Die lokal vendorierte `.tex`-Datei selbst enthält weiterhin nur einen
-  TODO-Hinweis (s. Quellen unten); ein Nachziehen dieser Korrektur dort wird
-  empfohlen.
 - **Teil E: die `SYN-RECV`-Zahl ist durch den Server-Backlog gedeckelt.** Der
   Python-HTTP-Server hat einen kleinen Listen-Backlog (real gemessen: ~6
   halboffene Verbindungen bei Flood). Wer eine große Zahl erwartet, misst den
@@ -684,33 +570,15 @@ h3$ editcap -r "$P" ~/rn-practice/pcaps/05-teilh-auszug.pcap 1-3   # Beweis-Auss
   In den Aufgaben läuft es korrekt auf den `veth`-Schnittstellen der Topologie
   (`h2-eth0`), wie in Teil B/D/H.
 
-## Playwright-Screenshot-Referenz
-
-In `tests/e2e/specs/screenshots.spec.ts` eignet sich ein
-**Fenster-Screenshot** (`captureWindow`) für das geöffnete Wireshark-Fenster
-mit den sichtbaren gefälschten ARP-Replies (Teil B) — hier ist der Kontext
-mehrerer Pakete relevant. Für den Nachweis des Content-Swaps bzw. des
-SYN-Flood-Effekts eignet sich dagegen ein **Zeilen-Screenshot**
-(`captureLine`) besser: eine einzelne `arp -a`-Zeile mit der durch Spoofing
-veränderten MAC-Adresse, oder (bei der optionalen quantitativen Beobachtung
-in Teil C) eine `ss -tan`-Zeile im Zustand `SYN-RECV` während des
-Flood-Tests.
-
 ## Quellen
 
 - `mininet-labs/rn-practice/topo02/` (`topo02.py`, `start-topo02.sh`,
   `startARP-AttackerOnNodeH2.sh`, `startHTTPD.py`,
   `startHTTPD-Attacker.py`, `clear-cache.sh`) — Referenzimplementierung für
-  Teil B, durch den Originaltext (s. u.) inhaltlich bestätigt.
+  Teil B.
 - `mininet-labs/intro/04-arp-and-more-tex.tex` ("Lab 4: Angriffsvektoren")
-  — Originaltext für Teil B (ARP-MitM) und Teil C (SYN-Flood). Die lokal
-  vendorierte Kopie dieser Datei enthält weiterhin nur einen technischen
-  TODO-Hinweis (fehlgeschlagener Google-Drive-Kopiervorgang in einer
-  früheren Session); der oben verwendete Originalinhalt wurde für dieses
-  Aufgabenblatt erneut aus Google Drive gelesen, aber nicht in die
-  vendorierte `.tex`-Datei zurückgeschrieben (außerhalb des Geltungsbereichs
-  dieser Konsolidierung) — ein Nachziehen wird empfohlen.
+  — fachliche Basis für Teil B (ARP-MitM) und Teil C (SYN-Flood).
 - `mininet-labs/vertiefung/Labor-03-Routing.tex`, Abschnitt "Man in the
-  Middle" — Ursprung von Teil A, fachlich hierher verschoben.
+  Middle" — fachliche Basis für Teil A.
 - `docs/reference/umgebung.md` — Bestätigung, dass `hping3` im Image
   vorinstalliert ist.

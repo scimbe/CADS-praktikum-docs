@@ -96,14 +96,6 @@ passiert, wenn sich ein dritter Rechner genau in diesen Weg drängt? Das ist
 ARP-Spoofing – und dafür gibt es ein eigenes Blatt:
 [Lab 05 – ARP-Spoofing & Denial-of-Service](05-arp-spoofing-dos.md).
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 03 teil1
-    ```
-
 !!! example "Vertiefung (optional): Wenn nur eine Richtung stimmt"
     Ihr habt eben auf **beiden** Seiten Routen gesetzt. Nehmt eine davon
     testweise wieder weg – löscht auf dem Zielrechner die Rückroute
@@ -116,14 +108,17 @@ ARP-Spoofing – und dafür gibt es ein eigenes Blatt:
     gesehen" – und Routing ist **je Richtung** zu betrachten, nicht je
     Verbindung. Setzt die Route danach wieder, bevor ihr weitermacht.
 
-
 ### Teil 2 – Dynamisches Routing mit RIP und BGP (`topo03`, FRR/`vtysh`)
 
-Anwendungsprotokolle sind nur ein kleiner, sichtbarer Teil eines Netzwerks.
-Darunter arbeitet eine komplexe Maschinerie aus Protokollen, Algorithmen und
-Hardware zusammen, um Daten effizient und zuverlässig zu übertragen – wie
-ein Paket seinen Weg findet, hängt von Routing, Adressierung und
-Netzwerklast ab.
+In Teil 1 habt ihr für **zwei** Netze jede Route von Hand eingetragen – bei
+vier Routern und mehreren Netzen wäre das schnell unübersichtlich, und bei
+jedem Ausfall müsstet ihr erneut von Hand eingreifen. Genau dafür gibt es
+**Routing-Protokolle**: Router tauschen automatisch untereinander aus,
+welche Netze sie erreichen können, und tragen die passenden Routen selbst
+in ihre Tabelle ein – auch dann, wenn sich die Topologie ändert. Ihr
+wechselt dafür jetzt von `topoP03` (zwei Router-Interfaces, manuell
+konfiguriert) zu `topo03`: vier Router, bereits mit RIP und BGP
+vorkonfiguriert.
 
 **Tipp:** Bei so vielen beteiligten Knoten hilft eine Skizze. Die Topologie
 für dieses Experiment:
@@ -473,14 +468,6 @@ Danach gelingt der Ping mit der erzwungenen Quelladresse.
     in Teil 3 – dort aus der Sicht von `r2`, dessen Weg zu `r3` tatsächlich
     von `r4` als Reserve abhängt.
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 03 teil2
-    ```
-
 !!! example "Vertiefung (optional): Routing wirklich kaputt machen"
     Der letzte Schritt oben hat nur ein einzelnes Interface kurz
     deaktiviert. Weil eure Topologie in einer komplett eigenen, isolierten
@@ -497,7 +484,6 @@ Danach gelingt der Ping mit der erzwungenen Quelladresse.
     Topologie danach einfach neu – ein zerschossenes Routing-Setup ist hier
     ein Lernmoment, kein Vorfall, den ihr euren Kommiliton:innen erklären
     müsstet.
-
 
 ### Teil 3 – Redundanz im RIP-Netz testen: reale Rekonvergenz messen (`topo03`)
 
@@ -600,14 +586,7 @@ Die Route sollte innerhalb weniger Sekunden wieder auf den direkten Pfad
 über `193.1.2.2` zurückwechseln. Beendet den Ping auf `r1` mit
 ++ctrl+c++.
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 03 teil3
-    ```
-
+--8<-- "issue-feedback.md"
 
 ### Teil 4 – Protokollspuren vermessen statt anschauen (`topo03`)
 
@@ -815,17 +794,7 @@ zeigt, ob ihr die Messung verstanden habt:
     Ergänzung **nicht** verändert; die Aufnahme der Dateien samt Lizenzhinweis
     (CC BY-SA 3.0) braucht eine Entscheidung der Kursleitung.
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 03 teil4
-    ```
-
-
 --8<-- "issue-feedback.md"
-
 ### Teil 5 – Drei Tabellen, drei Wahrheiten: Kernel, RIP und BGP nebeneinander (`topo03`)
 
 Teil 2 hat schon angedeutet, dass es *zwei* Tabellen gibt: die des Kernels
@@ -883,12 +852,6 @@ RIP-Metrik, `show ip bgp` mit seinem AS-Pfad.
     RIPs Hop-Zahl steht in RFC 2453, BGPs Entscheidungsprozess in RFC 4271
     (siehe Teil 6 und 7).
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 03 teil5
-    ```
-
-
 ### Teil 6 – BGP-Nachbarschaften und der AS-Pfad lesen (`topo03`)
 
 BGP ist das Protokoll, das das Internet zusammenhält (siehe die Hintergrundbox
@@ -940,12 +903,6 @@ und wie viele Präfixe empfangen wurden. `show ip bgp 192.168.3.0/24` zeigt den
     eigene AS-Nummer schon enthält – eine Schleife ist damit sofort erkennbar,
     ohne bis „unendlich" zu zählen.
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 03 teil6
-    ```
-
-
 ### Teil 7 – Die RIP-Metrik und die Grenze bei 16 selbst ablesen (`topo03`)
 
 Die Hintergrundbox in Teil 2 hat behauptet, RIP könne nur bis 15 zählen und 16
@@ -994,12 +951,6 @@ Hop-Zahl entspricht.
     **521** – das ist falsch, 521 ist der RIPng-Port (RFC 2080, Abschnitt 2.1).
     Klassisches RIP über IPv4 nutzt **Port 520** (RFC 2453, Abschnitt 3.6), wie
     ihr es in Teil 4 selbst mitgeschnitten habt.
-
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 03 teil7
-    ```
-
 
 ### Teil 8 – Nachrichtentypen ohne `tshark`: `tcpdump` dekodiert RIP und BGP selbst (`topo03`)
 
@@ -1051,12 +1002,6 @@ r1$ tcpdump -r "$P" -v -n tcp port 179 | grep Message    # Open/Update/Keepalive
     wächst ihre Länge mit der Zahl der Routen (im Mitschnitt: 24 Byte für eine
     Route, 44 Byte für zwei). Das RIP-Nachrichtenformat mit genau diesen Feldern
     steht in RFC 2453, Abschnitt 3.6.
-
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 03 teil8
-    ```
-
 
 --8<-- "issue-feedback.md"
 

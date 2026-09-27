@@ -2,16 +2,16 @@
 
 [:material-file-pdf-box: Als PDF herunterladen](../../pdf/07-http-rest-quic.pdf){ .md-button }
 
-!!! warning "Titel-Klarstellung: kein QUIC-Inhalt"
-    Der Titel dieses Aufgabenblatts (und der Dateiname des zugrundeliegenden
-    Originaldokuments, `Labor-05-SCT-QUIC-HTTP-REST.tex`) erwähnt QUIC. Das
-    Originaldokument behandelt **ausschließlich manuelle HTTP/REST-Anfragen
-    per Netcat/Telnet** – ein QUIC-Übungsteil ist im Original nicht
-    vorhanden, weder als Text noch als Aufgabe. Der QUIC-Bezug ist an dieser
-    Stelle aspirational (vermutlich für ein zukünftiges, noch nicht
-    geschriebenes Vertiefungsblatt vorgesehen) und wird hier bewusst nicht
-    vorgetäuscht. Dieses Aufgabenblatt behandelt HTTP/REST; ein eigenständiger
-    QUIC-Teil müsste separat nachgezogen werden, sollte er gewünscht sein.
+!!! info "QUIC läuft hier im eigenen Netz, nicht gegen einen Server im Internet"
+    Ein Aufruf gegen einen echten QUIC-Server im Internet würde in dieser
+    Umgebung scheitern: UDP/443 ist nach außen gesperrt. Die Teile 4–7 nutzen
+    deshalb einen **lokalen HTTP/3-Server in `topo01`** – das Kurs-Image
+    bringt beide dafür nötigen Seiten mit: `nginx` ist mit
+    `--with-http_v3_module` übersetzt (`nginx -V` zeigt es) und `curl` bringt
+    HTTP/3 mit (`curl -V` listet `HTTP3`). Der Server liegt als **lesbares
+    Startskript** (`startHTTP3Server.sh`) im Topologie-Verzeichnis – ihr seht
+    darin, welche nginx-Zeile QUIC überhaupt einschaltet, und der
+    QUIC-Verkehr wird im eigenen Netz mit `tcpdump` als UDP sichtbar.
 
 ## Lernziele
 
@@ -24,6 +24,13 @@
 - Den Unterschied zwischen einer lokalen, kontrollierten Gegenstelle
   (topo01-HTTP(S)-Server) und einer echten, externen Web-API
   (OpenWeatherMap) im eigenen Netzwerkverkehr beobachten können.
+- Die drei HTTP-Versionen im Mitschnitt auseinanderhalten: HTTP/1.1 und
+  HTTP/2 laufen über TCP, HTTP/3 läuft über QUIC und damit über UDP.
+- Erkennen, dass QUIC (RFC 9000) bewusst auf UDP aufsetzt statt ein neues
+  Transportprotokoll zu sein, und den QUIC-Handshake im Mitschnitt an seinen
+  großen Initial-Paketen wiedererkennen.
+- Nachvollziehen, wie ein Server einem über TCP verbundenen Client per
+  `Alt-Svc`-Header (RFC 7838) mitteilt, dass er auch HTTP/3 spricht.
 
 --8<-- "issue-feedback.md"
 
@@ -102,16 +109,11 @@ schiefgehen kann.
         HTTP-Zeilen wie gewohnt eintippen). Das ist ein guter Beleg dafür,
         *warum* HTTP und Transportsicherheit (TLS) getrennte Schichten sind.
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 07 teil1
-    ```
-
-
---8<-- "issue-feedback.md"
+!!! question "Kurz nachgedacht"
+    Ein Browser blendet Status-Zeile, Header und Leerzeile normalerweise
+    komplett aus – ihr habt sie gerade von Hand getippt und gelesen. Welchen
+    Teil dieser Anfrage hättet ihr vergessen, wenn ein Browser euch nicht
+    automatisch geholfen hätte?
 
 ### Teil 2 – Manuelles HTTP/REST gegen die externe OpenWeatherMap-API
 
@@ -172,25 +174,8 @@ Internet-Zugriff, keinen NAT-Uplink einer Mininet-Topologie.
     `tcp.port == 80` oder die aufgelöste IP der API) und vergleicht die
     Rohdaten mit der euch angezeigten Konsolenausgabe.
 
-    !!! note "Playwright-Screenshot-Referenz"
-        Für den Beleg einer erfolgreichen API-Antwort (z. B. die JSON-Zeile
-        mit den Wetterdaten in der Konsole) eignet sich ein
-        **Zeilen-/Locator-Screenshot** (siehe
-        `tests/e2e/specs/screenshots.spec.ts`, Test "Zeilen-Screenshot")
-        besser als ein Fenster-Screenshot: entscheidend ist der Inhalt einer
-        einzelnen Ausgabezeile (die HTTP-Statuszeile bzw. der JSON-Body), nicht
-        der gesamte sichtbare Terminalzustand.
-
 6. Probiert eigenständig weitere Endpunkte der API aus (Dokumentation:
     [openweathermap.org/current](https://openweathermap.org/current)).
-
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 07 teil2
-    ```
 
 !!! example "Vertiefung (optional): Wenn die API nein sagt"
     Bisher habt ihr nur den Erfolgsfall gesehen – und `jq` zeigt ohnehin nur
@@ -215,13 +200,7 @@ Internet-Zugriff, keinen NAT-Uplink einer Mininet-Topologie.
     korrekte HTTP/1.1-Anfrage inklusive `Host`-Header und abschließender
     Leerzeile zusammensetzt und über `netcat` verschickt. Prüft euer Skript
     gegen beide Gegenstellen aus diesem Aufgabenblatt. Das ist – anders als
-    die Pflichtaufgaben oben – kein Teil des regulären Bewertungspfads; wer
-    es umsetzt, kann das für die eigene Übersicht separat vermerken:
-
-    ```bash
-    ~/rn-practice/mark-done.sh 07 stretch
-    ```
-
+    die Pflichtaufgaben oben – kein Teil des regulären Bewertungspfads.
 
 ### Teil 3 – Manuelles HTTP *über TLS* mit `openssl s_client` (`topo01`)
 
@@ -292,50 +271,373 @@ Header, Body) identisch? Was genau hat `openssl s_client` für euch
     in Aufgabenblatt 01 beschriebenen, absichtlich fehlerhaften
     Zertifikatskonfiguration.
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
+!!! question "Kurz nachgedacht"
+    `openssl s_client` hat den TLS-Handshake übernommen, die HTTP-Zeilen
+    danach habt ihr wieder selbst getippt. Was genau bleibt an HTTP
+    unverändert, egal ob es über reines TCP (Teil 1) oder über TLS (dieser
+    Teil) läuft – und was ändert TLS wirklich?
 
-    ```bash
-    ~/rn-practice/mark-done.sh 07 teil3
-    ```
+### Teil 4 – Dieselbe Seite über HTTP/1.1 und HTTP/2 (`topo01`)
 
+Bevor ihr QUIC anschaut, macht den Unterschied zwischen den beiden
+TCP-basierten HTTP-Versionen sichtbar. Der lokale Server aus dem Skript
+`startHTTP3Server.sh` beantwortet dieselbe Seite über **alle drei** Versionen
+gleichzeitig – über TCP (HTTP/1.1 und HTTP/2) und über QUIC (HTTP/3, Teil 5).
+
+Startet `topo01`, falls nicht mehr aktiv, und den Server auf `h1`:
+
+```bash
+cd ~/rn-practice/topo01
+./start-topo01.sh
+```
+
+```bash
+h1$ cd ~/rn-practice/topo01
+h1$ ./startHTTP3Server.sh
+```
+
+!!! note "Werft einen Blick in das Skript"
+    `cat startHTTP3Server.sh` zeigt euch, dass hier kein Hexenwerk passiert:
+    derselbe nginx-`server`-Block hört doppelt – `listen 443 ssl` für TCP
+    (HTTP/1.1 und HTTP/2) und `listen 443 quic` für QUIC. Genau diese eine
+    Zeile schaltet HTTP/3 ein.
+
+Fragt von `h2` aus dieselbe Seite einmal über HTTP/1.1 und einmal über
+HTTP/2 ab und lasst euch von `curl` die tatsächlich ausgehandelte Version
+ausgeben:
+
+```bash
+h2$ curl -k --http1.1 -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}\n' https://10.0.1.2/
+h2$ curl -k --http2   -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}\n' https://10.0.1.2/
+```
+
+Zeichnet parallel auf `h2` den TCP-Verkehr mit (`sudo tcpdump -i h2-eth0 -w
+/tmp/http12.pcap tcp port 443`) und vergleicht: HTTP/2 überträgt in einer
+einzigen TCP-Verbindung binär gerahmte, gemultiplexte Ströme, während
+HTTP/1.1 pro Anfrage seriell arbeitet. Beide sind – anders als HTTP/3 in
+Teil 5 – **TCP**.
+
+!!! success "Real geprüft (2026-09-25)"
+    In einer Wegwerf-Topologie (`h1` als Server, `h2` als Client, `topo01`-artige
+    TCLink-Strecke) lieferte `curl --http1.1` die Aushandlung `HTTP/1.1` und
+    `curl --http2` die Aushandlung `HTTP/2`, beide mit HTTP-Status 200 gegen
+    dieselbe Seite auf `h1`. Der Mitschnitt zeigte in beiden Fällen TCP auf
+    Port 443.
+
+!!! quote "Fun Fact (belegt): HTTP/2 löst nur das halbe Blockier-Problem"
+    HTTP/2 ersetzte den Textklartext von HTTP/1.1 durch **binäre Frames**
+    (RFC 9113, Abschnitt 4) und schickt alle Anfragen als parallele Ströme über
+    **eine einzige** TCP-Verbindung (Abschnitt 5). Damit verschwindet das
+    Head-of-Line-Blocking auf HTTP-Ebene – aber RFC 9113, Abschnitt 1, sagt
+    selbst unmissverständlich: „TCP head-of-line blocking is not addressed by
+    this protocol." Genau dieses verbliebene Problem eine Schicht tiefer war
+    der Grund, HTTP/3 auf QUIC (über UDP) zu stellen. (Randnotiz zur
+    Quellenarbeit: RFC 9113 obsoletet **RFC 7540 und RFC 8740**, nicht nur
+    7540.)
+
+    - RFC 9113, Abschnitt 1/4/5 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc9113.html> (Abruf 2026-09-25)
+    - MDN, „Evolution of HTTP": <https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Evolution_of_HTTP> (Abruf 2026-09-25)
+
+--8<-- "issue-feedback.md"
+### Teil 5 – HTTP/3 von Hand beobachten: QUIC ist UDP (`topo01`)
+
+Jetzt der eigentliche QUIC-Teil. HTTP/3 ist HTTP über QUIC (RFC 9114), und
+QUIC läuft über **UDP** (RFC 9000) – nicht über TCP. Das macht ihr im eigenen
+Netz sichtbar, ohne dass die nach außen gesperrte UDP/443-Regel eine Rolle
+spielt.
+
+Der Server aus Teil 4 spricht bereits HTTP/3. Startet auf `h2` einen
+Mitschnitt, der **nur UDP auf Port 443** aufzeichnet, und ruft dann die Seite
+gezielt über HTTP/3 ab:
+
+```bash
+h2$ sudo tcpdump -i h2-eth0 -w /tmp/quic.pcap udp port 443 &
+h2$ curl -k --http3-only -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}, Status %{response_code}\n' https://10.0.1.2/
+```
+
+`--http3-only` erzwingt HTTP/3 (kein Rückfall auf TCP). Beendet danach den
+Mitschnitt (`sudo pkill tcpdump`) und schaut hinein:
+
+```bash
+h2$ tcpdump -r /tmp/quic.pcap -n | head
+```
+
+**Aufgabe:** Vergleicht diesen Mitschnitt mit dem TCP-Mitschnitt aus Teil 4.
+Auf welcher Transportschicht (Protokoll, Port) läuft HTTP/3? Warum sieht ein
+Filter wie `tcp port 443` hier **nichts**, obwohl ihr eine „HTTPS"-Seite
+abgerufen habt?
+
+!!! success "Real geprüft (2026-09-25)"
+    `curl --http3-only` handelte gegen den lokalen nginx-Server `HTTP/3` aus
+    und lieferte Status 200. Der Mitschnitt enthielt ausschließlich
+    **UDP**-Pakete auf Port 443 (z. B. `10.0.1.3.44691 > 10.0.1.2.443: UDP,
+    length 1200`) – kein einziges TCP-Segment. Genau dieselbe Seite, ein
+    völlig anderes Transport-Bild als in Teil 4.
+
+!!! quote "Fun Fact (belegt): „QUIC" ist kein Akronym – und läuft absichtlich in UDP"
+    QUIC ist kein neues Transportprotokoll neben TCP und UDP, sondern läuft
+    *in* UDP-Datagrammen: „QUIC packets are carried in UDP datagrams … to
+    better facilitate deployment in existing systems and networks" (RFC 9000,
+    Abschnitt 1). Der eigentliche Grund – NATs und Middleboxen lassen praktisch
+    nur TCP und UDP durch – steht ausdrücklich in RFC 9308, Abschnitt 2: UDP
+    „permits traversal of network middleboxes (including NAT) without requiring
+    updates to existing network infrastructure". Und für Besserwisser: RFC
+    9000, Abschnitt 1.2, hält fest „QUIC is a name, not an acronym" – die überall
+    gelesene Auflösung „Quick UDP Internet Connections" stammt von Googles
+    Vorläuferprotokoll und gilt für den IETF-Standard **nicht**.
+
+    - RFC 9000, Abschnitt 1/1.2, und RFC 9308, Abschnitt 2 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc9000.html> (Abruf 2026-09-25)
+    - Cloudflare Blog, „The Road to QUIC": <https://blog.cloudflare.com/the-road-to-quic/> (Abruf 2026-09-25)
+
+### Teil 6 – Der QUIC-Handshake im Mitschnitt: das 1200-Byte-Initial (`topo01`)
+
+Schaut euch den Mitschnitt aus Teil 5 genauer an. Die **ersten** Pakete, die
+`h2` an `h1` sendet, sind auffällig groß – rund 1200 Byte –, obwohl noch gar
+keine Nutzdaten geflossen sind:
+
+```bash
+h2$ tcpdump -r /tmp/quic.pcap -n -v | head -20
+```
+
+Zählt die Paketgrößen der ersten Datagramme vom Client (`10.0.x.x > 10.0.1.2`)
+und vergleicht sie mit den ersten Antworten des Servers.
+
+**Aufgabe:** Die QUIC-Spezifikation (RFC 9000, Abschnitt 14.1) verlangt, dass
+der Client sein erstes Paket auf mindestens 1200 Byte **auffüllt** (Padding).
+Überlegt: Warum schreibt ein Protokoll ausgerechnet eine *Mindestgröße* für
+das erste Paket vor? (Stichwort: Ein Angreifer könnte mit einer kleinen,
+gefälschten Anfrage eine große Antwort an ein Opfer auslösen – eine
+*Amplification*. Wie verhindert eine Mindestgröße der Anfrage genau das?)
+
+!!! success "Real geprüft (2026-09-25)"
+    Im Mitschnitt waren die ersten Client-Datagramme jeweils `UDP, length
+    1200`, während die erste Server-Antwort deutlich kleiner war (im Test
+    `length 51`). Das 1200-Byte-Padding des QUIC-Initials ist damit direkt
+    im `tcpdump`-Output ablesbar.
+
+!!! quote "Fun Fact (belegt): warum das erste QUIC-Paket auf 1200 Byte aufgeblasen wird"
+    Ein QUIC-Client muss jedes UDP-Datagramm, das ein Initial-Paket trägt, mit
+    PADDING-Frames auf mindestens **1200 Byte** UDP-Nutzlast auffüllen (RFC
+    9000, Abschnitt 14.1). Das dient zwei Zwecken: Es beweist, dass der Pfad
+    Pakete dieser Größe trägt, und es dämpft Amplification-Angriffe – denn vor
+    der Adressvalidierung darf ein Server höchstens **dreimal** so viele Bytes
+    senden, wie er empfangen hat (RFC 9000, Abschnitt 8.1). Ein Server *muss*
+    zu kleine Initial-Pakete sogar verwerfen, sonst würde er zum Reflektor für
+    gefälschte Absenderadressen. (Genau gelesen sind es 1200 Byte UDP-Nutzlast,
+    nicht IP-Paketgröße.)
+
+    - RFC 9000, Abschnitt 8.1/14.1 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc9000.html> (Abruf 2026-09-25)
+    - „The Illustrated QUIC Connection" (quic.xargs.org): <https://quic.xargs.org/> (Abruf 2026-09-25)
+
+!!! question "Kurz nachgedacht"
+    Das Padding auf 1200 Byte schützt vor Amplification-Angriffen, weil ein
+    Server vor der Adressvalidierung höchstens das Dreifache dessen senden
+    darf, was er empfangen hat. Was würde passieren, wenn der Client sein
+    erstes Paket stattdessen winzig klein halten dürfte?
 
 --8<-- "issue-feedback.md"
 
+### Teil 7 – `Alt-Svc`: wie ein Client von TCP auf HTTP/3 umsteigt (`topo01`)
+
+Ein Browser spricht einen Server zuerst fast immer über TCP an (HTTP/1.1 oder
+HTTP/2). Woher weiß er dann, dass er auf das schnellere HTTP/3 über QUIC
+wechseln kann? Der Server sagt es ihm – mit dem **`Alt-Svc`**-Header
+(*Alternative Services*, RFC 7838).
+
+Fragt den Server aus Teil 4/5 über TCP an und lasst euch nur die Kopfzeilen
+zeigen:
+
+```bash
+h2$ curl -k -I https://10.0.1.2/
+```
+
+Achtet in der Ausgabe auf die Zeile `alt-svc: h3=":443"; ma=86400`. Sie sagt
+dem Client: „Denselben Dienst gibt es auch als HTTP/3 (`h3`) auf Port 443,
+und du darfst dir das 86400 Sekunden lang merken (`ma`)."
+
+**Aufgabe:** Erklärt die Reihenfolge, in der ein realer Browser vorgeht:
+erster Kontakt über TCP, `Alt-Svc` empfangen, danach Wechsel auf QUIC. Warum
+kann HTTP/3 nicht einfach „von Anfang an" benutzt werden, ohne dass der Client
+den Server vorher kennt? (Stichwort: Der Client weiß vor dem `Alt-Svc`-Hinweis
+nicht, ob der Server QUIC überhaupt spricht – und ein blindes UDP/443 könnte
+unterwegs gesperrt sein, wie in dieser Umgebung nach außen.)
+
+!!! success "Real geprüft (2026-09-25)"
+    `curl -I` gegen den lokalen Server lieferte über TCP die Kopfzeile
+    `alt-svc: h3=":443"; ma=86400`. Ein anschließendes `curl --http3` nutzte
+    dann tatsächlich HTTP/3 (Status 200), wie in Teil 5.
+
+!!! quote "Fun Fact (belegt): `Alt-Svc` – und was 2023 an seine Stelle trat"
+    Ein über HTTP/1.1 oder HTTP/2 verbundener Client erfährt von HTTP/3 durch
+    das Antwort-Header-Feld `Alt-Svc` (RFC 7838, Abschnitt 3), z. B.
+    `Alt-Svc: h3=":443"`. Welche Version dann tatsächlich gesprochen wird,
+    klärt der ALPN-Token im TLS-Handshake: „h3" steht für HTTP/3 (RFC 9114,
+    Abschnitt 3.1). Der heute praktisch wichtigere Weg ist allerdings der
+    HTTPS/SVCB-Eintrag im DNS (RFC 9460, November 2023) – wer nur `Alt-Svc`
+    kennt, beschreibt den Stand vor 2023.
+
+!!! question "Kurz nachgedacht"
+    Der Client musste den Server erst über TCP erreichen, bevor er von
+    `Alt-Svc` erfuhr. Warum kann ein Browser nicht einfach beim allerersten
+    Kontakt zu einem unbekannten Server direkt QUIC probieren?
+
+### Teil 8 – Site-Cloning und eingeschleustes Skript: XSS im lokalen Übungsziel (`topo01`)
+
+!!! danger "Nur gegen das eigene Übungsziel in dieser Topologie"
+    Dieser Teil übt Werkzeuge, die man von Kali Linux kennt (Site-Cloning,
+    Cross-Site-Scripting) – ausschließlich gegen einen absichtlich
+    verwundbaren Server, den ihr selbst in `topo01` startet. `h2`, von wo aus
+    ihr in diesem Teil arbeitet, hat **keine Route ins Internet** (anders als
+    `h1`, das für Teil 2 eine NAT-Route nach draußen braucht) – ein Aufruf
+    gegen ein externes Ziel scheitert von hier aus technisch, nicht nur aus
+    Vorsicht. Übertragt nichts davon auf ein Ziel außerhalb dieser Topologie.
+
+HTTP/REST-Anfragen von Hand zu sprechen (Teile 1–3) heißt auch: zu sehen, was
+mit den Daten passiert, die eine Anfrage mitbringt – zum Beispiel ein
+Suchbegriff in einer Query-String. Wenn ein Server diesen Wert ungeprüft in
+seine HTML-Antwort einbaut, kann die Antwort selbst ausführbaren Code
+enthalten: Cross-Site-Scripting (XSS). Dieser Teil zeigt den Netzwerkeffekt
+davon – wie ein solcher Payload über die Leitung geht und im Mitschnitt
+sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
+
+1. Startet `topo01`, falls nicht mehr aktiv, und auf `h1` das absichtlich
+   verwundbare Übungsziel (Port 8080, unabhängig vom Server aus Teil 1 auf
+   Port 80):
+
+    ```bash
+    cd ~/rn-practice/topo01
+    ./start-topo01.sh
+    ```
+
+    ```bash
+    h1$ cd ~/rn-practice/topo01
+    h1$ python3 startXSSLabServer.py &
+    ```
+
+2. Findet von `h2` aus die reflektierte Lücke in `/suche`: der Parameter `q`
+   landet unescaped in der Antwort.
+
+    ```bash
+    h2$ curl -s 'http://10.0.1.2:8080/suche?q=<script>alert(1)</script>'
+    ```
+
+    Prüft in der Ausgabe: steht `<script>alert(1)</script>` unverändert
+    (nicht als `&lt;script&gt;`) im HTML? Genau das ist die Lücke – jeder
+    Browser, der diese Antwort rendert, würde das Skript ausführen.
+
+3. Schreibt einen Eintrag ins Gästebuch, der beim nächsten Abruf durch jeden
+   Besucher erneut ausgeführt würde (gespeichertes XSS) – als Payload einen
+   harmlosen, rein internen Cookie-Mitschnitt statt eines externen Aufrufs:
+
+    ```bash
+    h2$ curl -s 'http://10.0.1.2:8080/gaestebuch?name=Angreifer&text=<script>fetch("/sammler?c="+document.cookie)</script>'
+    h2$ curl -s 'http://10.0.1.2:8080/gaestebuch'
+    ```
+
+    Der zweite Aufruf zeigt, dass der Eintrag jetzt **dauerhaft** in der
+    Seite steht – anders als bei der reflektierten Lücke aus Schritt 2, die
+    nur in der eigenen Antwort auftaucht.
+
+4. Simuliert, was ein Browser täte, der diese Seite lädt: er würde das
+   eingeschleuste `fetch(...)` ausführen und `document.cookie` an `/sammler`
+   schicken. Ruft testweise dieselbe URL wie im Payload direkt auf:
+
+    ```bash
+    h2$ curl -s 'http://10.0.1.2:8080/sammler?c=sitzung=demo-uebungswert-42'
+    h2$ curl -s 'http://10.0.1.2:8080/sammler/log'
+    ```
+
+    `/sammler` ist bewusst derselbe interne Server – der "Diebstahl" bleibt
+    innerhalb von `topo01`, es wird nichts exfiltriert. Wer einen grafischen
+    Browser zur Hand hat, kann die Payload-URL aus Schritt 3 stattdessen
+    wirklich öffnen (`h2 firefox-esr http://10.0.1.2:8080/gaestebuch &` im
+    Mininet-CLI) und beobachten, dass `alert(1)` bzw. der `fetch`-Aufruf ohne
+    weiteres Zutun feuert.
+
+5. Schneidet die Strecke zwischen `h1` und `h2` mit, während ihr Schritt 2–4
+   wiederholt, und sucht den Payload im Klartext:
+
+    ```bash
+    h2$ sudo tcpdump -i h2-eth0 -w /tmp/teil8-xss.pcap -U &
+    # Schritte 2-4 wiederholen
+    h2$ sudo pkill tcpdump
+    h2$ tcpdump -r /tmp/teil8-xss.pcap -A | grep -E 'script|sammler'
+    ```
+
+    **Aufgabe:** Findet im Mitschnitt (a) die Anfrage mit dem reflektierten
+    Payload, (b) die Anfrage, die den gespeicherten Payload einträgt, und (c)
+    die Anfrage an `/sammler`, die den Cookie-Wert überträgt. Alle drei
+    stehen im Klartext auf der Leitung – HTTP verschlüsselt nichts. Was würde
+    sich ändern, wenn der Server stattdessen HTTPS spräche (vgl. Teil 3)?
+
+6. Klont das Übungsziel mit `httrack`, dem Site-Cloning-Werkzeug – dem
+   Werkzeug, mit dem man z. B. eine Phishing-Kopie einer Seite erzeugt:
+
+    ```bash
+    h2$ mkdir -p ~/rn-practice/topo01/clone-uebungsziel
+    h2$ httrack "http://10.0.1.2:8080/" -O ~/rn-practice/topo01/clone-uebungsziel -%v -r1
+    h2$ ls ~/rn-practice/topo01/clone-uebungsziel
+    ```
+
+    **Aufgabe (Gegenprobe):** Versucht denselben Befehl gegen ein Ziel
+    außerhalb der Topologie, z. B. `httrack "http://1.1.1.1/" -O /tmp/clone-extern`.
+    Vergleicht `ip route` auf `h2` mit dem auf `h1` (`h2$ ip route`, dann
+    `h1$ ip route`) und erklärt, warum der zweite Aufruf technisch scheitert
+    (Timeout/"Network unreachable"), während der erste funktioniert.
+
+    !!! success "Real geprüft (2026-09-25)"
+        In einer Wegwerf-Reproduktion der `topo01`-Adressierung (Network-
+        Namespaces mit denselben `ip route`-Befehlen wie in `topo01.py`,
+        ohne Mininet/OVS, aber ohne die an `h1` hängende NAT-Brücke)
+        lieferte `curl` gegen `/suche` den unescaped reflektierten Payload,
+        der Gästebuch-Eintrag blieb dauerhaft gespeichert (im zweiten Abruf
+        erneut sichtbar), und `/sammler` protokollierte den übertragenen
+        Cookie-Wert serverseitig. Im Mitschnitt der Strecke waren alle drei
+        Anfragen im Klartext sichtbar: `GET /suche?q=%3Cscript%3E...` (Paket
+        9 von 82), der Gästebuch-Eintrag mit dem `fetch`-Payload (Paket 21)
+        und die Cookie-Übertragung an `/sammler` (Paket 45). `httrack` gegen
+        `10.0.1.2:8080` spiegelte erfolgreich `index.html`; derselbe Aufruf
+        gegen `1.1.1.1` endete nach Timeout ergebnislos, weil der Router
+        `r1` keine Route zu `1.1.1.1` kennt (`ip route get 1.1.1.1` →
+        "Network is unreachable") – exakt dieselbe Route (bzw. deren
+        Fehlen), die auch `ping -c1 1.1.1.1` von `h2` aus mit "Destination
+        Net Unreachable" quittiert.
+
+--8<-- "issue-feedback.md"
 ## Potenzielle Herausforderungen
 
-- **QUIC ist im Original nicht enthalten.** Wie oben bereits vermerkt,
-  behandelt die Quelle ausschließlich HTTP/REST über TCP. Wer QUIC/HTTP-3
-  unterrichten möchte, braucht dafür eigenes, neu zu erstellendes Material
-  (z. B. `curl --http3` oder ein QUIC-fähiger Server) – das ist nicht Teil
-  dieses Aufgabenblatts.
+- **QUIC/HTTP-3 (Teile 4–7) läuft ausschließlich lokal.** Ein Aufruf gegen
+  einen QUIC-Server im Internet scheitert an dieser Umgebung, weil UDP/443
+  nach außen gesperrt ist; im eigenen Mininet-Netz spielt das keine Rolle.
+  `nginx -V` zeigt `--with-http_v3_module`, `curl -V` listet `HTTP3`, und
+  `curl --http3-only` erreicht den lokalen Server mit HTTP-Status 200 über
+  UDP/443.
+- **Teil 8 (Site-Cloning/XSS) funktioniert technisch nur gegen das eigene
+  Übungsziel.** `h2` hat keine Route ins Internet (`r1`/`r2` bekommen in
+  `topo01.py` keine Default-Route mit), und `startXSSLabServer.py` nimmt
+  selbst nie eine ausgehende Verbindung auf – ein Aufruf gegen ein Ziel
+  außerhalb der Topologie scheitert daher technisch, nicht nur aus Vorsicht.
 - **Internetzugriff für Teil 2 läuft nicht über den Mininet-NAT-Uplink.**
-  Das Originaldokument weist bereits selbst darauf hin, dass für die
-  OpenWeatherMap-Übung keine Topologie gestartet werden muss – die Anfragen
-  laufen direkt vom Desktop-Terminal (Container-Host-Netzwerk) aus, nicht
-  über den NAT-Uplink von `topo01` (der wiederum von `getIntWithIntenet.sh`
-  ermittelt wird, siehe [Aufgabenblatt 01](01-netzwerkgrundlagen-tools.md)).
-  Ob der Container selbst uneingeschränkten ausgehenden Internetzugriff auf
+  Die Anfragen laufen direkt vom Desktop-Terminal (Container-Host-Netzwerk)
+  aus, nicht über den NAT-Uplink von `topo01`. Ob der Container selbst
+  uneingeschränkten ausgehenden Internetzugriff auf
   `api.openweathermap.org:80` hat, hängt von der Firewall-/Proxy-Konfiguration
-  des produktiven Container-Hosts ab. **Verifiziert (2026-09-09):** im real
-  getesteten Container ist ausgehender HTTP-Zugriff auf
-  `api.openweathermap.org` uneingeschränkt möglich (produktive
-  Container-Hosts können abweichend konfiguriert sein, s. u.). Schlägt die
-  Verbindung in Teil 2 fehl, obwohl Teil 1 (rein lokal in `topo01`)
-  funktioniert, ist
-  das ein Hinweis auf eine restriktive Egress-Regel und kein
-  Anwendungsfehler.
+  des jeweiligen Container-Hosts ab. Schlägt die Verbindung in Teil 2 fehl,
+  obwohl Teil 1 (rein lokal in `topo01`) funktioniert, ist das ein Hinweis
+  auf eine restriktive Egress-Regel und kein Anwendungsfehler.
 - **Timeouts bei manueller Eingabe.** Wie im Hinweistext oben erwähnt,
   gelten für handgetippte Anfragen dieselben Server-seitigen Timeouts wie
   für einen echten Client – bereitet die Anfragezeilen vorher vor.
 - **Rate-Limit des gemeinsamen API-Schlüssels.** Der für die Veranstaltung
   bereitgestellte Schlüssel wird von allen Teilnehmenden gemeinsam genutzt;
   bei einer hohen Anzahl gleichzeitiger Anfragen ist ein Rate-Limit von
-  OpenWeatherMap nicht auszuschließen (nicht verifiziert, da abhängig von
-  aktueller Teilnehmerzahl und OpenWeatherMap-Tarif).
+  OpenWeatherMap nicht auszuschließen.
 
 ## Quellen
 
 - `mininet-labs/vertiefung/Labor-05-SCT-QUIC-HTTP-REST.tex`
 - `mininet-labs/rn-practice/topo01/` (lokale HTTP(S)-Server als Vorstufe)
+- `mininet-labs/rn-practice/topo01/startHTTP3Server.sh` – der lesbare
+  nginx-Startpunkt für HTTP/3 über QUIC (Teile 4–7)
+- `mininet-labs/rn-practice/topo01/startXSSLabServer.py` – das absichtlich
+  verwundbare Übungsziel für Teil 8

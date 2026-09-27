@@ -27,18 +27,27 @@
 
 ### Teil 1 – VLSM-Subnetting nachvollziehen (`topoP02`)
 
+!!! info "Fachbegriff: Subnetz"
+    Ein **Subnetz** ist ein zusammenhängender Ausschnitt eines
+    IP-Adressraums, der als eigenes, abgeschlossenes Netzsegment behandelt
+    wird – festgelegt durch eine **Netzadresse** und eine **Präfixlänge**
+    (z. B. `/18`), die angibt, wie viele der führenden Adressbits das Netz
+    identifizieren; der Rest steht für einzelne Hosts zur Verfügung. Ein
+    großer Adressraum wird in mehrere Subnetze aufgeteilt, damit
+    unterschiedliche Abteilungen, Standorte oder Funktionsbereiche getrennt
+    voneinander adressiert und geroutet werden können, statt dass alle
+    Geräte in einem einzigen, riesigen Netz stehen. **VLSM** (Variable
+    Length Subnet Masking) bedeutet dabei nur: Die Subnetze eines
+    Adressraums müssen nicht alle gleich groß sein – jedes bekommt genau so
+    viele Adressen, wie sein tatsächlicher Hostbedarf verlangt. Genau das
+    übt ihr in diesem Teil.
+
 Startet die vorkonfigurierte Referenztopologie:
 
 ```bash
 cd ~/rn-practice/topoP02
 ./start-topoP02.sh
 ```
-
-!!! note "Korrektur gegenüber dem Originaldokument"
-    Das Originaldokument verweist mit `cd ~/rn-practical/topoP02` auf ein
-    nicht existierendes Verzeichnis `rn-practical`. Der tatsächliche, in
-    diesem Repository vorhandene Pfad ist `~/rn-practice/topoP02` (mit *c*
-    statt *ic*, siehe `docs/reference/rn-practice-setup.md`).
 
 **Szenario:** Ein Unternehmen mit vier Abteilungen soll aus dem Adressraum
 `128.155.128.0/17` versorgt werden. Der Hostbedarf pro Abteilung:
@@ -50,14 +59,12 @@ cd ~/rn-practice/topoP02
 | Einkauf     | 2.100           |
 | Lager       | 400             |
 
-!!! note "Ergänzung gegenüber dem Originaldokument"
-    Das Original beschreibt nur **drei** Subnetze (je eines pro Router
-    r1/r2/r3) für **vier** Abteilungen und ordnet Router und Abteilungen
-    nicht explizit einander zu. Der tatsächliche Topologie-Code
-    (`topoP02.py`) zeigt jedoch, dass Router `r3` zwei Host-Anschlüsse hat
-    (`h3` *und* `h4`) – es gibt also vier Subnetze, nicht drei. Anhand der
-    tatsächlich im Skript konfigurierten Adressen und der Hostbedarfe lässt
-    sich die Zuordnung eindeutig rekonstruieren:
+!!! info "Vier Abteilungen, vier Subnetze"
+    Der tatsächliche Topologie-Code (`topoP02.py`) zeigt, dass Router `r3`
+    zwei Host-Anschlüsse hat (`h3` *und* `h4`) – es gibt also vier
+    Subnetze für die vier Abteilungen, eines je Host-Anschluss. Anhand der
+    im Skript konfigurierten Adressen und der Hostbedarfe oben lässt sich
+    die Zuordnung eindeutig rekonstruieren:
 
     | Router-Interface | Subnetz | Nutzbare Hosts | Abteilung |
     |---|---|---|---|
@@ -66,12 +73,10 @@ cd ~/rn-practice/topoP02
     | `r3-eth1` (→ `h3`) | `128.155.224.0/20` | 4.094 | Einkauf (2.100) |
     | `r3-eth2` (→ `h4`) | `128.155.240.0/23` | 510 | Lager (400) |
 
-    Die Adressbereiche für die ersten drei Netze stammen unverändert aus dem
-    Original (`128.155.128.1`–`.191.254`, `.192.1`–`.223.254`,
-    `.224.1`–`.239.254`); das vierte Subnetz (`/23` für Lager) ist im
-    Originaltext gar nicht erwähnt, aber notwendig, damit die VLSM-Rechnung
-    zum tatsächlichen Skript passt – klassisches VLSM-Prinzip: je knapper
-    der Bedarf, desto kleiner das gewählte Präfix.
+    Je knapper der Hostbedarf einer Abteilung, desto kleiner (länger) das
+    gewählte Präfix – das ist das VLSM-Prinzip aus der Info-Box oben ganz
+    konkret: Entwicklung mit 10.000 Hosts bekommt das größte Subnetz
+    (`/18`), Lager mit 400 Hosts das kleinste (`/23`).
 
 Zusätzlich zu den vier "Kunden"-Subnetzen verwendet das Skript zwei private
 **Transitnetze** zwischen den Routern selbst (`10.0.0.0/30` zwischen `r1`
@@ -94,6 +99,18 @@ h1$ ping -c 4 128.155.240.2   # h4
 (`/18`, `/19`, `/20`, `/23`) bestätigt die VLSM-Adressierung aus der Tabelle
 oben.*
 
+!!! info "Fachbegriff: Routingtabelle"
+    Die **Routingtabelle** eines Rechners oder Routers listet, über welchen
+    Weg (welche **Ausgangsschnittstelle**, ggf. über welchen **Gateway**/
+    **Nexthop**) ein Paket zu einem bestimmten Zielnetz gelangt. Direkt
+    angeschlossene Netze trägt der Kernel automatisch ein; jedes andere Ziel
+    braucht entweder eine manuell gesetzte Route (wie in Teil 2) oder eine
+    von einem Routing-Protokoll gelernte Route (siehe
+    [Lab 03](03-routing-rip-bgp.md)). Zwei gebräuchliche Werkzeuge zum
+    Anzeigen sind `route -n` (älter, klassisch) und `ip route` (moderner,
+    Teil der `iproute2`-Sammlung) – beide zeigen dieselbe Tabelle, nur in
+    unterschiedlicher Formatierung.
+
 Prüft anschließend auf jedem Router die Routing-Tabelle:
 
 ```bash
@@ -104,16 +121,8 @@ r1$ ip route
 
 ![Terminalfenster "Node: r1" mit der Ausgabe von route -n und ip route, die Zeile 128.155.192.0/18 via 10.0.0.2 ist deutlich sichtbar](../assets/screenshots/02-subnetting-arp/r1-routing-table.png)
 *Echte `route -n`/`ip route`-Ausgabe auf `r1`. Die Zeile
-`128.155.192.0/18 via 10.0.0.2` bestätigt die im Hinweis unten genannte,
-gegenüber dem Original korrigierte Maske (`/18`, nicht `/19`).*
-
-!!! note "Playwright-Screenshot-Referenz"
-    Für den Beleg einer einzelnen Routing-Tabellenzeile (z. B. die Route zu
-    `128.155.192.0/18 via 10.0.0.2` auf `r1` — real gegen einen laufenden
-    Container geprüft, die Maske ist `/18`, nicht `/19`) eignet sich ein
-    **Zeilen-/Locator-Screenshot** besser als ein Fenster-Screenshot (siehe
-    `tests/e2e/specs/screenshots.spec.ts`): es geht um den Inhalt einer
-    konkreten Tabellenzeile, nicht um den gesamten sichtbaren Terminalzustand.
+`128.155.192.0/18 via 10.0.0.2` bestätigt die Maske des Verkaufsnetzes
+(`/18`, nicht `/19`).*
 
 !!! warning "Bekannter Fehler im Skript: Maskeninkonsistenz bei `h4`"
     `topoP02.py` deklariert den Host `h4` mit der Adresse
@@ -137,6 +146,24 @@ in seinem eigenen Netzwerk-Namespace), macht die Interface-Liste auf `h4`
 `h4-eth0` seht.
 
 #### Traceroute und ARP
+
+Ihr habt eben geprüft, *dass* die Pakete ankommen. Jetzt wechselt der Fokus
+darauf, *wie* sie unterwegs adressiert werden – dafür kommt mit ARP ein
+zweites Protokoll ins Spiel, das neben IP-Adressen auch Hardware-Adressen
+kennen muss.
+
+!!! info "Fachbegriff: ARP (Address Resolution Protocol)"
+    Eine IP-Adresse allein reicht nicht, um ein Paket auf einem Ethernet-
+    Segment tatsächlich zuzustellen – dafür wird die **MAC-Adresse** der
+    Netzwerkkarte gebraucht. **ARP** (Address Resolution Protocol, RFC 826)
+    ist das Protokoll, mit dem ein Rechner diese Zuordnung klärt: Er fragt
+    per Broadcast „wer hat diese IP-Adresse?" und die passende Netzwerkkarte
+    antwortet mit ihrer MAC-Adresse. Jeder Rechner merkt sich das Ergebnis
+    eine Zeit lang in seinem **ARP-/Nachbarschafts-Cache**, damit nicht vor
+    jedem Paket neu gefragt werden muss. Wichtig für die Beobachtung gleich:
+    ARP wird immer nur **innerhalb eines Segments** verwendet, für den
+    jeweils **nächsten** Hop – nie für das eigentliche Endziel, wenn dieses
+    in einem anderen Netz liegt.
 
 Stellt mit `traceroute` fest, welchen Weg das ICMP-Paket von `h1` zu `h3`
 durch das Netz nimmt, und beobachtet parallel mit `tcpdump`, welche
@@ -162,13 +189,12 @@ gesamten Pfad unverändert bleibt, wird auf jedem der drei Segmente
 jeweils nächsten Hop durchgeführt – der Zielrechner selbst wird erst auf dem
 letzten Segment per ARP adressiert.
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 02 teil1
-    ```
+!!! question "Kurz nachgedacht"
+    Wenn ARP nur innerhalb eines Segments gilt: Woher weiß `h1` dann
+    überhaupt, dass es sein Paket an `r1` schicken soll, statt selbst nach
+    der MAC-Adresse von `h3` zu fragen? (Hinweis: Schaut auf `h1`s
+    Routing-Tabelle aus Teil 1 – die Antwort liegt nicht bei ARP, sondern
+    einen Schritt davor.)
 
 !!! example "Vertiefung (optional): Routing-Schnappschüsse über mehrere Anläufe vergleichen"
     Weil euer `~/rn-practice`-Verzeichnis über Container-Neustarts hinweg
@@ -183,7 +209,6 @@ letzten Segment per ARP adressiert.
     zwischendurch manuell etwas verändert hattet – ein konkreter Beleg
     dafür, was an einer laufenden Konfiguration tatsächlich "flüchtig" ist.
 
-
 ### Teil 2 – Eigene Konfiguration üben (`topoP02-self.py`)
 
 Dieselbe Topologie steht auch unkonfiguriert zur Verfügung, damit ihr die
@@ -195,13 +220,12 @@ sudo python3 topoP02-self.py
 ```
 
 !!! warning "Kein `start-topoP02-self.sh` vorhanden"
-    Das Originaldokument verweist auf ein Startskript
-    `./start-topoP02-self.sh`. Ein solches Skript existiert im Repository
-    **nicht** – nur die Python-Datei `topoP02-self.py` selbst
-    (`topoP02.py` ist die vorkonfigurierte Referenzlösung aus Teil 1,
-    `topoP02-self.py` die unkonfigurierte Übungsvariante mit identischer
-    Topologie). Ruft die Übungsvariante daher direkt mit
-    `sudo python3 topoP02-self.py` auf, wie oben gezeigt.
+    Es gibt **kein** Startskript `./start-topoP02-self.sh` – nur die
+    Python-Datei `topoP02-self.py` selbst (`topoP02.py` ist die
+    vorkonfigurierte Referenzlösung aus Teil 1, `topoP02-self.py` die
+    unkonfigurierte Übungsvariante mit identischer Topologie). Ruft die
+    Übungsvariante daher direkt mit `sudo python3 topoP02-self.py` auf, wie
+    oben gezeigt.
 
 Eure Aufgabe: konfiguriert dieselbe Adressierung wie in Teil 1 von Hand.
 Die dafür benötigten Befehle:
@@ -225,14 +249,6 @@ müsst ihr nicht selbst setzen:
 sysctl net.ipv4.ip_forward=1
 ```
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 02 teil2
-    ```
-
 !!! example "Vertiefung (optional): Eure Konfiguration als wiederholbares Skript"
     Alles, was ihr gerade von Hand eingetippt habt, ist mit `mininet> quit`
     verschwunden. Schreibt die Befehle stattdessen in eine Datei, z. B.
@@ -248,26 +264,23 @@ sysctl net.ipv4.ip_forward=1
     warum genau diese Eigenschaft bei Konfigurationswerkzeugen einen eigenen
     Namen hat.
 
-
 ### Teil 3 (Vertiefung, optional) – MTU und Fragmentierung (`topoP04`)
 
-`topoP04` gehört technisch zur selben Skript-Familie wie `topoP02`, behandelt
-aber ein anderes Thema: eine einfache Zwei-Host-Topologie mit absichtlich
-kleiner MTU (536 Byte statt der üblichen 1500) und 10 % künstlichem
-Paketverlust auf dem Link:
+Bisher ging es um Adressierung und Routing – die Frage *wohin* ein Paket
+geschickt wird. Dieser optionale Teil wechselt das Thema komplett: Es geht
+jetzt um *wie groß* ein Paket sein darf, bevor es unterwegs zerlegt werden
+muss. Dafür verlasst ihr `topoP02` und wechselt zu `topoP04`, einer
+einfachen Zwei-Host-Topologie mit absichtlich kleiner MTU (536 Byte statt
+der üblichen 1500) und 10 % künstlichem Paketverlust auf dem Link:
 
 ```python
 self.addLink(h1, s1, cls=TCLink, bw=10, mtu=536, loss=10)
 self.addLink(h2, s1, cls=TCLink, bw=10, mtu=536, loss=10)
 ```
 
-!!! note "Lücke im Originalmaterial"
-    Für `topoP04` existiert – anders als für `topoP02`/`topoP03` – **kein**
-    zugehöriger Aufgabentext in den Original-LaTeX-Quellen. Die folgende
-    Aufgabe ist daher aus der Skriptkonfiguration und den beiden im
-    Verzeichnis mitgelieferten Textdateien (`MehrAls500ByteText.txt`,
-    `MehrAls1500ByteText.txt`) abgeleitet und als Vorschlag zu verstehen,
-    nicht als verifizierter Original-Auftrag.
+Diese Aufgabe ist aus der Skriptkonfiguration und den beiden im Verzeichnis
+mitgelieferten Textdateien (`MehrAls500ByteText.txt`,
+`MehrAls1500ByteText.txt`) abgeleitet.
 
 Startet die Topologie und beobachtet mit `ping`, ab welcher Paketgröße
 Fragmentierung nötig wird:
@@ -283,15 +296,6 @@ Beobachtet mit `tcpdump -i h1-eth0` den Unterschied zwischen beiden
 Aufrufen, und schickt anschließend die vorbereiteten Textdateien z. B. per
 `nc` über die Leitung, um Fragmentierung und – durch die 10 % Verlustrate –
 gelegentliche Paketverluste im Zusammenspiel zu beobachten.
-
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 02 teil3-optional
-    ```
-
 
 ### Teil 4 – Broadcast-Adressen selbst berechnen, bevor ihr sie prüft (`topoP02`)
 
@@ -341,15 +345,6 @@ gleich große `/19`-Subnetze aufgeteilt würde – und vergleicht das Ergebnis
 mit der Anzahl der tatsächlich benötigten, unterschiedlich großen VLSM-Netze
 aus der Tabelle in Teil 1. Was verliert man an nutzbaren Adressen, wenn man
 statt VLSM eine starre, gleich große Aufteilung verwendet?
-
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 02 teil4
-    ```
-
 
 ### Teil 5 – Die Lerntabelle des Switches füllen (`topo02`)
 
@@ -589,15 +584,6 @@ $ ovs-vsctl remove bridge s1 other-config mac-aging-time
     Eure Zahlen für `evicted` werden von den obigen abweichen – sie hängen
     davon ab, wie schnell `macof` auf eurer Sitzung Rahmen erzeugt.
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 02 teil5
-    ```
-
-
 --8<-- "issue-feedback.md"
 
 ### Teil 6 – ARP von Hand auslösen und die Zustände lesen (`topo02`)
@@ -661,12 +647,6 @@ Flush leer und nennt nach dem Ping die MAC mit Zustand `REACHABLE`.
     Algorithmus steht im Abschnitt *Packet Reception*, das Format in
     *Packet format*. Eine Angabe wie „RFC 826, Abschnitt 3" wäre falsch.
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 02 teil6
-    ```
-
-
 ### Teil 7 – Longest-Prefix-Match selbst entscheiden, bevor der Kernel es tut (`topoP02`)
 
 In Teil 1 habt ihr die Routing-Tabellen *gelesen*. Jetzt trefft ihr selbst die
@@ -722,12 +702,6 @@ r2$ ip route get 128.155.240.2     # h4, nur ueber /18 erreichbar
     Ziele, die das direkt angeschlossene `/19` nicht abdeckt, während ein Ziel
     innerhalb des `/19` über das längere Präfix direkt zugestellt wird.
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 02 teil7
-    ```
-
-
 ### Teil 8 – IPv6 nebenher: Link-Local-Adressen und Neighbor Discovery statt ARP (`topo02`)
 
 Bisher war alles IPv4, und ARP war die Antwort auf „welche MAC gehört zu dieser
@@ -778,12 +752,6 @@ ARP.
     Umgebung erkennbar aus der MAC ab (`…00:ff:fe00:5` gehört zur MAC
     `00:00:00:00:00:05`) – das ist das historische EUI-64-Verfahren, an dem man
     Adresse und Hardware einander zuordnen kann.
-
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 02 teil8
-    ```
-
 
 ### Teil 9 – Die offene Frage aus Teil 5 selbst beantworten: Überlauf ja, Flutung nein? (`topo02`)
 
@@ -854,12 +822,6 @@ $  ovs-vsctl remove bridge s1 other-config mac-table-size
     - dsniff-Projektseite (Dug Song): <https://www.monkey.org/~dugsong/dsniff/> (Abruf 2026-09-24)
     - dsniff CHANGES (v1.0, 17.12.1999): <https://raw.githubusercontent.com/tecknicaltom/dsniff/master/CHANGES> (Abruf 2026-09-24)
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 02 teil9
-    ```
-
-
 ### Teil 10 – Der Preis der starren Aufteilung: VLSM-Verschnitt selbst ausrechnen (`topoP02`, Handrechnung)
 
 Teil 4 hat euch am Ende gefragt, wie viele gleich große `/19`-Subnetze in das
@@ -897,12 +859,6 @@ je Abteilung für beide Varianten und ein Satz, der den Unterschied benennt.
     VLSM (`/18` + `/19` + `/20` + `/23`) bequem hineinpasst. Genau das ist der
     Grund, warum RFC 1519 variabel lange Subnetze eingeführt hat (siehe Teil 7).
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 02 teil10
-    ```
-
-
 --8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
@@ -928,12 +884,11 @@ je Abteilung für beide Varianten und ein Satz, der den Unterschied benennt.
   s. o.).
 - **Kein `start-topoP02-self.sh`** – muss direkt per
   `sudo python3 topoP02-self.py` gestartet werden.
-- **Vier Abteilungen, nur drei im Original beschriebene Subnetze** – das
-  vierte Subnetz (Lager, `/23`) ergibt sich erst aus dem tatsächlichen
-  Skript, nicht aus dem Original-Fließtext (s. o.).
-- **`topoP04` ohne Original-Aufgabentext** – die in Teil 3 vorgeschlagene
-  Aufgabe ist eine Ableitung aus der Skriptkonfiguration, kein
-  Original-Auftrag.
+- **Vier Abteilungen, vier Subnetze** – das vierte Subnetz (Lager, `/23`)
+  ergibt sich erst aus dem tatsächlichen Skript (s. o.), nicht direkt aus
+  der Szenariobeschreibung.
+- **`topoP04` hat keinen fest vorgegebenen Aufgabentext** – die in Teil 3
+  vorgeschlagene Aufgabe ist eine Ableitung aus der Skriptkonfiguration.
 - **`mininet> xterm <node>` funktioniert weiterhin**, öffnet aber intern
   `xfce4-terminal` statt eines echten `xterm` (Shim, siehe
   [Lab 01](01-netzwerkgrundlagen-tools.md#potenzielle-herausforderungen)).

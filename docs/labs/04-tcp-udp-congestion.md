@@ -28,23 +28,19 @@
 
 ### Teil A — Fehlerrate, MTU und IP-Fragmentation
 
-*(Quelle: `Labor-04-TCP-UDP.tex`, vollständig erhalten — dies ist die
-fachlich verlässliche Basis dieses Aufgabenblatts.)*
+Diesen Teil kennt ihr in Grundzügen bereits aus [Lab 02, Teil 3](02-subnetting-arp.md#teil-3-vertiefung-optional-mtu-und-fragmentierung-topop04):
+Dieselbe Topologie `topoP04` mit kleiner MTU und künstlichem Paketverlust.
+Dort ging es um Fragmentierung bei `ping`; hier untersucht ihr zusätzlich,
+wie sich Fehlerrate und Fragmentierung auf UDP und TCP unterschiedlich
+auswirken.
 
-Starten Sie Ihr Setup durch Wechsel in das Aufgabenverzeichnis und Aufruf des
+Startet euer Setup durch Wechsel in das Aufgabenverzeichnis und Aufruf des
 Start-Skripts:
 
 ```bash
 cd ~/rn-practice/topoP04
 ./start-topoP04.sh
 ```
-
-!!! note "Korrektur gegenüber dem Originaldokument"
-    Das Originaldokument verweist mit `cd ~/rn-practical/topoP04` auf ein
-    nicht existierendes Verzeichnis `rn-practical`. Der tatsächliche, in
-    diesem Repository vorhandene Pfad ist `~/rn-practice/topoP04` (mit *c*
-    statt *ic*, siehe `docs/reference/rn-practice-setup.md` und die gleiche
-    Korrektur in [Lab 02](02-subnetting-arp.md)).
 
 Die Topologie besteht aus zwei Hosts und einem Switch. Die Verbindung ist auf
 eine Bandbreite von 10 Mbit/s, eine MTU von 500 Byte und eine Fehlerrate von
@@ -53,7 +49,7 @@ eine Bandbreite von 10 Mbit/s, eine MTU von 500 Byte und eine Fehlerrate von
 #### Herausforderung der Fehlerrate
 
 Die Fehlerrate von 10 % auf der Verbindung führt zu zufälligen
-Paketverlusten. Beobachten Sie dies mit einem fortlaufenden Ping zwischen den
+Paketverlusten. Beobachtet dies mit einem fortlaufenden Ping zwischen den
 Hosts:
 
 ```bash
@@ -66,7 +62,7 @@ der Verbindung wider. Die zusätzlichen Flags erleichtern es, Verluste zu
 erkennen. Dieser Verlust wird durch den fehlerbehafteten Link ausgelöst und
 muss von TCP durch Retransmission ausgeglichen werden.
 
-**Aufgabe:** Versuchen Sie zu erklären, warum `ping` Ihnen häufig eine
+**Aufgabe:** Versucht zu erklären, warum `ping` euch häufig eine
 Verlustrate *über* 10 % meldet, obwohl der Link nominell nur 10 % Fehlerrate
 hat. (Hinweis: Ein ICMP-Echo besteht aus zwei Richtungen — Request *und*
 Reply müssen den fehlerbehafteten Link jeweils unabhängig überstehen.)
@@ -82,7 +78,7 @@ abweichen: Paketverlust ist zufällig, die Größenordnung ist die Aussage.*
 
 #### Fehlerrate bei UDP und TCP
 
-Untersuchen Sie den Einfluss der Fehlerrate auf UDP und TCP. Wir senden auf
+Untersucht den Einfluss der Fehlerrate auf UDP und TCP. Wir senden auf
 dem 10-MBit/s-Link:
 
 Einmal für UDP:
@@ -107,16 +103,16 @@ h1$ iperf -i 10 -s
 h2$ iperf -t 300 -i 10 -c 10.0.0.1
 ```
 
-**Aufgabe:** Passen diese Messwerte zu Ihren Erwartungen? Erklären Sie die
-Daten. Wie schätzen Sie eine Paketfehlerrate von 10 % auf dem Link bezüglich
+**Aufgabe:** Passen diese Messwerte zu euren Erwartungen? Erklärt die
+Daten. Wie schätzt ihr eine Paketfehlerrate von 10 % auf dem Link bezüglich
 der Performance von TCP im Vergleich zu UDP ein?
 
 #### Zu große MTU bei UDP
 
 Da die MTU auf 500 Byte begrenzt ist, werden Pakete, die größer als diese
 Grenze sind, in IP-Fragmente aufgeteilt (oder verworfen, falls die
-Fragmentierung nicht gelingt). Beobachten Sie dies, indem Sie größere
-UDP-Nachrichten senden. Damit der Text nicht selbst eingetippt werden muss,
+Fragmentierung nicht gelingt). Beobachtet dies, indem ihr größere
+UDP-Nachrichten sendet. Damit der Text nicht selbst eingetippt werden muss,
 kann eine vorbereitete Textdatei genutzt werden.
 
 Einmal mit einem kürzeren Text:
@@ -133,7 +129,7 @@ h1$ nc -lu 5000
 h2$ nc -u 10.0.0.1 5000 < MehrAls1500ByteText.txt
 ```
 
-Beobachten Sie auf beiden Systemen bei beiden Nachrichten den Verkehr mit
+Beobachtet auf beiden Systemen bei beiden Nachrichten den Verkehr mit
 Wireshark. IP-Fragmentation tritt bei UDP auf, sobald Pakete größer als die
 MTU sind und in kleinere Segmente aufgeteilt werden müssen; ob diese
 transportiert werden, hängt vom Netzwerk ab.
@@ -168,40 +164,25 @@ und effizienteren Netzwerkbetrieb — erfordert im Gegenzug aber, dass
 Endgeräte und Anwendungen sorgfältig konfiguriert werden, um Pakete
 innerhalb der Pfad-MTU zu senden.
 
-**Aufgabe:** Wiederholen Sie das gesamte Experiment mit TCP. Sie werden
+**Aufgabe:** Wiederholt das gesamte Experiment mit TCP. Ihr werdet
 feststellen, dass die Bytestream-basierte Übertragung dieses Verhalten so
 nicht zeigt — TCP segmentiert selbst passend zur MSS, statt ein
 übergroßes Paket abzusetzen.
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 04 teila
-    ```
-
-
 ### Teil B — iperf/iperf3 in `topo02`: Durchsatz, Latenz, Fairness und Congestion Control
 
-*(Quelle: `mininet-labs/intro/02-TCP-IP-Suite.tex`, "Lab 2: TCP/IP Suite –
-Ein Start" — bei einer früheren Konsolidierung war der Kopiervorgang dieser
-Datei aus Google Drive fehlgeschlagen, sie lag nur als technischer
-TODO-Hinweis vor; der vollständige Originalinhalt wurde für dieses
-Aufgabenblatt erneut aus der Quelle geladen und ist jetzt hier korrekt
-wiedergegeben, statt wie zuvor durch eine Neuentwicklung ersetzt zu sein.)*
+Teil A hat den Effekt eines fehlerbehafteten Links auf einer festen, kleinen
+Zwei-Host-Topologie gezeigt. Dieser Teil wechselt die Topologie und die
+Fragestellung: Ihr messt jetzt Durchsatz, Latenz und Fairness auf einem
+sauberen, unbegrenzten Link mit mehreren Hosts und Routern — **`topo02`**
+(dieselbe Vier-Host-Topologie `h0--s1--r1---r2----s2---h3`, die auch in
+[Lab 05](05-arp-spoofing-dos.md) für ARP-Spoofing verwendet wird). Startet
+sie mit:
 
-!!! note "topo02, nicht topo01"
-    Anders als eine frühere Fassung dieses Abschnitts annahm, nutzt das
-    Original für Durchsatz-/Latenzmessungen **`topo02`** (dieselbe
-    Vier-Host-Topologie `h0--s1--r1---r2----s2---h3`, die auch in
-    [Lab 05](05-arp-spoofing-dos.md) für ARP-Spoofing verwendet wird), nicht
-    `topo01`. Startet sie mit:
-
-    ```bash
-    cd ~/rn-practice/topo02
-    ./start-topo02.sh
-    ```
+```bash
+cd ~/rn-practice/topo02
+./start-topo02.sh
+```
 
 1. **Erwartungswert bilden, dann Durchsatz messen.** Die Verbindung erlaubt
     nominell 10 Mbit/s. Überschlagt vorab, wie viele Daten sich in 5 Minuten
@@ -353,14 +334,6 @@ UDP-Strom verhält, der selbst keine Überlastkontrolle betreibt – und welche
 Konsequenz das für Anwendungen hat, die UDP direkt nutzen (z. B. eigene
 Verlustbehandlung, Rate-Limiting auf Anwendungsebene).
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 04 teilb
-    ```
-
 !!! example "Vertiefung (optional): TCP-Retransmission-Timeout und Backoff selbst vermessen"
     Schritt 4 hat gezeigt, dass eine laufende TCP-Übertragung eine
     Pfadunterbrechung übersteht. Schaut euch mit einem echten Mitschnitt
@@ -373,7 +346,6 @@ Verlustbehandlung, Rate-Limiting auf Anwendungsebene).
     sich näherungsweise verdoppeln (exponentieller Backoff des
     Retransmission-Timeout). Im Lehrbuch ist das eine Behauptung; hier ist
     es eine Zeitstempel-Spalte in eurem eigenen Mitschnitt.
-
 
 ### Teil C — Das TCP Congestion Window unter Paketverlust live beobachten (`topoP04`)
 
@@ -438,15 +410,6 @@ Fehlerrate – am einfachsten mit derselben `iperf`-Messung aus Teil B auf
 `topo02` (Link ohne künstlichen Verlust). Vergleicht dort den `cwnd`-Verlauf
 über die Zeit: Wächst das Fenster dort stetig, statt bei sehr kleinen
 Werten hängen zu bleiben?
-
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 04 teilc
-    ```
-
 
 --8<-- "issue-feedback.md"
 
@@ -575,15 +538,6 @@ h0$ tc qdisc show dev h0-eth0
     Unterschied zwischen einem Protokoll, das verlorene Pakete erneut sendet
     und sein Tempo drosselt, und einem, das beides nicht tut. Wer mag, misst
     es nach — die UDP-Variante steht in Teil A.
-
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 04 teild
-    ```
-
 
 ### Teil E — Soll gegen Ist: was die Emulation wirklich liefert (`topo02`)
 
@@ -763,15 +717,6 @@ $ nano ~/rn-practice/snapshots/04-teile-sollist.txt
     wird und kein Einzelwert: Ein einzelner Wert lässt sich immer erklären,
     ein Verlauf nicht.
 
-!!! tip "Fortschritt festhalten (optional)"
-    Diesen Teil geschafft? Optional fuer die Admin-Uebersicht vermerken
-    (rein lokal, keine Netzwerkverbindung):
-
-    ```bash
-    ~/rn-practice/mark-done.sh 04 teile
-    ```
-
-
 ### Teil F — Verlust je Richtung wirklich zählen mit `nping` (`topoP04`)
 
 Teil A hat euch `ping` gegeben und die Frage gestellt, warum die Verlustrate
@@ -833,12 +778,6 @@ von 30–40 %, deutlich über den 10 % einer *einzelnen* Teilstrecke.
 
     - Bugtraq, 18.12.1998: <https://seclists.org/bugtraq/1998/Dec/79> (Abruf 2026-09-24)
     - Nmap-Buch, Idle Scan: <https://nmap.org/book/idlescan.html> (Abruf 2026-09-24)
-
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 04 teilf
-    ```
-
 
 ### Teil G — Das Sendefenster unter Verlust im Detail lesen: `ss -ti` (`topo02`)
 
@@ -914,12 +853,6 @@ h0$ tc qdisc del dev h0-eth0 root
     in **RFC 5681, Abschnitt 3.1**; die Reaktion auf drei doppelte
     Bestätigungen (Fast Retransmit) in **Abschnitt 3.2**.
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 04 teilg
-    ```
-
-
 ### Teil H — UDP ehrlich vermessen: Jitter und Verlust mit `iperf3 -u` (`topo02`)
 
 In Teil B habt ihr UDP mit `iperf` (Version 2) gemessen. `iperf3` gibt für
@@ -992,12 +925,6 @@ trägt.
     (im Abschnitt *Introduction* bzw. *Fields*; RFC 768 hat keine nummerierten
     Abschnitte).
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 04 teilh
-    ```
-
-
 ### Teil I — Bufferbloat: warum eine schnelle Leitung träge werden kann (`topo02`)
 
 Bisher habt ihr Verlust und Verzögerung getrennt betrachtet. Jetzt kommt ein
@@ -1044,12 +971,6 @@ Millisekunden.
     Genau diese Abwägung ist der Grund, warum moderne Router keine simple große
     FIFO-Queue mehr verwenden, sondern Verfahren wie `fq_codel` (das Kernmodul
     `sch_fq_codel` ist im Abbild geladen).
-
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 04 teili
-    ```
-
 
 ### Teil J — Zwei Staukontroll-Algorithmen nebeneinander sichtbar machen (`topo02`)
 
@@ -1109,58 +1030,16 @@ begleitet von `mss:` und `cwnd:`.
     (CC BY-SA 3.0), <https://beta.computer-networking.info/syllabus/default/protocols/congestion.html>
     (Abruf 2026-09-24).
 
-!!! tip "Fortschritt festhalten (optional)"
-    ```bash
-    ~/rn-practice/mark-done.sh 04 teilj
-    ```
-
-
 --8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
 
-- **`topoP04` (Teil A) und `topo02` (Teil B) sind seit 2026-09-09 real
-  verifiziert** unter dem granularen Capability-Set
-  (`NET_ADMIN`+`NET_RAW`+`SYS_ADMIN`+`apparmor:unconfined`, mit dem der
-  Container ohne `--privileged` auskommt). Beide bauten vorher wegen eines
-  reinen Skript-Bugs (fehlender `controller=`-Parameter bzw. ein
-  nicht im Image vorhandenes Controller-Binary) gar nicht — nach dem Fix
-  liefen die Fehlerraten-Beobachtung in Teil A sowie ein `iperf`-Durchsatztest
-  in Teil B (9,6 Mbit/s auf dem nominell 10-Mbit/s-Link zwischen `h0` und
-  `h2`) wie im Aufgabenblatt beschrieben.
-- **Nachtrag (2026-09-09):** Der `iperf`-Test oben lief zwar bereits nach dem
-  `controller=`-Fix erfolgreich, `net.pingAll()` (Mininets eingebauter
-  Allpaar-Konnektivitätstest, den u. a. `h1$ ping ...`/`h3$ ping ...` in
-  Aufgabe 2 sinngemäß nachstellen) zeigte in `topo02` aber weiterhin **100 %
-  Verlust auf allen 30 Paaren**, obwohl einzelne, manuell abgesetzte `ping`s
-  zwischen genau denselben Hosts fehlerfrei funktionierten. Ursache: `topo02.py`
-  setzt IP-Adressen ausschließlich per rohem `ifconfig`
-  (`r.cmd('ifconfig ...')`/`h.cmd('ifconfig ...')`) statt über Mininets eigene
-  `Intf.setIP()`-API — die tatsächliche Kernel-Adresse ist dadurch korrekt,
-  aber Mininets interne Buchführung (`Intf.ip`, ausgelesen von `node.IP()`)
-  bleibt auf der beim Linkaufbau automatisch vergebenen `10.0.0.x`-Adresse
-  stehen. `net.pingAll()`/`net.ping()` ermitteln ihr Ziel aber genau über
-  `dest.IP()` und pingen dadurch bei jedem Paar die falsche, nie real
-  konfigurierte Adresse an. Fix (`topo02.py`): nach jedem `ifconfig`-Aufruf
-  wird die betroffene Schnittstelle per `Intf.updateIP()` neu synchronisiert.
-  Auf einem frisch gestarteten, zuvor nie benutzten Container real
-  nachgewiesen: `*** Results: 0% dropped (30/30 received)`, zusätzlich erneut
-  der `iperf`-Durchsatztest `h0`→`h2` (9,6 Mbit/s) sowie ein `curl` von `h3`
-  zum Webserver auf `h1` (HTTP 200) — alle drei im selben Lauf.
 - Die in Teil A beobachtete Ping-Verlustrate kann durch die
   bidirektionale Natur von ICMP Echo/Reply höher als die nominelle
   Link-Fehlerrate ausfallen — das ist kein Environment-Fehler, sondern
   Teil der Lernaufgabe (siehe Erklärung oben).
-- **Anrede uneinheitlich zwischen Teil A und Teil B:** Teil A behält die
-  formelle "Sie"-Anrede des Originaldokuments (`Labor-04-TCP-UDP.tex`) bei,
-  Teil B verwendet die persönliche "ihr"-Anrede wie [Lab 01](01-netzwerkgrundlagen-tools.md)
-  und [Lab 05](05-arp-spoofing-dos.md), obwohl auch das zugrundeliegende
-  Original (`02-TCP-IP-Suite.tex`) durchgehend "Sie" verwendet. Eine
-  redaktionelle Vereinheitlichung auf einen Ton für das gesamte Aufgabenblatt
-  steht noch aus.
 - Schritt 6 (Fairness) setzt voraus, dass die Iperf-Server-Instanzen aus
-  Schritt 1/3 noch laufen bzw. neu gestartet werden – im Original nicht
-  explizit klargestellt, aus dem Kontext aber eindeutig.
+  Schritt 1/3 noch laufen bzw. neu gestartet werden.
 - **Teil E: `netem rate` braucht keinen zweiten Regelsatz.** Ältere
   Anleitungen kombinieren `tbf` (Rate) und `netem` (Verzögerung) in einer
   Hierarchie. Der in diesem Abbild vorhandene `tc` unterstützt beides in
@@ -1190,31 +1069,11 @@ begleitet von `mss:` und `cwnd:`.
   vorhanden). Anleitungen aus dem Netz, die `mtr` für die Verlustmessung oder
   `tshark` für die Auswertung verlangen, laufen hier nicht.
 
-## Playwright-Screenshot-Referenz
-
-Für die Verifikation eignet sich in `tests/e2e/specs/screenshots.spec.ts` am
-ehesten ein **Zeilen-Screenshot** (`captureLine`) einer `iperf`/`iperf3`-
-Zusammenfassungszeile (Durchsatzwert am Ende einer Messung) — hier geht es um
-einen einzelnen, gut abgrenzbaren Messwert, kein ganzes Fenster. Ein
-**Fenster-Screenshot** (`captureWindow`) passt dagegen besser für die
-Wireshark-Ansicht der IP-Fragmentierung in Teil A, da dort das
-Zusammenspiel mehrerer Pakete im Kontext sichtbar sein muss.
-
 ## Quellen
 
-- `mininet-labs/vertiefung/Labor-04-TCP-UDP.tex` — vollständig erhalten,
-  fachliche Basis für Teil A.
+- `mininet-labs/vertiefung/Labor-04-TCP-UDP.tex` — fachliche Basis für Teil A.
 - `mininet-labs/intro/02-TCP-IP-Suite.tex` ("Lab 2: TCP/IP Suite – Ein
-  Start") — fachliche Basis für Teil B. Die lokal vendorierte Kopie dieser
-  Datei enthält weiterhin nur einen technischen TODO-Hinweis (fehlgeschlagener
-  Google-Drive-Kopiervorgang in einer früheren Session); der oben verwendete
-  Originalinhalt wurde für dieses Aufgabenblatt erneut aus Google Drive
-  gelesen, aber **nicht** in die vendorierte `.tex`-Datei zurückgeschrieben
-  (außerhalb des Geltungsbereichs dieser Konsolidierung, die sich auf
-  `docs/labs/` und `docs/reference/` beschränkt) — siehe
-  [Potenzielle Herausforderungen](#potenzielle-herausforderungen) in
-  Lab 01 für die analoge Einschränkung. Ein Nachziehen dieser Korrektur in
-  `mininet-labs/intro/02-TCP-IP-Suite.tex` selbst wird empfohlen.
+  Start") — fachliche Basis für Teil B.
 - `mininet-labs/rn-practice/topo02/` — Referenztopologie für Teil B, Teil D
   und Teil E (`h0`–`h3`, Adressen `10.0.10.x`/`10.0.20.x`), dieselbe Topologie
   wie in [Lab 05](05-arp-spoofing-dos.md). Die Soll-Werte in Teil E

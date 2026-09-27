@@ -4,9 +4,7 @@ Schritt-fuer-Schritt-Anleitung fuer den Weg von "Browser oeffnen" bis
 "im eigenen Praktikums-Desktop arbeiten" unter
 `rn-praktikum.bunsenbrenner.org`. Fuer die technischen Details der
 Desktop-Umgebung selbst (vorinstallierte Werkzeuge, Terminal-Hinweis) siehe
-[Desktop-/Mininet-Umgebung](umgebung.md). Fuer riisc gilt derselbe Ablauf
-mit anderem Login-Anbieter und Branding — siehe
-[Remote-Desktop: riisc.bunsenbrenner.org](remote-desktop-riisc.md).
+[Desktop-/Mininet-Umgebung](umgebung.md).
 
 ## 1. Login
 

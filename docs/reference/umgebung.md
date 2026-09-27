@@ -4,9 +4,9 @@ Kurzreferenz für Teilnehmer: was läuft wo, und wie kommt man rein.
 
 ## Zugang
 
-Die Umgebung ist über zwei Hostnamen erreichbar — `rn-praktikum.bunsenbrenner.org`
-und `riisc.bunsenbrenner.org`. Beide führen zum selben Backend/Account, nur
-mit unterschiedlichem Landing-Page-Branding.
+Die Umgebung ist unter `rn-praktikum.bunsenbrenner.org` erreichbar (für
+`riisc.bunsenbrenner.org` siehe die eigene Anleitung
+[Remote-Desktop: riisc](remote-desktop-riisc.md)).
 
 1. Browser öffnen, SSO-Login mit dem GitLab-Account der CADS AG (Button
    **„Anmelden mit GitLab“**).
@@ -15,6 +15,10 @@ mit unterschiedlichem Landing-Page-Branding.
 3. Der Fortschritt (Home-Verzeichnis) bleibt zwischen Logins erhalten, auch
    wenn der Container zwischenzeitlich aus Ressourcengründen gestoppt und
    entfernt wurde.
+
+Ausführliche Schritt-für-Schritt-Anleitung inklusive Freigabe-Wartezeit und
+Logout:
+[Remote-Desktop: rn-praktikum](remote-desktop-rn-praktikum.md).
 
 ## Terminal
 
