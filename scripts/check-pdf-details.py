@@ -47,8 +47,8 @@ class Details(HTMLParser):
         elif tag == "details" and self._stack:
             block = self._stack.pop()
             self.blocks.append({"keep_closed": KEEP_CLOSED in block["classes"],
-                                "title": " ".join("".join(block["title"]).split()),
-                                "body": " ".join("".join(block["body"]).split())})
+                                "title": " ".join(" ".join(block["title"]).split()),
+                                "body": " ".join(" ".join(block["body"]).split())})
 
     def handle_data(self, data):
         if not self._stack:
@@ -56,8 +56,11 @@ class Details(HTMLParser):
         if self._summary:
             self._stack[-1]["title"].append(data)
         else:
-            for block in self._stack:  # Text innerer Bloecke gehoert auch zum aeusseren
-                block["body"].append(data)
+            # Text innerer Bloecke gehoert auch zum aeusseren - ausser er steht in
+            # einem inneren druck-zu-Block, der ja gerade nicht gedruckt wird.
+            for i, block in enumerate(self._stack):
+                if not any(KEEP_CLOSED in inner["classes"] for inner in self._stack[i + 1:]):
+                    block["body"].append(data)
 
 
 def squash(text):
