@@ -10,12 +10,23 @@
 // jeweils mit derselben labs/<slug>/index.html-Struktur darunter. Dieses
 // Skript rendert daher PDFs fuer JEDE gefundene Sprachwurzel (site/ selbst
 // und jedes Unterverzeichnis von site/, das ein labs/-Verzeichnis enthaelt)
-// und schreibt sie jeweils lokal nach <sprachwurzel>/pdf/<slug>.pdf, damit
-// die relativen "../pdf/<slug>.pdf"-Links in den Markdown-Quellen (siehe
-// docs/labs/*.md und *.en.md) in jeder Sprache aufloesen.
+// und schreibt sie jeweils lokal nach <sprachwurzel>/pdf/<slug>.pdf. Die
+// Knoepfe in docs/labs/*.md zeigen mit "../../pdf/<slug>.pdf" dorthin:
+// die Seite liegt unter /labs/<slug>/, zwei Ebenen hoch ist die
+// Sprachwurzel (bzw. /en/), darunter pdf/. Ein einfaches "../pdf/..."
+// zeigte bis 2026-09-24 auf /labs/pdf/<slug>.pdf und lieferte HTTP 404.
 //
 // Aufruf (nach `mkdocs build` im Repo-Root, site/ existiert):
-//   node scripts/render-lab-pdfs.mjs <path-to-site-dir>
+//   node scripts/render-lab-pdfs.mjs <path-to-site-dir> [<oeffentliche-basis-url>]
+//
+// Die Basis-URL (alternativ Umgebungsvariable PDF_BASE_URL) ist die
+// oeffentliche Adresse, unter der site/ ausgeliefert wird, z. B.
+// "https://scimbe.github.io/CADS-praktikum-docs/". Sie ist noetig, weil
+// Chromium beim Druck aus einer file://-Quelle JEDEN Link als absolute
+// file://-Adresse in das PDF schreibt. Ohne sie standen in den PDFs
+// Linkziele wie
+//   file:///home/runner/work/CADS-praktikum-docs/.../labs/06-.../
+// - fuer Leser toter Link und zugleich Offenlegung des Build-Pfads.
 //
 // Muss im Verzeichnis tests/e2e ausgefuehrt werden (nutzt dessen
 // node_modules/@playwright/test).
@@ -27,11 +38,56 @@ import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const siteDir = resolve(process.argv[2] ?? '../../site');
+const baseUrlArg = process.argv[3] ?? process.env.PDF_BASE_URL ?? '';
 
 if (!existsSync(siteDir)) {
   console.error(`Kein Site-Verzeichnis unter ${siteDir} gefunden - vorher "mkdocs build" ausfuehren.`);
   process.exit(1);
 }
+
+// Normalisierte Basis-URL mit genau einem Schraegstrich am Ende.
+const baseUrl = baseUrlArg ? baseUrlArg.replace(/\/+$/, '') + '/' : '';
+if (!baseUrl) {
+  console.warn(
+    'WARNUNG: Keine Basis-URL (Argument 2 oder PDF_BASE_URL). Linkziele werden auf ' +
+      'site-relative Pfade gekuerzt, damit kein file://-Build-Pfad im PDF landet - ' +
+      'anklickbar sind sie dann aber nicht.',
+  );
+}
+
+// Druckregeln. mkdocs-material liefert praktisch kein Print-Stylesheet aus
+// (der gesamte @media-print-Block der ausgelieferten main.css ist
+// "@media print{.md-typeset{font-size:.68rem}}"), deshalb hier:
+//  - Codebloecke, Tabellen und Bilder nicht ueber Seitengrenzen zerreissen,
+//  - Ueberschriften nicht allein am Seitenende stehen lassen,
+//  - den Knopf "Als PDF herunterladen" im PDF selbst ausblenden (er zeigt
+//    auf das Dokument, das man gerade liest).
+//
+// BEWUSST NICHT enthalten: Regeln, die Tabellen umbauen (display:table,
+// table-layout:fixed). Gemessen am 2026-09-24 wird KEINE Tabelle im Druck
+// rechts abgeschnitten - alle Spalten aller Tabellen stehen vollstaendig im
+// PDF, lange Kopfzellen sind lediglich auf zwei Zeilen umgebrochen. Ein
+// Versuch mit table-layout:fixed machte es schlechter: die Spalte
+// "Begruendung" in Blatt 01 verschwand und Blatt 04 verlor 17 Wort-Token
+// an zusaetzlichen Umbruechen. Ohne belegtes Problem kein Eingriff.
+const PRINT_CSS = `
+  a.md-button[href$=".pdf"] { display: none !important; }
+  .md-typeset pre, .md-typeset .highlight, .md-typeset table,
+  .md-typeset figure, .md-typeset .admonition, .md-typeset details {
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .md-typeset h1, .md-typeset h2, .md-typeset h3, .md-typeset h4 {
+    break-after: avoid; page-break-after: avoid;
+  }
+  .md-typeset img { max-width: 100% !important; height: auto !important; }
+`;
+
+const FOOTER_TEMPLATE = `
+  <div style="width:100%;font-size:8pt;color:#666;font-family:Helvetica,Arial,sans-serif;
+              padding:0 15mm;display:flex;justify-content:space-between;">
+    <span class="title"></span>
+    <span>Seite <span class="pageNumber"></span> von <span class="totalPages"></span></span>
+  </div>`;
 
 async function findLocaleRoots(baseDir) {
   const roots = [];
@@ -56,6 +112,9 @@ if (localeRoots.length === 0) {
   process.exit(1);
 }
 
+// file://-Praefix der Site-Wurzel, gegen den die Linkziele gekuerzt werden.
+const siteFileUrl = pathToFileURL(siteDir).href.replace(/\/+$/, '') + '/';
+
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage();
@@ -71,14 +130,58 @@ try {
       const htmlPath = join(labsDir, slug, 'index.html');
       if (!existsSync(htmlPath)) continue;
       await page.goto(pathToFileURL(htmlPath).href, { waitUntil: 'networkidle' });
+
+      // Lazy geladene Bilder wuerden im Druck fehlen, weil nie gescrollt
+      // wird: erst eager schalten, dann auf Bilder und Schriften warten.
+      await page.evaluate(async () => {
+        for (const img of document.querySelectorAll('img[loading="lazy"]')) {
+          img.loading = 'eager';
+        }
+        await Promise.all(
+          [...document.images]
+            .filter((i) => !i.complete)
+            .map((i) => i.decode().catch(() => {})),
+        );
+        await document.fonts.ready;
+      });
+
+      // Linkziele von file:// auf die oeffentliche Adresse umschreiben.
+      const rewritten = await page.evaluate(
+        ({ siteFileUrl, baseUrl }) => {
+          let n = 0;
+          for (const a of document.querySelectorAll('a[href]')) {
+            const abs = a.href;
+            if (!abs.startsWith(siteFileUrl)) continue;
+            const rest = abs.slice(siteFileUrl.length).replace(/(^|\/)index\.html/, '$1');
+            a.setAttribute('href', baseUrl ? baseUrl + rest : '/' + rest);
+            n += 1;
+          }
+          return n;
+        },
+        { siteFileUrl, baseUrl },
+      );
+
+      await page.addStyleTag({ content: PRINT_CSS });
+
       const pdfPath = join(pdfDir, `${slug}.pdf`);
       await page.pdf({
         path: pdfPath,
         format: 'A4',
         margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' },
         printBackground: true,
+        // Lesezeichen und Struktur: ein 20-seitiges Aufgabenblatt ohne
+        // Outline ist nicht navigierbar. Braucht Playwright >= 1.49.
+        outline: true,
+        tagged: true,
+        // Eigene Vorlagen sind Pflicht: Chromiums Standard-Kopf/Fuss
+        // wuerde die file://-Quelladresse in das PDF drucken.
+        displayHeaderFooter: true,
+        headerTemplate: '<div></div>',
+        footerTemplate: FOOTER_TEMPLATE,
       });
-      console.log(`OK  ${relative(siteDir, htmlPath)} -> ${relative(siteDir, pdfPath)}`);
+      console.log(
+        `OK  ${relative(siteDir, htmlPath)} -> ${relative(siteDir, pdfPath)}  (${rewritten} Links umgeschrieben)`,
+      );
     }
   }
 } finally {
