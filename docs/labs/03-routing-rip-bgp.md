@@ -548,7 +548,7 @@ gemeldet). Beobachtet dabei auch euren laufenden Ping auf `r1`: erwartet
 nicht, dass er lückenlos durchläuft – haltet fest, ob und wie lange er
 tatsächlich aussetzt, bevor er von selbst wieder Antworten bekommt.
 
-??? info "Erwartungshorizont – erst öffnen, wenn ihr selbst gemessen habt"
+??? info druck-zu "Erwartungshorizont – erst öffnen, wenn ihr selbst gemessen habt"
     **Auf `r2`:** Die Ersatzroute über `r4` erscheint typischerweise
     **13 bis 16 Sekunden** nach dem `ifconfig r2-eth1 down`. Das ist der
     entscheidende Befund: deutlich früher, als ein rein periodisches
