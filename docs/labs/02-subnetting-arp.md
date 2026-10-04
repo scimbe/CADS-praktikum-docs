@@ -29,18 +29,15 @@
 
 !!! info "Fachbegriff: Subnetz"
     Ein **Subnetz** ist ein zusammenhängender Ausschnitt eines
-    IP-Adressraums, der als eigenes, abgeschlossenes Netzsegment behandelt
-    wird – festgelegt durch eine **Netzadresse** und eine **Präfixlänge**
-    (z. B. `/18`), die angibt, wie viele der führenden Adressbits das Netz
-    identifizieren; der Rest steht für einzelne Hosts zur Verfügung. Ein
-    großer Adressraum wird in mehrere Subnetze aufgeteilt, damit
-    unterschiedliche Abteilungen, Standorte oder Funktionsbereiche getrennt
-    voneinander adressiert und geroutet werden können, statt dass alle
-    Geräte in einem einzigen, riesigen Netz stehen. **VLSM** (Variable
-    Length Subnet Masking) bedeutet dabei nur: Die Subnetze eines
-    Adressraums müssen nicht alle gleich groß sein – jedes bekommt genau so
-    viele Adressen, wie sein tatsächlicher Hostbedarf verlangt. Genau das
-    übt ihr in diesem Teil.
+    IP-Adressraums, der als eigenes Netzsegment behandelt wird – festgelegt
+    durch eine **Netzadresse** und eine **Präfixlänge** (z. B. `/18`), die
+    angibt, wie viele der führenden Adressbits das Netz identifizieren; der
+    Rest steht für einzelne Hosts zur Verfügung. Ein großer Adressraum wird
+    in mehrere Subnetze aufgeteilt, damit Abteilungen, Standorte oder
+    Funktionsbereiche getrennt adressiert und geroutet werden können.
+    **VLSM** (Variable Length Subnet Masking) bedeutet: Die Subnetze eines
+    Adressraums müssen nicht gleich groß sein – jedes bekommt so viele
+    Adressen, wie sein Hostbedarf verlangt.
 
 Startet die vorkonfigurierte Referenztopologie:
 
@@ -60,11 +57,8 @@ cd ~/rn-practice/topoP02
 | Lager       | 400             |
 
 !!! info "Vier Abteilungen, vier Subnetze"
-    Der tatsächliche Topologie-Code (`topoP02.py`) zeigt, dass Router `r3`
-    zwei Host-Anschlüsse hat (`h3` *und* `h4`) – es gibt also vier
-    Subnetze für die vier Abteilungen, eines je Host-Anschluss. Anhand der
-    im Skript konfigurierten Adressen und der Hostbedarfe oben lässt sich
-    die Zuordnung eindeutig rekonstruieren:
+    Router `r3` hat zwei Host-Anschlüsse (`h3` und `h4`); zusammen mit `h1`
+    an `r1` und `h2` an `r2` ergibt das ein Subnetz je Abteilung:
 
     | Router-Interface | Subnetz | Nutzbare Hosts | Abteilung |
     |---|---|---|---|
@@ -73,16 +67,14 @@ cd ~/rn-practice/topoP02
     | `r3-eth1` (→ `h3`) | `128.155.224.0/20` | 4.094 | Einkauf (2.100) |
     | `r3-eth2` (→ `h4`) | `128.155.240.0/23` | 510 | Lager (400) |
 
-    Je knapper der Hostbedarf einer Abteilung, desto kleiner (länger) das
-    gewählte Präfix – das ist das VLSM-Prinzip aus der Info-Box oben ganz
-    konkret: Entwicklung mit 10.000 Hosts bekommt das größte Subnetz
-    (`/18`), Lager mit 400 Hosts das kleinste (`/23`).
+    Je kleiner der Hostbedarf einer Abteilung, desto länger das gewählte
+    Präfix: Entwicklung mit 10.000 Hosts bekommt das größte Subnetz (`/18`),
+    Lager mit 400 Hosts das kleinste (`/23`).
 
-Zusätzlich zu den vier "Kunden"-Subnetzen verwendet das Skript zwei private
-**Transitnetze** zwischen den Routern selbst (`10.0.0.0/30` zwischen `r1`
-und `r2`, `10.0.1.0/30` zwischen `r2` und `r3`) – ein in der Praxis übliches
-Muster, um Backbone-Verbindungen von kundenseitig genutzten Netzen zu
-trennen.
+Zusätzlich zu den vier Abteilungsnetzen gibt es zwei private
+**Transitnetze** zwischen den Routern (`10.0.0.0/30` zwischen `r1` und `r2`,
+`10.0.1.0/30` zwischen `r2` und `r3`) – ein in der Praxis übliches Muster,
+um Backbone-Verbindungen von den Netzen der Endgeräte zu trennen.
 
 Eure Aufgabe: Erschließt euch die Topologie und stellt fest, ob alle Rechner
 in allen Netzen erreichbar sind. Startet dazu auf `h1` einen Ping zu `h3`
@@ -94,10 +86,8 @@ h1$ ping -c 4 128.155.240.2   # h4
 ```
 
 ![Terminalfenster "Node: h1": ping -c 3 128.155.224.2 (h3) und ping -c 3 128.155.240.2 (h4), beide mit 0% Paketverlust und ttl=61](../assets/screenshots/02-subnetting-arp/h1-ping-h3-h4.png)
-*Realer Ping von `h1` über zwei Router-Hops (`r1`→`r2`→`r3`) zu `h3` und
-`h4` – die erfolgreiche Zustellung über drei unterschiedlich große Subnetze
-(`/18`, `/19`, `/20`, `/23`) bestätigt die VLSM-Adressierung aus der Tabelle
-oben.*
+*Ping von `h1` über drei Router (`r1`→`r2`→`r3`) zu `h3` und `h4`. Die
+TTL von 61 (Startwert 64) zeigt die drei Router-Hops.*
 
 !!! info "Fachbegriff: Routingtabelle"
     Die **Routingtabelle** eines Rechners oder Routers listet, über welchen
@@ -107,9 +97,9 @@ oben.*
     braucht entweder eine manuell gesetzte Route (wie in Teil 2) oder eine
     von einem Routing-Protokoll gelernte Route (siehe
     [Lab 03](03-routing-rip-bgp.md)). Zwei gebräuchliche Werkzeuge zum
-    Anzeigen sind `route -n` (älter, klassisch) und `ip route` (moderner,
-    Teil der `iproute2`-Sammlung) – beide zeigen dieselbe Tabelle, nur in
-    unterschiedlicher Formatierung.
+    Anzeigen sind `route -n` (klassisch) und `ip route` (Teil der
+    `iproute2`-Sammlung) – beide zeigen dieselbe Tabelle in unterschiedlicher
+    Formatierung.
 
 Prüft anschließend auf jedem Router die Routing-Tabelle:
 
@@ -120,60 +110,51 @@ r1$ ip route
 ```
 
 ![Terminalfenster "Node: r1" mit der Ausgabe von route -n und ip route, die Zeile 128.155.192.0/18 via 10.0.0.2 ist deutlich sichtbar](../assets/screenshots/02-subnetting-arp/r1-routing-table.png)
-*Echte `route -n`/`ip route`-Ausgabe auf `r1`. Die Zeile
-`128.155.192.0/18 via 10.0.0.2` bestätigt die Maske des Verkaufsnetzes
-(`/18`, nicht `/19`).*
+*`route -n`/`ip route` auf `r1`. Die Zeile `128.155.192.0/18 via 10.0.0.2`
+fasst die Netze von Verkauf (`/19`), Einkauf (`/20`) und Lager (`/23`) zu
+einer einzigen Route über `r2` zusammen.*
 
-!!! warning "Bekannter Fehler im Skript: Maskeninkonsistenz bei `h4`"
-    `topoP02.py` deklariert den Host `h4` mit der Adresse
-    `128.155.240.2/20`, während die zugehörige Router-Schnittstelle
-    `r3-eth2` mit `128.155.240.1/23` konfiguriert wird – zwei
-    unterschiedliche Subnetzmasken auf derselben Punkt-zu-Punkt-Verbindung.
-    Da `h4` und `r3` direkt (ohne Switch dazwischen) verbunden sind, bleibt
-    die eigentliche Ping-Konnektivität zwischen den beiden davon
-    unberührt. Sichtbar wird der Fehler erst, wenn ihr die Netzgrenze
-    selbst berechnet: nach `h4`s (falscher) `/20`-Sicht würde das Netz bis
-    `128.155.255.255` reichen, nach der (richtigen) `/23`-Sicht von `r3` nur
-    bis `128.155.241.255`. Ein guter Anlass, `ip a s` auf `h4` mit der
-    Rechnung aus der VLSM-Tabelle oben abzugleichen und die Diskrepanz
-    selbst zu finden.
+!!! warning "Maskeninkonsistenz bei `h4`"
+    `topoP02.py` gibt dem Host `h4` die Adresse `128.155.240.2/20`, die
+    zugehörige Router-Schnittstelle `r3-eth2` bekommt `128.155.240.1/23` –
+    zwei unterschiedliche Subnetzmasken auf derselben Verbindung. Da `h4`
+    und `r3` direkt verbunden sind, funktioniert der Ping trotzdem. Sichtbar
+    wird der Fehler, wenn ihr die Netzgrenze berechnet: nach `h4`s
+    `/20`-Sicht reicht das Netz bis `128.155.255.255`, nach der
+    `/23`-Sicht von `r3` nur bis `128.155.241.255`. Gleicht `ip a s` auf `h4`
+    mit der VLSM-Tabelle oben ab.
 
-Zusätzlich fällt bei genauem Hinsehen ein Tippfehler auf: Der Link zwischen
-`r3` und `h4` wird im Code mit `intfName2='h3-eth0'` benannt (statt
-`h4-eth0`). Das hat keine Auswirkung auf die Erreichbarkeit (jeder Host lebt
-in seinem eigenen Netzwerk-Namespace), macht die Interface-Liste auf `h4`
-(`ip a s`) aber irreführend, falls ihr dort `h3-eth0` statt des erwarteten
-`h4-eth0` seht.
+Außerdem heißt die Schnittstelle von `h4` im Skript `h3-eth0` statt
+`h4-eth0` (`intfName2='h3-eth0'`). Auf die Erreichbarkeit hat das keinen
+Einfluss, weil jeder Host in seinem eigenen Netzwerk-Namespace lebt; in
+`ip a s` auf `h4` seht ihr aber `h3-eth0`.
 
 #### Traceroute und ARP
 
-Ihr habt eben geprüft, *dass* die Pakete ankommen. Jetzt wechselt der Fokus
-darauf, *wie* sie unterwegs adressiert werden – dafür kommt mit ARP ein
-zweites Protokoll ins Spiel, das neben IP-Adressen auch Hardware-Adressen
-kennen muss.
+Ihr habt geprüft, *dass* die Pakete ankommen. Jetzt geht es darum, *wie*
+sie unterwegs adressiert werden – dafür kommt mit ARP ein zweites Protokoll
+ins Spiel, das IP-Adressen auf Hardware-Adressen abbildet.
 
 !!! info "Fachbegriff: ARP (Address Resolution Protocol)"
     Eine IP-Adresse allein reicht nicht, um ein Paket auf einem Ethernet-
-    Segment tatsächlich zuzustellen – dafür wird die **MAC-Adresse** der
-    Netzwerkkarte gebraucht. **ARP** (Address Resolution Protocol, RFC 826)
-    ist das Protokoll, mit dem ein Rechner diese Zuordnung klärt: Er fragt
-    per Broadcast „wer hat diese IP-Adresse?" und die passende Netzwerkkarte
+    Segment zuzustellen – dafür wird die **MAC-Adresse** der Netzwerkkarte
+    gebraucht. **ARP** (Address Resolution Protocol, RFC 826) ist das
+    Protokoll, mit dem ein Rechner diese Zuordnung klärt: Er fragt per
+    Broadcast „wer hat diese IP-Adresse?" und die passende Netzwerkkarte
     antwortet mit ihrer MAC-Adresse. Jeder Rechner merkt sich das Ergebnis
-    eine Zeit lang in seinem **ARP-/Nachbarschafts-Cache**, damit nicht vor
-    jedem Paket neu gefragt werden muss. Wichtig für die Beobachtung gleich:
-    ARP wird immer nur **innerhalb eines Segments** verwendet, für den
-    jeweils **nächsten** Hop – nie für das eigentliche Endziel, wenn dieses
-    in einem anderen Netz liegt.
+    eine Zeit lang in seinem **ARP-/Nachbarschafts-Cache**. ARP wird immer
+    nur **innerhalb eines Segments** verwendet, für den jeweils **nächsten**
+    Hop – nie für das Endziel, wenn dieses in einem anderen Netz liegt.
 
-Stellt mit `traceroute` fest, welchen Weg das ICMP-Paket von `h1` zu `h3`
-durch das Netz nimmt, und beobachtet parallel mit `tcpdump`, welche
+Stellt mit `traceroute` fest, welchen Weg das Paket von `h1` zu `h3` durch
+das Netz nimmt, und beobachtet parallel mit `tcpdump`, welche
 ARP-Anfragen auf dem Weg ausgelöst werden:
 
 ```bash
 h1$ traceroute 128.155.224.2
 ```
 
-Öffnet dafür auf jedem beteiligten Router ein zusätzliches Terminal
+Öffnet dafür vorher auf jedem beteiligten Router ein zusätzliches Terminal
 (`mininet> xterm r1`, `mininet> xterm r2`, `mininet> xterm r3`) und startet
 dort jeweils `tcpdump -i any arp`. Gleicht anschließend die ARP-Tabellen von
 Routern und Endpunkten ab:
@@ -184,48 +165,49 @@ $ ip neigh
 ```
 
 **Kernbeobachtung:** Obwohl die IP-Zieladresse (`128.155.224.2`) über den
-gesamten Pfad unverändert bleibt, wird auf jedem der drei Segmente
-(`h1`–`r1`, `r1`–`r2`, `r2`–`r3`) eine *eigene* ARP-Auflösung für den
-jeweils nächsten Hop durchgeführt – der Zielrechner selbst wird erst auf dem
-letzten Segment per ARP adressiert.
+gesamten Pfad unverändert bleibt, wird auf jedem der vier Segmente
+(`h1`–`r1`, `r1`–`r2`, `r2`–`r3`, `r3`–`h3`) eine eigene ARP-Auflösung für
+den jeweils nächsten Hop durchgeführt – der Zielrechner selbst wird erst auf
+dem letzten Segment per ARP adressiert.
+
+!!! question "Hop 3 bleibt stumm"
+    `traceroute` zeigt `r1` (`128.155.128.1`) als Hop 1, `r2` (`10.0.0.2`)
+    als Hop 2 und `h3` als Hop 4 – Hop 3 (`r3`) erscheint nur als `* * *`.
+    `r3` schickt seine ICMP-Meldung mit der Absenderadresse `10.0.1.2`.
+    Schaut in die Routing-Tabelle von `r1`: Kennt `r1` einen Weg zu
+    `10.0.1.0/30`? Was macht ein Router, der Pakete von einer Quelle erhält,
+    zu der er selbst keine Route hat (Stichwort *Reverse Path Filter*,
+    `sysctl net.ipv4.conf.all.rp_filter`)?
 
 !!! question "Kurz nachgedacht"
     Wenn ARP nur innerhalb eines Segments gilt: Woher weiß `h1` dann
     überhaupt, dass es sein Paket an `r1` schicken soll, statt selbst nach
-    der MAC-Adresse von `h3` zu fragen? (Hinweis: Schaut auf `h1`s
-    Routing-Tabelle aus Teil 1 – die Antwort liegt nicht bei ARP, sondern
+    der MAC-Adresse von `h3` zu fragen? (Hinweis: Schaut auf die
+    Routing-Tabelle von `h1` – die Antwort liegt nicht bei ARP, sondern
     einen Schritt davor.)
 
 !!! example "Vertiefung (optional): Routing-Schnappschüsse über mehrere Anläufe vergleichen"
-    Weil euer `~/rn-practice`-Verzeichnis über Container-Neustarts hinweg
-    persistent ist, könnt ihr Zwischenstände tatsächlich aufheben statt sie
-    nur einmal auf dem Bildschirm zu sehen. Sichert die Ausgaben von
-    `route -n`, `ip route` und `arp -a` auf allen vier Rechnern in eine
-    eigene Datei, z. B. `~/rn-practice/snapshots/02-lauf1.txt`. Beendet die
-    Topologie (`mininet> quit`), startet sie erneut und wiederholt den
-    Mitschnitt in einer zweiten Datei. Ein `diff` zwischen beiden Läufen
-    zeigt euch, welche Einträge bei jedem Start identisch bleiben (die vom
-    Skript vorkonfigurierten Routen) und welche verschwunden sind, falls ihr
-    zwischendurch manuell etwas verändert hattet – ein konkreter Beleg
-    dafür, was an einer laufenden Konfiguration tatsächlich "flüchtig" ist.
+    Euer `~/rn-practice`-Verzeichnis bleibt über Container-Neustarts hinweg
+    erhalten. Sichert die Ausgaben von `route -n`, `ip route` und `arp -a`
+    auf allen Routern und Hosts in eine eigene Datei, z. B.
+    `~/rn-practice/snapshots/02-lauf1.txt`. Beendet die Topologie
+    (`mininet> quit`), startet sie erneut und wiederholt den Mitschnitt in
+    einer zweiten Datei. Ein `diff` zwischen beiden Läufen zeigt, welche
+    Einträge bei jedem Start identisch bleiben (die vom Skript
+    vorkonfigurierten Routen) und welche verschwunden sind, falls ihr
+    zwischendurch manuell etwas verändert hattet – also was an einer
+    laufenden Konfiguration flüchtig ist.
 
 ### Teil 2 – Eigene Konfiguration üben (`topoP02-self.py`)
 
 Dieselbe Topologie steht auch unkonfiguriert zur Verfügung, damit ihr die
-Adressierung und das Routing selbst nachbaut:
+Adressierung und das Routing selbst nachbaut. Für diese Variante gibt es
+kein Startskript; ruft die Python-Datei direkt auf:
 
 ```bash
 cd ~/rn-practice/topoP02
 sudo python3 topoP02-self.py
 ```
-
-!!! warning "Kein `start-topoP02-self.sh` vorhanden"
-    Es gibt **kein** Startskript `./start-topoP02-self.sh` – nur die
-    Python-Datei `topoP02-self.py` selbst (`topoP02.py` ist die
-    vorkonfigurierte Referenzlösung aus Teil 1, `topoP02-self.py` die
-    unkonfigurierte Übungsvariante mit identischer Topologie). Ruft die
-    Übungsvariante daher direkt mit `sudo python3 topoP02-self.py` auf, wie
-    oben gezeigt.
 
 Eure Aufgabe: konfiguriert dieselbe Adressierung wie in Teil 1 von Hand.
 Die dafür benötigten Befehle:
@@ -241,46 +223,57 @@ ip route add <ziel_netz> via <gateway_ip>
 route add default gw <gateway_ip>
 ```
 
-Die IP-Weiterleitung (`ip_forward`) ist auf allen Routern durch die
-`Router`-Klasse in `topoP02(-self).py` bereits automatisch aktiviert – das
-müsst ihr nicht selbst setzen:
+Die IP-Weiterleitung ist auf allen Routern durch die `Router`-Klasse in
+`topoP02-self.py` bereits aktiviert; ihr müsst sie nicht selbst setzen. Der
+Befehl dafür lautet:
 
 ```bash
 sysctl net.ipv4.ip_forward=1
 ```
 
 !!! example "Vertiefung (optional): Eure Konfiguration als wiederholbares Skript"
-    Alles, was ihr gerade von Hand eingetippt habt, ist mit `mininet> quit`
-    verschwunden. Schreibt die Befehle stattdessen in eine Datei, z. B.
-    `~/rn-practice/topoP02/meine-config.sh`, beendet die Topologie, startet
-    `topoP02-self.py` neu und spielt eure Datei ein. Prüft mit `ip -o addr`
-    und einem Ping, ob der Zustand wirklich derselbe ist.
+    Alles, was ihr von Hand eingetippt habt, ist mit `mininet> quit`
+    verschwunden. Schreibt die Befehle stattdessen in eine Datei, eine Zeile
+    je Befehl mit dem Knoten vorweg, z. B.
+    `~/rn-practice/topoP02/meine-config.sh`:
 
-    Führt das Skript danach ein **zweites** Mal auf derselben laufenden
-    Topologie aus. `ip addr add` quittiert das mit `RTNETLINK answers: File
-    exists` und bricht ab – ein Befehl, der beim zweiten Aufruf scheitert,
-    ist für automatisierte Konfiguration unbrauchbar. Sucht die Variante,
-    die sich wiederholen lässt (Stichwort `ip addr replace`), und überlegt,
-    warum genau diese Eigenschaft bei Konfigurationswerkzeugen einen eigenen
-    Namen hat.
+    ```text
+    r1 ifconfig r1-eth1 10.0.0.1/30
+    r1 ip route add 128.155.192.0/18 via 10.0.0.2
+    h1 route add default gw 128.155.128.1
+    ```
+
+    Beendet die Topologie, startet `topoP02-self.py` neu und spielt die Datei
+    mit `mininet> source meine-config.sh` ein. Prüft mit `ip -o addr` und
+    einem Ping, ob der Zustand derselbe ist.
+
+    Spielt die Datei danach ein **zweites** Mal auf derselben laufenden
+    Topologie ein. `ip route add` meldet dann `RTNETLINK answers: File
+    exists`, `route add default gw` meldet `SIOCADDRT: File exists`, und
+    `ip addr add` würde mit `Address already assigned` scheitern. Ein
+    Befehl, der beim zweiten Aufruf scheitert, taugt nicht für
+    automatisierte Konfiguration. Sucht die Varianten, die sich wiederholen
+    lassen (Stichwort `ip route replace`, `ip addr replace`), und überlegt,
+    warum diese Eigenschaft bei Konfigurationswerkzeugen einen eigenen Namen
+    hat.
 
 ### Teil 3 (Vertiefung, optional) – MTU und Fragmentierung (`topoP04`)
 
-Bisher ging es um Adressierung und Routing – die Frage *wohin* ein Paket
-geschickt wird. Dieser optionale Teil wechselt das Thema komplett: Es geht
-jetzt um *wie groß* ein Paket sein darf, bevor es unterwegs zerlegt werden
-muss. Dafür verlasst ihr `topoP02` und wechselt zu `topoP04`, einer
-einfachen Zwei-Host-Topologie mit absichtlich kleiner MTU (536 Byte statt
-der üblichen 1500) und 10 % künstlichem Paketverlust auf dem Link:
+Bisher ging es um Adressierung und Routing – die Frage, *wohin* ein Paket
+geschickt wird. In diesem optionalen Teil geht es darum, *wie groß* ein
+Paket sein darf, bevor es unterwegs zerlegt werden muss. Dafür wechselt ihr
+zu `topoP04`, einer Zwei-Host-Topologie (`h1` = `10.0.0.1`, `h2` =
+`10.0.0.2`) mit kleiner MTU (536 Byte statt der üblichen 1500) und 10 %
+künstlichem Paketverlust auf jedem Link:
 
 ```python
 self.addLink(h1, s1, cls=TCLink, bw=10, mtu=536, loss=10)
 self.addLink(h2, s1, cls=TCLink, bw=10, mtu=536, loss=10)
 ```
 
-Diese Aufgabe ist aus der Skriptkonfiguration und den beiden im Verzeichnis
-mitgelieferten Textdateien (`MehrAls500ByteText.txt`,
-`MehrAls1500ByteText.txt`) abgeleitet.
+Im Verzeichnis liegen außerdem zwei Textdateien zum Verschicken:
+`MehrAls500ByteText.txt` (632 Byte) und `MehrAls1500ByteText.txt`
+(1638 Byte).
 
 Startet die Topologie und beobachtet mit `ping`, ab welcher Paketgröße
 Fragmentierung nötig wird:
@@ -292,15 +285,27 @@ h1$ ping -c 4 -M do -s 1000 10.0.0.2   # "do" = Don't Fragment
 h1$ ping -c 4 -s 1000 10.0.0.2         # ohne DF-Bit
 ```
 
-Beobachtet mit `tcpdump -i h1-eth0` den Unterschied zwischen beiden
-Aufrufen, und schickt anschließend die vorbereiteten Textdateien z. B. per
-`nc` über die Leitung, um Fragmentierung und – durch die 10 % Verlustrate –
-gelegentliche Paketverluste im Zusammenspiel zu beobachten.
+**Erwartung:** Mit gesetztem DF-Bit verweigert schon `h1` das Senden
+(`ping: sendmsg: Message too long`). Ohne DF-Bit wird jedes Echo in zwei
+Fragmente zerlegt; durch die Verlustrate gehen einzelne Pings verloren.
+
+Beobachtet mit `tcpdump -n -v -i h1-eth0` den Unterschied zwischen beiden
+Aufrufen (Felder `offset` und `flags [+]`). Schickt anschließend die
+Textdateien per UDP über die Leitung:
+
+```bash
+h2$ nc -u -l 5000
+h1$ nc -u -w1 10.0.0.2 5000 < MehrAls1500ByteText.txt
+```
+
+Zählt die Fragmente im Mitschnitt und überlegt, was mit dem ganzen
+Datagramm passiert, wenn durch die 10 % Verlustrate nur eines seiner
+Fragmente verloren geht.
 
 ### Teil 4 – Broadcast-Adressen selbst berechnen, bevor ihr sie prüft (`topoP02`)
 
-Die VLSM-Tabelle aus Teil 1 gibt euch für jedes der vier Subnetze bereits
-Netzadresse und Anzahl nutzbarer Hosts vor. Berechnet daraus jetzt selbst –
+Die VLSM-Tabelle aus Teil 1 gibt euch für jedes der vier Subnetze
+Netzadresse und Anzahl nutzbarer Hosts vor. Berechnet daraus selbst –
 **ohne vorher `ip addr` auf dem jeweiligen Interface auszuführen** – die
 **Broadcast-Adresse** für die Subnetze von `h1` (Entwicklung) und `h2`
 (Verkauf):
@@ -317,7 +322,7 @@ Netzadresse und Anzahl nutzbarer Hosts vor. Berechnet daraus jetzt selbst –
 Hosts nicht nutzbar).
 
 Startet anschließend `topoP02` (falls nicht mehr aktiv) und prüft eure
-Rechnung gegen die tatsächlich vom Kernel vergebene Broadcast-Adresse:
+Rechnung gegen die vom Kernel vergebene Broadcast-Adresse:
 
 ```bash
 cd ~/rn-practice/topoP02
@@ -326,17 +331,14 @@ h1$ ip addr show h1-eth0
 h2$ ip addr show h2-eth0
 ```
 
-Das Feld `brd` in der Ausgabe von `ip addr show` zeigt euch die vom Kernel
-aus Adresse und Präfixlänge berechnete Broadcast-Adresse – sie muss exakt
-mit eurem von Hand berechneten Wert übereinstimmen.
+Das Feld `brd` in der Ausgabe von `ip addr show` zeigt die vom Kernel aus
+Adresse und Präfixlänge berechnete Broadcast-Adresse – sie muss mit eurem
+von Hand berechneten Wert übereinstimmen.
 
-!!! success "Real geprüft"
-    Auf einem frisch gestarteten Container liefert `ip addr show h1-eth0`
-    tatsächlich `inet 128.155.128.2/18 brd 128.155.191.255`, und `ip addr
-    show h2-eth0` liefert `inet 128.155.192.2/19 brd 128.155.223.255` –
-    beide Werte stimmen mit der Handrechnung überein
-    (`128.155.128.0/18` → Broadcast `128.155.191.255`;
-    `128.155.192.0/19` → Broadcast `128.155.223.255`).
+??? success "Zur Kontrolle (erst nach der eigenen Rechnung öffnen)"
+    `ip addr show h1-eth0` liefert `inet 128.155.128.2/18 brd
+    128.155.191.255`, `ip addr show h2-eth0` liefert `inet
+    128.155.192.2/19 brd 128.155.223.255`.
 
 **Aufgabe:** Berechnet zusätzlich, wie viele Subnetze der Größe `/19`
 (Verkauf) rechnerisch insgesamt in das übergeordnete `/17`-Netz aus der
@@ -350,39 +352,34 @@ statt VLSM eine starre, gleich große Aufteilung verwendet?
 
 ARP war in Teil 1 die Frage „welche MAC-Adresse gehört zu dieser IP-Adresse?"
 – gestellt von einem **Host**. Jetzt wechselt die Perspektive auf das Gerät in
-der Mitte. Ein Switch stellt diese Frage nie. Er beantwortet eine andere, und
-er beantwortet sie, ohne je gefragt zu haben: „über welchen Port erreiche ich
-diese MAC-Adresse?"
+der Mitte. Ein Switch stellt diese Frage nie. Er beantwortet eine andere,
+ohne je gefragt zu haben: „über welchen Port erreiche ich diese MAC-Adresse?"
 
-Wie er zu dieser Antwort kommt, ist verblüffend einfach und wird in dieser
-Aufgabe messbar: Er **lernt** aus jedem Rahmen, der bei ihm ankommt, und zwar
-aus der *Absender*-Adresse. Aus dieser einen Regel folgt alles Weitere – dass
-er ein unbekanntes Ziel an alle Ports schicken muss, dass er wieder vergisst,
-und dass seine Tabelle volllaufen kann.
+Er **lernt** dazu aus jedem Rahmen, der bei ihm ankommt, und zwar aus der
+*Absender*-Adresse. Aus dieser einen Regel folgt alles Weitere – dass er ein
+unbekanntes Ziel an alle Ports schicken muss, dass er wieder vergisst, und
+dass seine Tabelle volllaufen kann.
 
-!!! note "`brctl` ist in diesem Container nicht installiert"
-    Ältere Anleitungen zeigen die Lerntabelle mit `brctl showstp` oder
-    `brctl showmacs`. Das Paket `bridge-utils` ist hier **nicht** vorhanden
-    (geprüft am 2026-09-24), und es wäre auch das falsche Werkzeug: Die
-    Switches dieser Topologie sind Open-vSwitch-Instanzen, keine
-    Linux-Bridges. Das passende Werkzeug ist `ovs-appctl`, und es ist
-    vorhanden.
-
-    Merkt euch die beiden Befehle, sie sind in jedem Rechenzentrum mit
-    Open vSwitch dieselben:
+!!! note "Werkzeug: `ovs-appctl` statt `brctl`"
+    Die Switches dieser Topologie sind Open-vSwitch-Instanzen, keine
+    Linux-Bridges; `brctl showmacs` passt deshalb nicht (und `brctl` ist
+    nicht installiert). Die Lerntabelle zeigt `ovs-appctl`:
 
     ```bash
-    ovs-appctl fdb/show <switch>          # die Lerntabelle anzeigen
-    ovs-appctl fdb/stats-show <switch>    # Belegung, Obergrenze, Verdraengungen
+    sudo ovs-appctl fdb/show <switch>          # die Lerntabelle anzeigen
+    sudo ovs-appctl fdb/stats-show <switch>    # Belegung, Obergrenze, Verdrängungen
     ```
 
-    `fdb` steht für *forwarding database* – der offizielle Name dessen, was in
+    `fdb` steht für *forwarding database* – der Name dessen, was in
     Vorlesungen meist „MAC-Tabelle" oder „Lerntabelle" heißt.
 
-Startet die Topologie. `topo02` hat als einzige Topologie dieses Praktikums
-einen Switch mit **drei** angeschlossenen Geräten – genau das braucht ihr, um
-Fluten überhaupt beobachten zu können: Es muss jemanden geben, der einen
-Rahmen empfängt, der nicht für ihn ist.
+    Befehle mit `$` gebt ihr in einem normalen Terminal auf dem Desktop ein
+    (nicht in der Mininet-Konsole); `ovs-appctl` und `ovs-vsctl` brauchen
+    dort `sudo`.
+
+Startet die Topologie. `topo02` hat einen Switch mit **drei** angeschlossenen
+Geräten – das braucht ihr, um Fluten beobachten zu können: Es muss jemanden
+geben, der einen Rahmen empfängt, der nicht für ihn ist.
 
 ```bash
 cd ~/rn-practice/topo02
@@ -393,25 +390,22 @@ An `s1` hängen `h0` (`10.0.10.10`), `h1` (`10.0.10.11`) und `r1`
 (`10.0.10.1`). Verschafft euch zuerst Klarheit über Ports und Adressen:
 
 ```bash
-$ ovs-vsctl list-ports s1
-$ ovs-appctl fdb/show s1
+$ sudo ovs-vsctl list-ports s1
+$ sudo ovs-appctl fdb/show s1
 ```
 
 !!! warning "Zwei Eigenheiten der Schnittstellennamen in `topo02`"
-    Beim Lesen der Portliste stolpert man über zwei Namen, die nicht zum
-    tatsächlichen Aufbau passen – beides bestehende Eigenheiten von
-    `topo02.py`, keine Fehler eurer Sitzung:
+    Zwei Namen in der Portliste passen nicht zum tatsächlichen Aufbau:
 
     - Einer der Ports von `s1` heißt **`r1-eth2`**, obwohl dort `h1` hängt und
       nicht `r1`.
     - Die Schnittstelle von `h1` heißt **`h0-eth0`** – derselbe Name, den auch
       `h0` für seine eigene Schnittstelle verwendet. Verwechseln kann man sie
-      trotzdem nicht, weil jeder Host in seinem eigenen Namensraum lebt.
+      nicht, weil jeder Host in seinem eigenen Namensraum lebt.
 
     Für `tcpdump` auf `h1` heißt das: `-i h0-eth0`. Prüft mit `ip -o addr` auf
-    `h1`, welchen Namen ihr tatsächlich vor euch habt, statt dem Blatt zu
-    glauben. Dieselbe Art Namens-Tippfehler ist euch in Teil 1 bei `h4` schon
-    begegnet.
+    `h1`, welchen Namen ihr vor euch habt. Dieselbe Art Namensfehler ist euch
+    in Teil 1 bei `h4` begegnet.
 
 #### Schritt 1 – Erst vorhersagen
 
@@ -426,10 +420,10 @@ Beantwortet diese vier Fragen schriftlich, **bevor** ihr ein Kommando absetzt:
 
 #### Schritt 2 – Fluten an ein unbekanntes Ziel messen
 
-Der saubere Weg, „unbekanntes Ziel" herzustellen, ist eine MAC-Adresse, die
+Ein unbekanntes Ziel stellt ihr am einfachsten mit einer MAC-Adresse her, die
 **niemandem** gehört. Dann kann der Switch sie nie lernen, und jeder Rahmen
-dorthin wird geflutet – so lange ihr wollt. Tragt sie auf `h0` von Hand ein,
-damit kein ARP dazwischenkommt:
+dorthin wird geflutet. Tragt sie auf `h0` von Hand ein, damit kein ARP
+dazwischenkommt:
 
 ```bash
 mininet> xterm h0
@@ -437,8 +431,7 @@ mininet> xterm h1
 h0$ ip neigh replace 10.0.10.99 lladdr 02:00:00:00:00:99 dev h0-eth0 nud permanent
 ```
 
-Lasst `h1` mithören – `h1` ist weder Absender noch Empfänger und darf diese
-Rahmen eigentlich nie sehen:
+Lasst `h1` mithören – `h1` ist weder Absender noch Empfänger dieser Rahmen:
 
 ```bash
 h1$ tcpdump -i h0-eth0 -n icmp
@@ -447,26 +440,28 @@ h0$ ping -c 3 10.0.10.99
 
 **Messwert:** Wie viele der drei gesendeten Rahmen kommen bei `h1` an?
 
-#### Schritt 3 – Die Gegenprobe, ohne die der Befund nichts wert ist
+#### Schritt 3 – Die Gegenprobe
 
 Ein Befund „`h1` sieht die Rahmen" belegt für sich genommen noch nichts – er
 könnte auch bedeuten, dass dieser Switch *grundsätzlich* alles an alle
-schickt, also gar nicht lernt. Also leert ihr die Tabelle und wiederholt den
-Versuch mit einem Ziel, das wirklich existiert:
+schickt, also gar nicht lernt. Leert deshalb die Tabelle und wiederholt den
+Versuch mit einem Ziel, das existiert:
 
 ```bash
-$ ovs-appctl fdb/flush s1
+$ sudo ovs-appctl fdb/flush s1
 h1$ tcpdump -i h0-eth0 -n icmp
 h0$ ping -c 5 10.0.20.10
 ```
 
-**Messwert:** Wie viele der fünf Rahmen sieht `h1` jetzt? Erst der *Unterschied*
-zwischen Schritt 2 und Schritt 3 beweist, dass gelernt wird.
+**Messwert:** Wie viele der fünf Echo-Anfragen sieht `h1` jetzt? Achtet
+darauf, *welche* es sind: Direkt nach dem Leeren kennt der Switch noch
+niemanden. Erst der Unterschied zwischen Schritt 2 und Schritt 3 zeigt, dass
+gelernt wird.
 
 Schaut euch anschließend an, was der Switch dabei gelernt hat:
 
 ```bash
-$ ovs-appctl fdb/show s1
+$ sudo ovs-appctl fdb/show s1
 ```
 
 Die Spalte `Age` ist das Alter des Eintrags in Sekunden. Lasst die Ausgabe
@@ -482,24 +477,25 @@ herunter, erzeugt einmal Verkehr und beobachtet dann, **ohne weiteren
 Verkehr**, wie lange der Eintrag überlebt:
 
 ```bash
-$ ovs-vsctl set bridge s1 other-config:mac-aging-time=15
-$ ovs-vsctl get bridge s1 other-config
+$ sudo ovs-vsctl set bridge s1 other-config:mac-aging-time=15
+$ sudo ovs-vsctl get bridge s1 other-config
 h0$ ping -c 2 10.0.20.10
-$ watch -n 5 "ovs-appctl fdb/show s1"
+$ sudo watch -n 1 ovs-appctl fdb/show s1
 ```
 
 **Messwert:** Nach wie vielen Sekunden ist der Eintrag für `h0`s MAC-Adresse
-verschwunden? Vergleicht diese Zahl mit den eingestellten 15 Sekunden und
-erklärt die Abweichung. Der Hinweis: Ein Switch hält keinen Wecker für jeden
-einzelnen Eintrag – er räumt in Durchläufen auf. Was folgt daraus für die
-Frage, ob eine Alterungszeit eine Zusage oder eine Obergrenze ist?
+(`00:00:00:00:00:01`) verschwunden? Wiederholt die Messung zwei- bis dreimal,
+vergleicht mit den eingestellten 15 Sekunden und erklärt die Abweichung. Der
+Hinweis: Ein Switch hält keinen Wecker für jeden einzelnen Eintrag – er räumt
+in Durchläufen auf. Ist eine Alterungszeit damit eine Zusage oder eine
+Untergrenze?
 
 #### Schritt 5 – Die Tabelle zum Überlaufen bringen
 
 Die Lerntabelle ist endlich. Fragt zuerst nach, wie groß sie ist:
 
 ```bash
-$ ovs-appctl fdb/stats-show s1
+$ sudo ovs-appctl fdb/stats-show s1
 ```
 
 Das Werkzeug, mit dem man eine solche Tabelle füllt, heißt `macof` (aus dem
@@ -509,100 +505,79 @@ Eintrag an:
 
 ```bash
 h0$ timeout 5 macof -i h0-eth0
-$ ovs-appctl fdb/show s1 | wc -l
-$ ovs-appctl fdb/stats-show s1
+$ sudo ovs-appctl fdb/show s1 | wc -l
+$ sudo ovs-appctl fdb/stats-show s1
 ```
 
-Damit ihr den Überlauf in wenigen Sekunden erreicht, statt auf die
-Standardgröße zu warten, verkleinert die Tabelle vorher absichtlich:
+(`wc -l` zählt die Kopfzeile von `fdb/show` mit.) Verkleinert die Tabelle
+danach absichtlich und wiederholt den Versuch:
 
 ```bash
-$ ovs-vsctl set bridge s1 other-config:mac-table-size=64
+$ sudo ovs-vsctl set bridge s1 other-config:mac-table-size=64
 h0$ timeout 5 macof -i h0-eth0
-$ ovs-appctl fdb/stats-show s1
+$ sudo ovs-appctl fdb/stats-show s1
 ```
 
-**Messwerte:** Wie viele Einträge stehen danach in der Tabelle, und wie viele
-zählt die Zeile `evicted` (verdrängt)? Setzt die Tabellengröße danach wieder
-zurück:
+**Messwerte:** Wie viele Einträge stehen danach in der Tabelle, und um wie
+viel ist die Zeile `evicted` (verdrängt) gestiegen? Die Zähler in
+`fdb/stats-show` laufen seit dem Start des Switches mit; vergleicht deshalb
+die Werte vor und nach `macof`. Setzt die Einstellungen danach wieder zurück:
 
 ```bash
-$ ovs-vsctl remove bridge s1 other-config mac-table-size
-$ ovs-vsctl remove bridge s1 other-config mac-aging-time
+$ sudo ovs-vsctl remove bridge s1 other-config mac-table-size
+$ sudo ovs-vsctl remove bridge s1 other-config mac-aging-time
 ```
 
 !!! question "Der Bogen zur Sicherheit – und die Grenze dieser Übung"
-    Ihr habt gerade dafür gesorgt, dass ein Switch keinen Platz mehr hat, um
-    echte Adressen zu lernen. Überlegt, was das für einen Angreifer am selben
+    Ihr habt dafür gesorgt, dass ein Switch keinen Platz mehr hat, um echte
+    Adressen zu lernen. Überlegt, was das für einen Angreifer am selben
     Segment bedeutet: Welche Rahmen sieht er danach, die er vorher nicht sah?
     Der Angriff hat einen Namen (*MAC flooding*), und die Gegenmaßnahme in
     verwalteten Switches auch (*port security*).
 
-    Aber bleibt genau: Was ihr hier gemessen habt, ist die **Verdrängung von
-    Einträgen** (`evicted`). Dass dieser Switch daraufhin tatsächlich fremden
-    Verkehr an euren Port flutet, habt ihr damit **nicht** gezeigt – das wäre
-    eine eigene Messung mit `tcpdump` auf `h1` während `macof` läuft.
-    Formuliert, wie ihr sie anlegen würdet. Der Unterschied zwischen „die
-    Voraussetzung eines Angriffs ist hergestellt" und „der Angriff
-    funktioniert" ist derselbe wie der zwischen einer Vermutung und einem
-    Befund. Wie ein Lauschangriff auf einem geteilten Segment praktisch
-    aussieht, steht in
+    Gemessen habt ihr hier aber nur die **Verdrängung von Einträgen**
+    (`evicted`). Dass der Switch daraufhin fremden Verkehr an euren Port
+    flutet, ist damit **nicht** gezeigt – das wäre eine eigene Messung mit
+    `tcpdump` auf `h1`, während `macof` läuft. Formuliert, wie ihr sie
+    anlegen würdet; in Teil 9 führt ihr sie durch. Wie ein Lauschangriff auf
+    einem geteilten Segment praktisch aussieht, steht in
     [Lab 05 – ARP-Spoofing & Denial-of-Service](05-arp-spoofing-dos.md).
 
-!!! success "Real geprüft (2026-09-24)"
-    Alle Messungen dieses Teils wurden in einem Wegwerfcontainer gegen ein real
-    gestartetes `topo02` und dessen echten Switch `s1` ausgeführt:
-
-    | Messung | Ergebnis |
+??? success "Zur Kontrolle: typische Werte (erst nach der eigenen Messung öffnen)"
+    | Messung | Typisches Ergebnis |
     |---|---|
     | Ports von `s1` | `s1-eth1` (`h0`), `s1-eth0` (`r1`), `r1-eth2` (`h1`) |
-    | Fluten an ein unbekanntes Ziel (Schritt 2) | `h1` sah **3 von 3** gesendeten Rahmen |
-    | Gegenprobe mit bekanntem Ziel (Schritt 3) | `h1` sah **0 von 5** gesendeten Rahmen |
-    | Alterung bei `mac-aging-time=15` | Eintrag nach **35,1 s** verschwunden (Tabelle bei 30 s von 3 auf 2 Einträge, bei 35 s auf 0) |
+    | Fluten an ein unbekanntes Ziel (Schritt 2) | `h1` sieht **3 von 3** Rahmen |
+    | Gegenprobe mit bekanntem Ziel (Schritt 3) | `h1` sieht höchstens die erste Anfrage (und deren Antwort) direkt nach dem Leeren, danach nichts mehr |
+    | Alterung bei `mac-aging-time=15` | Eintrag verschwindet nach etwa 15 bis 20 s, gelegentlich später |
     | Obergrenze der Tabelle (Standard) | **8192** Einträge |
-    | `macof` 5 s gegen die Standardtabelle | **2547** Einträge gelernt, 0 verdrängt |
-    | `macof` 5 s bei `mac-table-size=64` | genau **64** Einträge, **169.796** verdrängt (`evicted`) |
+    | `macof` 5 s gegen die Standardtabelle | Tabelle läuft je nach Senderate teilweise oder ganz voll (bis `8192/8192`) |
+    | `macof` 5 s bei `mac-table-size=64` | genau **64** Einträge, `evicted` steigt um eine sechsstellige Zahl |
 
-    Der Kontrast 3-von-3 gegen 0-von-5 ist der eigentliche Befund dieses
-    Teils: Derselbe Switch, dieselbe Quelle, derselbe Beobachter – nur einmal
-    mit und einmal ohne Eintrag in der Lerntabelle.
-
-    Bemerkenswert ist die **Alterung**: eingestellt 15 Sekunden, gemessen rund
-    35. Das wurde in zwei unabhängigen Läufen bestätigt (einmal auf `s1`,
-    einmal auf einem eigens gebauten Ein-Switch-Aufbau; beide Male verschwand
-    der Eintrag zwischen 30 und 35 Sekunden). Wer hier „15 Sekunden" erwartet
-    und einen Fehler in der eigenen Sitzung sucht, sucht am falschen Ort – die
-    Alterungszeit ist eine untere Schranke für das Behalten, keine Zusage für
-    das Vergessen.
-
-    **Nicht geprüft:** Die Topologie wurde von einem Skript ohne grafische
-    Oberfläche gestartet, nicht über `./start-topo02.sh` mit seinen
-    Terminalfenstern; `watch -n 5` wurde durch eine Abfrage im
-    Fünf-Sekunden-Takt ersetzt. Ob `macof` tatsächlich fremden Verkehr an einen
-    Beobachter-Port flutet, wurde **nicht** gemessen (siehe die Frage oben).
-    Eure Zahlen für `evicted` werden von den obigen abweichen – sie hängen
-    davon ab, wie schnell `macof` auf eurer Sitzung Rahmen erzeugt.
+    Der Kontrast „alle Rahmen" gegen „nur der erste" ist der eigentliche
+    Befund dieses Teils: derselbe Switch, dieselbe Quelle, derselbe
+    Beobachter – nur einmal mit und einmal ohne Eintrag in der Lerntabelle.
+    Die Zahlen für `evicted` hängen davon ab, wie schnell `macof` Rahmen
+    erzeugt.
 
 --8<-- "issue-feedback.md"
 
 ### Teil 6 – ARP von Hand auslösen und die Zustände lesen (`topo02`)
 
 Teil 1 hat ARP als Beiwerk des Routings gezeigt: auf jedem Segment eine eigene
-Auflösung. Jetzt betrachtet ihr ARP als eigenständiges Protokoll und macht **eine
-einzelne** Auflösung sichtbar – Frage und Antwort, und was der Kernel danach im
-Nachbarschafts-Cache über den Nachbarn notiert.
+Auflösung. Jetzt betrachtet ihr ARP als eigenständiges Protokoll und macht
+**eine einzelne** Auflösung sichtbar – Frage und Antwort, und was der Kernel
+danach im Nachbarschafts-Cache über den Nachbarn notiert.
 
-!!! info "Werkzeug: `nping --arp` und `ip neigh` – was sie zeigen"
+!!! info "Werkzeug: `nping --arp` und `ip neigh`"
     `nping --arp` (aus der Nmap-Sammlung) verschickt **eine** ARP-Anfrage und
-    zeigt Frage und Antwort im Klartext. **Was es zeigt:** genau einen
-    Auflösungsvorgang, ohne das Rauschen eines Dauer-Mitschnitts.
+    zeigt Frage und Antwort im Klartext – genau einen Auflösungsvorgang, ohne
+    das Rauschen eines Dauer-Mitschnitts. (`arping` ist in dieser Umgebung
+    nicht installiert.)
     `ip neigh` zeigt den Nachbarschafts-Cache mit einem **Zustand** je Eintrag:
     `REACHABLE` (kürzlich bestätigt), `STALE` (alt, aber nutzbar), `DELAY`/`PROBE`
-    (wird gerade neu geprüft). **Typische Fehldeutung:** `STALE` für einen Fehler
-    zu halten. `STALE` heißt nur „lange nicht bestätigt" – der Eintrag wird beim
-    nächsten Verkehr ohne neue Anfrage weiterverwendet und erst bei Bedarf geprüft.
-    `arping` ist im Abbild **nicht** vorhanden (geprüft 2026-09-24); `nping --arp`
-    ist der vorhandene Ersatz.
+    (wird gerade neu geprüft). `STALE` ist kein Fehler: Der Eintrag wird beim
+    nächsten Verkehr weiterverwendet und erst bei Bedarf neu geprüft.
 
 **Ziel:** Eine ARP-Auflösung erzwingen, Anfrage und Antwort sehen und den
 Übergang der Cache-Zustände nachvollziehen.
@@ -614,57 +589,46 @@ Nachbarschafts-Cache über den Nachbarn notiert.
 
 ```bash
 h0$ ip neigh flush all
-h0$ ip neigh show 10.0.10.1          # jetzt leer
+h0$ ip neigh show 10.0.10.1          # leer
 h0$ nping --arp -c 1 10.0.10.1       # eine ARP-Anfrage, Antwort im Klartext
 h0$ ping -c 1 10.0.10.1 ; ip neigh show 10.0.10.1
 ```
 
-**Erwartete Ausgabe:** `nping` zeigt `ARP who has 10.0.10.1? Tell 10.0.10.10`
-und darunter `RCVD … ARP reply 10.0.10.1 is at <MAC>`. `ip neigh` ist nach dem
-Flush leer und nennt nach dem Ping die MAC mit Zustand `REACHABLE`.
+**Erwartete Ausgabe:** `ip neigh show 10.0.10.1` ist nach dem Flush leer.
+`nping` zeigt `SENT (…) ARP who has 10.0.10.1? Tell 10.0.10.10` und darunter
+`RCVD (…) ARP reply 10.0.10.1 is at 00:00:00:00:00:05`. Nach dem Ping steht
+`10.0.10.1 dev h0-eth0 lladdr 00:00:00:00:00:05 REACHABLE`.
 
-!!! success "Real geprüft (2026-09-24)"
-    In einem Wegwerfcontainer gegen ein real gebautes `topo02`: nach
-    `ip neigh flush all` war `ip neigh show 10.0.10.1` leer; `nping --arp -c 1
-    10.0.10.1` lieferte `ARP who has 10.0.10.1? Tell 10.0.10.10` und
-    `RCVD (0.0245s) ARP reply 10.0.10.1 is at 00:00:00:00:00:05`; nach einem
-    `ping` stand `10.0.10.1 dev h0-eth0 lladdr 00:00:00:00:00:05 REACHABLE`.
-
-!!! quote "Fun Fact (belegt): ARP ist älter als das Sicherheitsdenken"
+!!! quote "Hintergrund: ARP ist älter als das Sicherheitsdenken"
     ARP wurde im **November 1982** von David C. Plummer in **RFC 826** definiert
     (Titel: „An Ethernet Address Resolution Protocol"). Es ist bis heute
-    Internet Standard (STD 37) und praktisch unverändert – und genau deshalb
-    kennt es keinerlei Schutz gegen gefälschte Antworten. Das ist kein Versäumnis
-    der Umgebung, sondern Protokollgeschichte: RFC 826 entstand, bevor die
-    Absicherung von LANs ein Thema war. Genau diese Sorglosigkeit nutzt der
-    Angriff in [Lab 05](05-arp-spoofing-dos.md) aus.
+    Internet Standard (STD 37) und praktisch unverändert – und kennt deshalb
+    keinerlei Schutz gegen gefälschte Antworten. RFC 826 entstand, bevor die
+    Absicherung von LANs ein Thema war. Genau das nutzt der Angriff in
+    [Lab 05](05-arp-spoofing-dos.md) aus.
 
-    - RFC 826 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc826.html> (Abruf 2026-09-24)
-    - IETF-Datatracker, Status STD 37: <https://datatracker.ietf.org/doc/rfc826/> (Abruf 2026-09-24)
-
-    Hinweis zur Zitierweise: **RFC 826 hat keine nummerierten Abschnitte** – der
-    Algorithmus steht im Abschnitt *Packet Reception*, das Format in
-    *Packet format*. Eine Angabe wie „RFC 826, Abschnitt 3" wäre falsch.
+    - RFC 826 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc826.html>
+    - IETF-Datatracker, Status STD 37: <https://datatracker.ietf.org/doc/rfc826/>
 
 ### Teil 7 – Longest-Prefix-Match selbst entscheiden, bevor der Kernel es tut (`topoP02`)
 
 In Teil 1 habt ihr die Routing-Tabellen *gelesen*. Jetzt trefft ihr selbst die
 Entscheidung, die ein Router bei **überlappenden** Routen treffen muss: Wenn
 zwei Einträge auf dasselbe Ziel passen, gewinnt der mit dem **längeren Präfix**.
-`topoP02` liefert dafür einen echten Fall auf `r2`.
+`topoP02` liefert dafür einen Fall auf `r2`.
 
 !!! info "Hintergrund: warum das längste Präfix gewinnt (CNP3, RFC 1519)"
-    Als die starren Adressklassen A/B/C nicht mehr reichten, führte
-    **RFC 1519** variabel lange Subnetze ein. Damit kann dieselbe Zieladresse
-    auf mehrere Routen passen. Die Regel dagegen ist eindeutig: Das Lehrbuch
-    CNP3 formuliert sie als „when a router knows several routes towards the same
+    Mit CIDR (RFC 1519) wurden die starren Adressklassen A/B/C durch Präfixe
+    beliebiger Länge ersetzt. Damit kann dieselbe Zieladresse auf mehrere
+    Routen passen. Die Regel dafür ist eindeutig: Das Lehrbuch CNP3
+    formuliert sie als „when a router knows several routes towards the same
     destination address, it must forward packets along the route having the
     longest prefix length." `0.0.0.0/0` passt auf alles und ist deshalb die
     Default-Route – das kürzeste mögliche Präfix, der letzte Ausweg.
 
     Quelle: *Computer Networking: Principles, Protocols and Practice*,
     O. Bonaventure u. a., UCLouvain, Kapitel „IP version 4" (CC BY-SA 3.0),
-    zitiert RFC 1519; <https://www.computer-networking.info> (Abruf 2026-09-24).
+    zitiert RFC 1519; <https://www.computer-networking.info>
 
 **Ziel:** Für eine Zieladresse, auf die zwei Routen passen, von Hand die
 gewinnende Route bestimmen und mit `ip route get` prüfen.
@@ -689,38 +653,32 @@ r2$ ip route get 128.155.192.5
 r2$ ip route get 128.155.240.2     # h4, nur ueber /18 erreichbar
 ```
 
-**Erwartete Ausgabe:** `ip route get 128.155.192.5` nennt `dev r2-eth0` **ohne**
-`via` (das direkt angeschlossene `/19` gewinnt, weil sein Präfix länger ist);
-`ip route get 128.155.240.2` nennt dagegen `via 10.0.1.2` (nur das `/18` passt).
-
-!!! success "Real geprüft (2026-09-24)"
-    Gegen ein real gebautes `topoP02` zeigte `ip route` auf `r2` beide
-    überlappenden Einträge nebeneinander: `128.155.192.0/19 dev r2-eth0` und
-    `128.155.192.0/18 via 10.0.1.2 dev r2-eth2`. `ip route get 128.155.240.2`
-    lieferte `via 10.0.1.2 dev r2-eth2 src 10.0.1.1` – das `/18` greift für
-    Ziele, die das direkt angeschlossene `/19` nicht abdeckt, während ein Ziel
-    innerhalb des `/19` über das längere Präfix direkt zugestellt wird.
+**Erwartete Ausgabe:** `ip route get 128.155.192.5` nennt
+`dev r2-eth0 src 128.155.192.1` **ohne** `via` (das direkt angeschlossene `/19`
+gewinnt, weil sein Präfix länger ist); `ip route get 128.155.240.2` nennt
+dagegen `via 10.0.1.2 dev r2-eth2 src 10.0.1.1` (nur das `/18` passt).
 
 ### Teil 8 – IPv6 nebenher: Link-Local-Adressen und Neighbor Discovery statt ARP (`topo02`)
 
 Bisher war alles IPv4, und ARP war die Antwort auf „welche MAC gehört zu dieser
 IP?". Unter IPv6 gibt es **kein ARP** – dieselbe Aufgabe erledigt das *Neighbor
-Discovery Protocol* (NDP). Und ihr müsst dafür nichts konfigurieren: Jede
+Discovery Protocol* (NDP). Konfigurieren müsst ihr dafür nichts: Jede
 Schnittstelle bekommt automatisch eine **Link-Local-Adresse** (`fe80::/10`),
 mit der Nachbarn auf demselben Segment sich schon vor jeder IPv6-Konfiguration
 erreichen.
 
-!!! info "Werkzeug: `ip -6 neigh` und `ping6` – was ihr seht"
+!!! info "Werkzeug: `ip -6 neigh` und `ping6`"
     `ip -6 addr` zeigt die automatisch vergebene `fe80:...`-Adresse je
     Schnittstelle. `ping6 <ziel>%<schnittstelle>` erreicht einen Link-Local-
-    Nachbarn – der Zusatz `%h0-eth0` ist Pflicht, weil `fe80::`-Adressen auf
-    **jeder** Schnittstelle gelten und der Kernel sonst nicht weiß, welche
-    gemeint ist. `ip -6 neigh` ist das IPv6-Gegenstück zu `ip neigh`. **Typische
-    Fehldeutung:** eine `fe80:`-Adresse für „nicht konfiguriert / kaputt" zu
-    halten. Sie ist der Normalzustand und für NDP unverzichtbar.
+    Nachbarn. Der Zusatz `%h0-eth0` legt die Schnittstelle fest: `fe80::`-
+    Adressen gelten auf **jeder** Schnittstelle, und ohne Zusatz wählt der
+    Kernel auf einem Knoten mit mehreren Schnittstellen womöglich die
+    falsche. `ip -6 neigh` ist das IPv6-Gegenstück zu `ip neigh`. Eine
+    `fe80:`-Adresse bedeutet nicht „nicht konfiguriert": Sie ist der
+    Normalzustand und für NDP unverzichtbar.
 
 **Ziel:** Zeigen, dass IPv6-Nachbarn sich ohne Konfiguration und ohne ARP
-finden, und den NDP-gefüllten Nachbar-Cache lesen.
+finden, und den von NDP gefüllten Nachbar-Cache lesen.
 
 **Vorbedingung:** `topo02` läuft. Terminal auf `h0`.
 
@@ -732,37 +690,36 @@ h0$ ping6 -c 2 ff02::1%h0-eth0         # all-nodes-Multicast auf dem Segment
 h0$ ip -6 neigh show dev h0-eth0       # von NDP gefuellte Nachbarn
 ```
 
-**Erwartete Ausgabe:** `ip -6 addr` zeigt eine `inet6 fe80::…/64 scope link`.
-Nach dem `ping6` an die All-Nodes-Adresse stehen in `ip -6 neigh` die
-Link-Local-Adressen der Nachbarn mit ihrer MAC – gefüllt durch NDP, nicht durch
+**Erwartete Ausgabe:** `ip -6 addr` zeigt `inet6 fe80::200:ff:fe00:1/64 scope
+link`. Auf den Ping an die All-Nodes-Adresse antworten `h0` selbst sowie
+`fe80::200:ff:fe00:2` (`h1`) und `fe80::200:ff:fe00:5` (`r1`). Danach stehen
+in `ip -6 neigh` diese beiden Nachbarn mit ihrer MAC-Adresse
+(`00:00:00:00:00:02`, `00:00:00:00:00:05`) – gefüllt durch NDP, nicht durch
 ARP.
 
-!!! success "Real geprüft (2026-09-24)"
-    Gegen ein real gebautes `topo02`: `ip -6 addr show h0-eth0` lieferte
-    `inet6 fe80::200:ff:fe00:1/64 scope link`; nach `ping6 ff02::1%h0-eth0`
-    zeigte `ip -6 neigh` die Nachbarn `fe80::200:ff:fe00:5` und
-    `fe80::200:ff:fe00:2` mit ihren MAC-Adressen (Zustand `DELAY`) – ganz ohne
-    ARP und ohne eine einzige manuell gesetzte IPv6-Adresse.
+Probiert den Zusatz `%…` auch auf `r1` aus, das mehrere Schnittstellen hat:
+`r1$ ping6 -c 1 fe80::200:ff:fe00:1` ohne Zusatz scheitert dort mit
+`Destination unreachable: Address unreachable`, mit `%r1-eth0` kommt die
+Antwort von `h0`.
 
 !!! info "Hintergrund: NDP ist RFC 4861"
     Was ARP (RFC 826) für IPv4 tut, erledigt für IPv6 das *Neighbor Discovery
     Protocol* (RFC 4861) – allerdings nicht über einen eigenen Ethertype,
     sondern als Teil von ICMPv6. Die `fe80::…`-Adresse leitet sich in dieser
     Umgebung erkennbar aus der MAC ab (`…00:ff:fe00:5` gehört zur MAC
-    `00:00:00:00:00:05`) – das ist das historische EUI-64-Verfahren, an dem man
-    Adresse und Hardware einander zuordnen kann.
+    `00:00:00:00:00:05`) – das ist das EUI-64-Verfahren, an dem man Adresse
+    und Hardware einander zuordnen kann.
 
-### Teil 9 – Die offene Frage aus Teil 5 selbst beantworten: Überlauf ja, Flutung nein? (`topo02`)
+### Teil 9 – Die offene Frage aus Teil 5: Überlauf ja – und Flutung? (`topo02`)
 
-Teil 5 endete mit einer bewusst offenen Frage: Ihr habt die Lerntabelle mit
-`macof` zum Überlaufen gebracht (Einträge wurden verdrängt), aber **nicht**
-gezeigt, dass der Switch daraufhin fremden Verkehr an euren Port flutet. Genau
-diese Messung legt ihr jetzt an – und das Ergebnis ist lehrreicher als ein
-einfaches „Angriff funktioniert".
+Teil 5 endete mit einer offenen Frage: Ihr habt die Lerntabelle mit `macof`
+zum Überlaufen gebracht (Einträge wurden verdrängt), aber **nicht** gezeigt,
+dass der Switch daraufhin fremden Verkehr an euren Port flutet. Diese Messung
+legt ihr jetzt an.
 
 **Ziel:** Prüfen, ob der Überlauf der Lerntabelle dazu führt, dass ein
 Unbeteiligter (`h1`) den Unicast-Verkehr zwischen `h0` und dem Gateway `r1`
-mitsieht.
+mitsieht – und in welche Richtung.
 
 **Vorbedingung:** `topo02` läuft. Terminals auf `h0` und `h1`. Denkt an die
 Namens-Eigenheit aus Teil 5: `h1`s Schnittstelle heißt `h0-eth0`.
@@ -772,54 +729,45 @@ Namens-Eigenheit aus Teil 5: `h1`s Schnittstelle heißt `h0-eth0`.
 ```bash
 # 1. h1 lauscht auf Verkehr, an dem es NICHT beteiligt ist (h0 <-> r1):
 h1$ tcpdump -i h0-eth0 -n icmp and host 10.0.10.1
-# 2. Baseline OHNE Angriff: h0 pingt r1, h1 sollte nichts sehen
+# 2. Baseline OHNE Angriff: h0 pingt r1
 h0$ ping -c 3 10.0.10.1
 # 3. Tabelle klein machen und mit macof ueberfluten:
-$  ovs-vsctl set bridge s1 other-config:mac-table-size=16
+$ sudo ovs-vsctl set bridge s1 other-config:mac-table-size=16
 h0$ timeout 6 macof -i h0-eth0 &
 # 4. waehrend macof laeuft: h0 pingt r1 erneut, h1 weiter beobachten
 h0$ ping -c 8 -i 0.3 10.0.10.1
-$  ovs-appctl fdb/stats-show s1
-$  ovs-vsctl remove bridge s1 other-config mac-table-size
+$ sudo ovs-appctl fdb/stats-show s1
+$ sudo ovs-vsctl remove bridge s1 other-config mac-table-size
 ```
 
-**Erwartete Ausgabe:** `fdb/stats-show` zeigt eine hohe Zahl verdrängter
-(`evicted`) Einträge – der Überlauf ist real. `h1` sieht in `tcpdump` dennoch
-**keinen** oder kaum Verkehr zwischen `h0` und `r1`.
+**Erwartete Ausgabe:** In der Baseline sieht `h1` nichts. Während `macof`
+läuft, zeigt `fdb/stats-show` eine volle Tabelle (`16/16`) und stark
+steigende `evicted`-Zahlen. `h1` sieht jetzt die **Echo-Antworten** von `r1`
+an `h0` (`10.0.10.1 > 10.0.10.10: ICMP echo reply`), aber **keine**
+Echo-Anfragen von `h0` an `r1`.
 
-!!! success "Real geprüft (2026-09-24)"
-    Gegen ein real gebautes `topo02` mit `mac-table-size=16`: `fdb/stats-show`
-    meldete **131.243 verdrängte** Einträge (Tabelle konstant bei 16/16), der
-    Überlauf war also massiv. Trotzdem sah `h1` **0** Pakete des
-    `h0`↔`r1`-Unicasts – sowohl in der Baseline als auch während des
-    `macof`-Angriffs.
+!!! question "Warum nur eine Richtung geflutet wird"
+    Verdrängt werden nicht wahllos irgendwelche Einträge: Open vSwitch
+    verdrängt bei voller Tabelle bevorzugt Einträge des Ports, der die
+    meisten Einträge belegt. Überlegt:
 
-!!! question "Warum der Lehrbuch-Angriff hier nicht zündet – und wann er es täte"
-    Das Ergebnis widerspricht der verbreiteten Erzählung „MAC-Flooding macht
-    den Switch zum Hub". Der Grund ist präzise: Verdrängt werden die **zufälligen**
-    Absenderadressen von `macof`. Die Einträge für `h0` und `r1` bleiben
-    dagegen frisch, weil beide **während der Messung ununterbrochen senden** –
-    jedes ihrer Pakete lernt der Switch sofort neu, schneller als die Alterung
-    sie entfernen könnte. Geflutet würde nur Verkehr zu einer Adresse, deren
-    Eintrag **zwischen** zwei seltenen Paketen verdrängt wurde.
+    1. An welchem Port lernt der Switch die zufälligen `macof`-Adressen, und
+       welche echte Adresse hängt am selben Port?
+    2. Welcher der beiden Einträge (`h0` oder `r1`) wird deshalb ständig
+       verdrängt, welcher bleibt stehen?
+    3. Erklärt damit, warum `h1` die Antworten an `h0` sieht, die Anfragen an
+       `r1` aber nicht.
+    4. Wie müsste ein Angreifer den Aufbau wählen, um den Verkehr zwischen
+       zwei *anderen* Geräten mitzulesen? Was leistet *port security* dagegen?
 
-    Damit erfüllt ihr genau, was Teil 5 verlangt hat: nicht die Vermutung
-    übernehmen, sondern messen. Formuliert, welche Topologie den Angriff
-    *zeigen* würde – Hinweis: Ihr braucht **drei** Parteien, die nichts mit dem
-    Angreifer zu tun haben, und Verkehr zwischen zweien davon, der selten genug
-    ist, um zwischen den Paketen aus der verkleinerten Tabelle zu fallen.
-    `topo02` hat dafür zu wenige Geräte am Switch (`h0`, `h1`, `r1`) – der
-    Unterschied zwischen „die Voraussetzung ist hergestellt" und „der Angriff
-    funktioniert" ist derselbe wie in Teil 5.
-
-!!! quote "Fun Fact (belegt): `macof` und die dsniff-Sammlung"
+!!! quote "Hintergrund: `macof` und die dsniff-Sammlung"
     `macof` gehört wie `arpspoof` (siehe [Lab 05](05-arp-spoofing-dos.md)) zur
     **dsniff**-Sammlung von Dug Song. dsniff 1.0 erschien am 17. Dezember 1999;
-    die Werkzeuge sind also über 25 Jahre alt – und funktionieren bis heute,
-    weil die zugrundeliegenden Protokolle (ARP, Ethernet-Lernen) unverändert sind.
+    die Werkzeuge funktionieren bis heute, weil die zugrundeliegenden
+    Mechanismen (ARP, Ethernet-Lernen) unverändert sind.
 
-    - dsniff-Projektseite (Dug Song): <https://www.monkey.org/~dugsong/dsniff/> (Abruf 2026-09-24)
-    - dsniff CHANGES (v1.0, 17.12.1999): <https://raw.githubusercontent.com/tecknicaltom/dsniff/master/CHANGES> (Abruf 2026-09-24)
+    - dsniff-Projektseite (Dug Song): <https://www.monkey.org/~dugsong/dsniff/>
+    - dsniff CHANGES (v1.0, 17.12.1999): <https://raw.githubusercontent.com/tecknicaltom/dsniff/master/CHANGES>
 
 ### Teil 10 – Der Preis der starren Aufteilung: VLSM-Verschnitt selbst ausrechnen (`topoP02`, Handrechnung)
 
@@ -849,86 +797,115 @@ Einkauf `/20`, Lager `/23`) und der Adressraum `128.155.128.0/17`.
 **Erwartete Ausgabe:** Eine kleine Tabelle mit „benötigt / nutzbar / Verschnitt"
 je Abteilung für beide Varianten und ein Satz, der den Unterschied benennt.
 
-!!! info "Zur Kontrolle (nicht vorher lesen)"
+??? info "Zur Kontrolle (nicht vorher lesen)"
     Die größte Abteilung (10.000 Hosts) braucht ein `/18` (16.382 nutzbare
-    Hosts). Vier gleich große `/18` wären `4 × 2¹⁴`-Adressblöcke – das sind vier
-    `/18`, also der **gesamte** `/16`-Bereich und damit doppelt so viel Adressraum
-    wie das vorgegebene `/17` überhaupt hergibt. Schon daran zeigt sich, dass die
-    starre Variante hier gar nicht in den zugewiesenen Adressraum passt, während
-    VLSM (`/18` + `/19` + `/20` + `/23`) bequem hineinpasst. Genau das ist der
-    Grund, warum RFC 1519 variabel lange Subnetze eingeführt hat (siehe Teil 7).
+    Hosts). Vier gleich große `/18` wären `4 × 2¹⁴` Adressen – der
+    **gesamte** `/16`-Bereich und damit doppelt so viel Adressraum wie das
+    vorgegebene `/17` hergibt. Die starre Variante passt also gar nicht in
+    den zugewiesenen Adressraum, während VLSM (`/18` + `/19` + `/20` + `/23`)
+    hineinpasst. Genau dafür gibt es variabel lange Präfixe (siehe Teil 7).
+
+### Teil 11 – Subnetz-Zugehörigkeit selbst berechnen, bevor ihr sie prüft (`topo01`)
+
+In [Aufgabenblatt 01](01-netzwerkgrundlagen-tools.md) meldet `pingall` in
+`topo01` Verluste, obwohl einzelne Pings zwischen `h1` und `h2` ankommen.
+Berechnet jetzt selbst, welche Ziele im selben Subnetz liegen und welche nur
+über Router erreichbar sind – bevor ihr es mit einem Befehl nachprüft.
+
+`topo01` vergibt folgende Adressen: `h1` hat **zwei** Interfaces,
+`h1-eth0` mit `10.0.5.2/24` und `h1-eth1` mit `10.0.1.2/24`; `h2` hat ein
+Interface `h2-eth0` mit `10.0.6.2/24`.
+
+Bestimmt für jedes der folgenden Ziele – **auf Papier oder im Kopf, ohne
+vorher `ip route` oder Ähnliches auszuführen** – ob es im selben Subnetz wie
+der jeweilige Startpunkt liegt (Netzwerk- und Broadcast-Adresse aus der
+`/24`-Maske berechnen genügt) oder ob eine Weiterleitung über einen Router
+nötig ist:
+
+| Startpunkt | Ziel | Gleiches Subnetz? | Begründung |
+|---|---|---|---|
+| `h1` (`10.0.5.2/24` auf `h1-eth0`) | `10.0.6.2` (`h2`) | ? | ? |
+| `h1` (`10.0.5.2/24` auf `h1-eth0`) | `10.0.5.1` | ? | ? |
+| `h1` (`10.0.1.2/24` auf `h1-eth1`) | `1.1.1.1` | ? | ? |
+| `h2` (`10.0.6.2/24` auf `h2-eth0`) | `10.0.1.1` | ? | ? |
+
+Prüft anschließend jede Zeile eurer Tabelle mit dem Weiterleitungsentscheid
+des Kernels – `ip route get` beantwortet pro Ziel genau die Frage, die ihr
+gerade von Hand beantwortet habt, ohne ein Paket zu verschicken:
+
+```bash
+h1$ ip route get 10.0.6.2
+h1$ ip route get 10.0.5.1
+h1$ ip route get 1.1.1.1
+h2$ ip route get 10.0.1.1
+```
+
+**So lest ihr die Ausgabe:** Steht in der Zeile ein `via <IP>` vor dem
+`dev <interface>`, wird das Paket über einen Router (die angegebene
+Gateway-Adresse) weitergeleitet – das Ziel liegt in einem anderen Subnetz.
+Fehlt `via` und steht nur `dev <interface>` da, ist das Ziel direkt über
+dieses Interface erreichbar (gleiches Subnetz, Auflösung per ARP statt per
+Routing).
+
+**Erwartung:** `ip route get 10.0.6.2` auf `h1` zeigt
+`via 10.0.1.1 dev h1-eth1` (anderes Subnetz, Route über `r1`);
+`ip route get 10.0.5.1` zeigt nur `dev h1-eth0` ohne `via` (`10.0.5.1` liegt
+im selben `/24` wie `h1-eth0`); `1.1.1.1` liegt außerhalb aller lokalen Netze
+und geht über die Default-Route `via 10.0.5.1 dev h1-eth0` (Weg ins
+Internet); `ip route get 10.0.1.1` auf `h2` zeigt `via 10.0.6.1 dev h2-eth0`.
+
+Prüft danach die Erreichbarkeit in beide Richtungen:
+
+```bash
+h1$ ping -c 3 10.0.6.2
+h2$ ping -c 3 10.0.1.2
+h2$ ping -c 3 10.0.5.2
+```
+
+**Aufgabe:** Die ersten beiden Pings kommen an (mit rund 60 ms RTT), der
+dritte endet mit `From 10.0.6.1 … Destination Net Unreachable`. Erklärt
+anhand eurer Tabelle und der Routing-Tabelle von `r2` (`r2$ ip route`),
+warum `h2` die Adresse `10.0.1.2` von `h1` erreicht, die Adresse `10.0.5.2`
+desselben Rechners aber nicht – und warum das eine direkte Folge der
+Subnetz- und Routing-Struktur ist.
 
 --8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
 
-- **Maskeninkonsistenz bei `h4`** (`/20` am Host vs. `/23` am Router,
-  s. o.) – ein realer, unbereinigter Fehler im vendorierten Skript.
-- **Interface-Namens-Tippfehler** bei `h4` (`h3-eth0` statt `h4-eth0`,
-  s. o.).
-- **Kein `start-topoP02-self.sh`** – muss direkt per
-  `sudo python3 topoP02-self.py` gestartet werden.
-- **Vier Abteilungen, vier Subnetze** – das vierte Subnetz (Lager, `/23`)
-  ergibt sich erst aus dem tatsächlichen Skript (s. o.), nicht direkt aus
-  der Szenariobeschreibung.
-- **`topoP04` hat keinen fest vorgegebenen Aufgabentext** – die in Teil 3
-  vorgeschlagene Aufgabe ist eine Ableitung aus der Skriptkonfiguration.
-- **`mininet> xterm <node>` funktioniert weiterhin**, öffnet aber intern
-  `xfce4-terminal` statt eines echten `xterm` (Shim, siehe
-  [Lab 01](01-netzwerkgrundlagen-tools.md#potenzielle-herausforderungen)).
-- **`brctl` fehlt im Container** (geprüft 2026-09-24) – für Teil 5 ohne
-  Folgen, da die Switches Open-vSwitch-Instanzen sind und `ovs-appctl` das
-  richtige Werkzeug ist. Anleitungen mit `brctl showmacs`/`brctl showstp`
-  laufen hier nicht.
-- **Teil 5 nutzt `topo02`, nicht `topoP02`.** `topoP02` besitzt überhaupt
-  keinen Switch (nur direkte Host-Router-Verbindungen), `topoP04` nur einen
-  Switch mit zwei Hosts und zusätzlich 10 % künstlichen Paketverlust – damit
-  ist das Zählen gefluteter Rahmen nicht sauber möglich. `topo02` ist die
-  einzige Topologie mit einem Switch an drei Geräten und ohne künstlichen
-  Verlust.
+- **Maskeninkonsistenz bei `h4`** in `topoP02` (`/20` am Host, `/23` am
+  Router, s. o.).
+- **Interface-Name bei `h4`** in `topoP02`: `h3-eth0` statt `h4-eth0`.
+- **Kein `start-topoP02-self.sh`** – die Übungsvariante startet ihr mit
+  `sudo python3 topoP02-self.py`.
+- **`mininet> xterm <knoten>`** öffnet ein Terminalfenster mit dem Titel
+  `Node: <knoten>`, in dem ihr als root im Namensraum des Knotens arbeitet.
+- **OVS-Befehle im Desktop-Terminal brauchen `sudo`** (`ovs-appctl`,
+  `ovs-vsctl`), sonst meldet das Werkzeug `Permission denied`.
+- **Teil 5 nutzt `topo02`, nicht `topoP02`.** `topoP02` hat keinen Switch
+  (nur direkte Host-Router-Verbindungen), `topoP04` nur einen Switch mit zwei
+  Hosts und 10 % künstlichem Paketverlust – damit lassen sich geflutete
+  Rahmen nicht sauber zählen.
 - **Irreführende Namen in `topo02`** – ein Port von `s1` heißt `r1-eth2`,
-  obwohl dort `h1` hängt, und `h1`s Schnittstelle heißt `h0-eth0`. Beides sind
-  bestehende Eigenheiten von `topo02.py` (Details in Teil 5).
-- **`topoP03`** (Router zwischen zwei Netzen, IP-Konfiguration von Hand)
-  wird ausführlich in [Lab 03, Teil 1](03-routing-rip-bgp.md) behandelt
-  (reines Routing zwischen zwei Netzen als Einstieg vor dynamischem Routing)
-  – hier daher nur als Hinweis, dass das Skript aus derselben
-  `rn-practice`-Familie stammt.
-- **Teil 6: `arping` fehlt im Abbild** (geprüft 2026-09-24). `nping --arp`
-  ist der vorhandene Ersatz für eine einzelne ARP-Anfrage. `ip neigh`-Zustände
-  wie `STALE` sind kein Fehler, sondern der normale Alterungszyklus.
-- **Teil 8: die `fe80:`-Adressen sind Absicht.** IPv6-Link-Local wird ohne jede
-  Konfiguration vergeben; ein `ping6` an eine `fe80:`-Adresse braucht **zwingend**
-  den `%<schnittstelle>`-Zusatz, sonst meldet der Kernel `Invalid argument`.
-- **Teil 9: der MAC-Flooding-Angriff „zündet" auf `topo02` nicht** – und das ist
-  der Befund, nicht ein Defekt. Verdrängt werden die zufälligen `macof`-Adressen;
-  aktive Endpunkte (`h0`, `r1`) behalten ihren Eintrag. Real gemessen
-  (2026-09-24): 131.243 verdrängte Einträge, aber 0 geflutete Pakete beim
-  Beobachter. Wer hier „Angriff erfolgreich" erwartet, misst am falschen Aufbau
-  (Begründung in Teil 9).
+  obwohl dort `h1` hängt, und `h1`s Schnittstelle heißt `h0-eth0` (Details in
+  Teil 5).
+- **Teil 6: `ip neigh`-Zustände** wie `STALE` sind kein Fehler, sondern der
+  normale Alterungszyklus.
+- **Teil 8: Link-Local-Ziele brauchen auf Knoten mit mehreren
+  Schnittstellen den Zusatz `%<schnittstelle>`**, sonst wählt der Kernel
+  womöglich die falsche Schnittstelle.
 - **Teil 7/10: `ip route get` ist die Kontrolle, nicht der Anfang.** Erst
-  rechnen (welches Präfix ist länger?), dann prüfen – sonst übt man das Ablesen
-  statt des Verstehens. `128.155.192.0/19` schlägt `128.155.192.0/18`, weil sein
-  Präfix länger ist (real geprüft 2026-09-24).
+  rechnen (welches Präfix ist länger?), dann prüfen.
 
 ## Quellen
 
-- `mininet-labs/vertiefung/Labor-02-IPv4-Subnetting-Arp.tex`
-- `mininet-labs/rn-practice/topoP02/` (`topoP02.py`, `topoP02-self.py`,
-  `start-topoP02.sh`)
-- `mininet-labs/rn-practice/topoP04/` (`topoP04.py`, `start-topoP04.sh`,
-  `MehrAls500ByteText.txt`, `MehrAls1500ByteText.txt`) – Aufgabe in Teil 3
-  ist eine Ableitung aus der Skriptkonfiguration, s. o.
-- `mininet-labs/rn-practice/topoP03/` – ausführlich behandelt in
-  [Lab 03](03-routing-rip-bgp.md), siehe Hinweis oben
-- `mininet-labs/rn-practice/topo02/` (`topo02.py`, `start-topo02.sh`) – für
-  Teil 5; dieselbe Topologie wie in [Lab 04](04-tcp-udp-congestion.md) und
-  [Lab 05](05-arp-spoofing-dos.md)
+- Topologie-Skripte in `~/rn-practice`: `topoP02/` (`topoP02.py`,
+  `topoP02-self.py`, `start-topoP02.sh`), `topoP04/` (`topoP04.py`,
+  `start-topoP04.sh`, `MehrAls500ByteText.txt`, `MehrAls1500ByteText.txt`),
+  `topo02/` (`topo02.py`, `start-topo02.sh`, dieselbe Topologie wie in
+  [Lab 04](04-tcp-udp-congestion.md) und [Lab 05](05-arp-spoofing-dos.md)),
+  `topo01/` (`topo01.py`, `start-topo01.sh`)
 - Olivier Bonaventure u. a.: *Computer Networking: Principles, Protocols and
-  Practice*, UCLouvain (Université catholique de Louvain), Repository
-  `cnp3/ebook` – Lizenz **CC BY-SA 3.0**. (Einzelne Übungskapitel tragen im
-  Dateikopf CC BY 3.0; die Angaben widersprechen sich, hier wird konservativ
-  von **BY-SA** ausgegangen.) Von dort stammt die **Idee** zu Teil 5
-  (Ethernet-Lernen, Fluten und Alterung selbst messen); die dortigen Übungen
-  verwenden `brctl showstp`, was hier auf `ovs-appctl` umgeschrieben wurde. Es
-  wird kein Text und keine Datei aus diesem Werk übernommen.
+  Practice*, UCLouvain, <https://www.computer-networking.info>, Lizenz
+  CC BY-SA 3.0. Die Idee zu Teil 5 (Ethernet-Lernen, Fluten und Alterung
+  selbst messen) stammt aus den dortigen Übungen.

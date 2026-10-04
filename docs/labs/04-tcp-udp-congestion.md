@@ -7,8 +7,8 @@
 - Verstehen, wie sich eine Link-Fehlerrate (zufälliger Paketverlust) auf Ping,
   UDP und TCP unterschiedlich auswirkt.
 - Den Zusammenhang zwischen MTU-Begrenzung, IP-Fragmentation und
-  UDP-Paketverlust nachvollziehen können — inklusive der Gründe, warum
-  moderne Netze IP-Fragmentation heute eher vermeiden.
+  UDP-Paketverlust nachvollziehen können, einschließlich der Gründe, warum
+  Netze IP-Fragmentation eher vermeiden.
 - Durchsatz, Latenz und das Zusammenspiel von Pufferung und
   Verbindungskonkurrenz mit `iperf`/`iperf3` praktisch messen und die
   gemessenen Werte gegen vorher gebildete Erwartungswerte prüfen.
@@ -19,8 +19,8 @@
   praktische `iperf3`-Messungen mit `-C reno`/`-C cubic` und Abgleich der
   verfügbaren Algorithmen über `sysctl` gewinnen.
 - Eine eingestellte Netzeigenschaft (Bandbreite, Verzögerung) gegen den
-  gemessenen Wert halten, die Abweichung in Prozent angeben und sie benennen
-  können – statt einer Konfigurationsangabe zu glauben.
+  gemessenen Wert halten, die Abweichung in Prozent angeben und sie begründen
+  können.
 
 --8<-- "issue-feedback.md"
 
@@ -57,10 +57,10 @@ h1$ ping -c 20 10.0.0.2
 h1$ ping -c 20 -D 10.0.0.2
 ```
 
-Einige der Ping-Anfragen werden fehlschlagen — das spiegelt die Fehlerrate
-der Verbindung wider. Die zusätzlichen Flags erleichtern es, Verluste zu
-erkennen. Dieser Verlust wird durch den fehlerbehafteten Link ausgelöst und
-muss von TCP durch Retransmission ausgeglichen werden.
+Einige der Ping-Anfragen bleiben ohne Antwort; das spiegelt die Fehlerrate
+der Verbindung wider. `-D` stellt jeder Antwort einen Zeitstempel voran, so
+erkennt ihr Lücken in der Folge leichter. Denselben Verlust muss TCP später
+durch Retransmission ausgleichen.
 
 **Aufgabe:** Versucht zu erklären, warum `ping` euch häufig eine
 Verlustrate *über* 10 % meldet, obwohl der Link nominell nur 10 % Fehlerrate
@@ -68,13 +68,11 @@ hat. (Hinweis: Ein ICMP-Echo besteht aus zwei Richtungen — Request *und*
 Reply müssen den fehlerbehafteten Link jeweils unabhängig überstehen.)
 
 ![Terminalfenster "Node: h1": ping -c 20 10.0.0.2 mit sichtbaren Luecken in der icmp_seq-Folge - einzelne Sequenznummern fehlen - und einer Abschlussstatistik, die von 20 gesendeten Paketen rund ein Viertel bis ein Drittel als verloren ausweist](../assets/screenshots/04-tcp-udp-congestion/ping-loss-topoP04.png)
-*Realer Mitschnitt gegen die absichtlich verlustbehaftete `topoP04`-Verbindung
-(10 % Fehlerrate je Richtung): der Gesamtverlust bei Hin- und Rückweg zusammen
-liegt je nach Lauf im Bereich eines Viertels bis eines Drittels und damit nahe
-am rechnerisch erwarteten Wert `1 - 0.9⁴ ≈ 34,4 %` für zwei unabhängig
-verlustbehaftete Teilstrecken (Request und Reply je einmal über den Link) – ein
-direkter, messbarer Beleg für die Aufgabenstellung oben. Euer eigener Wert wird
-abweichen: Paketverlust ist zufällig, die Größenordnung ist die Aussage.*
+*Ping über die verlustbehaftete `topoP04`-Verbindung: Der Gesamtverlust liegt
+je nach Lauf bei etwa einem Viertel bis einem Drittel, nahe am rechnerischen
+Wert `1 - 0,9⁴ ≈ 34,4 %`. Jede der beiden Host-Switch-Verbindungen verwirft in
+jeder Richtung 10 %; Request und Reply queren zusammen vier solche
+Teilstrecken. Euer Wert weicht ab, weil Paketverlust zufällig ist.*
 
 #### Fehlerrate bei UDP und TCP
 
@@ -88,13 +86,12 @@ h1$ iperf -i 10 -s -u
 h2$ iperf -t 300 -i 10 -c 10.0.0.1 -u -b 20M
 ```
 
-![Zwei Terminalfenster: "Node: h1" als iperf-UDP-Server, "Node: h2" als Client, der mit rund 10 Mbit/s sendet; der Server Report nennt eine Zeile "Lost/Total Datagrams" mit einem Verlust im Bereich von etwa einem Fuenftel bis einem Viertel und eine tatsaechliche Bandbreite deutlich unter der angeforderten](../assets/screenshots/04-tcp-udp-congestion/iperf-udp-loss.png)
-*Realer `iperf`-UDP-Test über denselben verlustbehafteten Link (verkürzt auf
-wenige Sekunden für die Demonstration): der Client sendet mit konstanter Rate
-nahe der Linkkapazität, doch der Server-Report weist ein Fünftel bis ein
-Viertel der Datagramme als verloren aus – UDP bemerkt den Verlust nicht selbst
-und kompensiert ihn nicht, im Gegensatz zu TCP. Die genauen Zahlen schwanken
-von Lauf zu Lauf; entscheidend ist das Verhältnis.*
+![Zwei Terminalfenster: "Node: h1" als iperf-UDP-Server, "Node: h2" als Client, der mit rund 10 Mbit/s sendet; der Server Report nennt eine Zeile "Lost/Total Datagrams" mit deutlichem Verlust und eine tatsaechliche Bandbreite deutlich unter der angeforderten](../assets/screenshots/04-tcp-udp-congestion/iperf-udp-loss.png)
+*`iperf`-UDP-Test über denselben Link, auf wenige Sekunden verkürzt: Der
+Client sendet mit konstanter Rate nahe der Linkkapazität, der Server-Report
+weist einen erheblichen Teil der Datagramme als verloren aus. UDP bemerkt den
+Verlust nicht selbst und gleicht ihn nicht aus. Die Zahlen schwanken von Lauf
+zu Lauf.*
 
 Einmal für TCP:
 
@@ -112,17 +109,19 @@ der Performance von TCP im Vergleich zu UDP ein?
 Da die MTU auf 536 Byte begrenzt ist, werden Pakete, die größer als diese
 Grenze sind, in IP-Fragmente aufgeteilt (oder verworfen, falls die
 Fragmentierung nicht gelingt). Beobachtet dies, indem ihr größere
-UDP-Nachrichten sendet. Damit der Text nicht selbst eingetippt werden muss,
-kann eine vorbereitete Textdatei genutzt werden.
+UDP-Nachrichten sendet. Im Verzeichnis `topoP04` liegen dafür zwei
+vorbereitete Textdateien (632 und 1638 Byte).
 
-Einmal mit einem kürzeren Text:
+Einmal mit dem kürzeren Text:
 
 ```bash
 h1$ nc -lu 5000
 h2$ nc -u 10.0.0.1 5000 < MehrAls500ByteText.txt
 ```
 
-Einmal mit einem längeren Text:
+Einmal mit dem längeren Text (beendet den ersten `nc -lu` vorher mit
+Strg+C, denn `nc` nimmt nach der ersten Nachricht nur noch Daten vom selben
+Absender an):
 
 ```bash
 h1$ nc -lu 5000
@@ -131,8 +130,8 @@ h2$ nc -u 10.0.0.1 5000 < MehrAls1500ByteText.txt
 
 Beobachtet auf beiden Systemen bei beiden Nachrichten den Verkehr mit
 Wireshark. IP-Fragmentation tritt bei UDP auf, sobald Pakete größer als die
-MTU sind und in kleinere Segmente aufgeteilt werden müssen; ob diese
-transportiert werden, hängt vom Netzwerk ab.
+MTU sind und in kleinere Teile aufgeteilt werden müssen. Kommt ein Fragment
+nicht an, verwirft der Empfänger die ganze Nachricht.
 
 **Hintergrund:** IP-Fragmentierung wird in modernen Netzwerken aus mehreren
 Gründen oft vermieden oder deaktiviert:
@@ -159,30 +158,40 @@ Gründen oft vermieden oder deaktiviert:
 - **Quality of Service:** Fragmentierte Pakete können die QoS beeinträchtigen,
   da Reihenfolge und Vollständigkeit nicht garantiert sind.
 
-Die Vermeidung von IP-Fragmentierung führt zu einem einfacheren, sichereren
-und effizienteren Netzwerkbetrieb — erfordert im Gegenzug aber, dass
-Endgeräte und Anwendungen sorgfältig konfiguriert werden, um Pakete
-innerhalb der Pfad-MTU zu senden.
+Im Gegenzug müssen Endgeräte und Anwendungen Pakete innerhalb der Pfad-MTU
+senden.
 
-**Aufgabe:** Wiederholt das gesamte Experiment mit TCP. Ihr werdet
-feststellen, dass die Bytestream-basierte Übertragung dieses Verhalten so
-nicht zeigt — TCP segmentiert selbst passend zur MSS, statt ein
-übergroßes Paket abzusetzen.
+**Aufgabe:** Wiederholt das gesamte Experiment mit TCP:
+
+```bash
+h1$ nc -l 5000
+h2$ nc -N 10.0.0.1 5000 < MehrAls1500ByteText.txt
+```
+
+Erklärt, warum dabei keine IP-Fragmente entstehen (Stichwort: MSS).
 
 ### Teil B — iperf/iperf3 in `topo02`: Durchsatz, Latenz, Fairness und Congestion Control
 
-Teil A hat den Effekt eines fehlerbehafteten Links auf einer festen, kleinen
-Zwei-Host-Topologie gezeigt. Dieser Teil wechselt die Topologie und die
-Fragestellung: Ihr messt jetzt Durchsatz, Latenz und Fairness auf einem
-sauberen, unbegrenzten Link mit mehreren Hosts und Routern — **`topo02`**
-(dieselbe Vier-Host-Topologie `h0--s1--r1---r2----s2---h3`, die auch in
-[Lab 05](05-arp-spoofing-dos.md) für ARP-Spoofing verwendet wird). Startet
-sie mit:
+In diesem Teil messt ihr Durchsatz, Latenz und Fairness auf einer
+verlustfreien Strecke mit mehreren Hosts und Routern: `topo02`, dieselbe
+Vier-Host-Topologie wie in [Lab 05](05-arp-spoofing-dos.md).
+
+```text
+h0 (10.0.10.10) --+                        +-- h2 (10.0.20.10)
+                  s1 -- r1 ==10 Mbit/s== r2 -- s2
+h1 (10.0.10.11) --+                        +-- h3 (10.0.20.11)
+```
+
+Nur die Verbindung zwischen `r1` und `r2` ist auf 10 Mbit/s begrenzt. Startet
+die Topologie mit:
 
 ```bash
 cd ~/rn-practice/topo02
 ./start-topo02.sh
 ```
+
+Beim Start öffnen sich Terminals für `r1`, `h0`, `h1`, `h2` und `h3`. Ein
+weiteres Terminal für einen Knoten öffnet ihr mit `mininet> xterm h0`.
 
 1. **Erwartungswert bilden, dann Durchsatz messen.** Die Verbindung erlaubt
     nominell 10 Mbit/s. Überschlagt vorab, wie viele Daten sich in 5 Minuten
@@ -249,8 +258,9 @@ cd ~/rn-practice/topo02
 
 4. **Pfadunterbrechung während einer laufenden TCP-Übertragung.** Startet
     erneut eine TCP-Messung `h0` → `h2` und beobachtet parallel `h1$ ping
-    10.0.20.10`. Deaktiviert dann für 20–30 Sekunden das Interface des
-    Routers `r1` in Richtung `h2` und aktiviert es danach wieder:
+    10.0.20.10`. Deaktiviert dann für 20–30 Sekunden das Interface
+    `r1-eth0` des Routers `r1` (Richtung `s1`, also zu `h0` und `h1`) und
+    aktiviert es danach wieder:
 
     ```bash
     r1$ ifconfig r1-eth0 down
@@ -263,19 +273,38 @@ cd ~/rn-practice/topo02
     Wiederherstellung verhalten.
 
 5. **Dieselbe Unterbrechung mit einer Anwendung (SSH) statt einem rohen
-    Iperf-Strom.** Startet auf `h2` den SSH-Server und verbindet euch von
-    `h0` aus:
+    Iperf-Strom.** Startet auf `h2` den SSH-Server:
 
     ```bash
-    h2$ /usr/sbin/sshd -D -f sshd.conf
-    h0$ ssh mininet@10.0.20.10
-    h0$ /sbin/ifconfig   # zur Bestätigung: Interfaces mit "h2-" sichtbar?
+    h2$ /usr/sbin/sshd -D
+    ```
+
+    Ihr meldet euch als Nutzer `cads` an, dessen Passwort ihr nicht kennt.
+    Erzeugt deshalb auf `h0` ein Schlüsselpaar und tragt den öffentlichen
+    Teil als vertrauenswürdig ein (alle Knoten teilen sich dasselbe
+    Dateisystem, `~/.ssh` gilt also auch auf `h2`):
+
+    ```bash
+    h0$ mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    h0$ ssh-keygen -t ed25519 -N "" -f ~/.ssh/rn-practice-key -q
+    h0$ cat ~/.ssh/rn-practice-key.pub >> ~/.ssh/authorized_keys
+    h0$ chmod 600 ~/.ssh/authorized_keys
+    h0$ chown -R cads ~/.ssh
+    ```
+
+    Verbindet euch dann von `h0` aus (die Rückfrage zum Host-Schlüssel mit
+    `yes` beantworten) und prüft, auf welchem Knoten ihr gelandet seid:
+
+    ```bash
+    h0$ ssh -i ~/.ssh/rn-practice-key cads@10.0.20.10
+    $ /sbin/ifconfig   # Interface h2-eth0 sichtbar?
     ```
 
     Bildet eine Erwartung, wie sich die SSH-Sitzung bei derselben
     Pfadunterbrechung verhalten sollte, unterbrecht dann erneut `r1-eth0` wie
-    in Schritt 4, wiederholt `/sbin/ifconfig` auf `h0` und stellt den Pfad
-    danach wieder her. Beendet die Sitzung anschließend mit `exit`.
+    in Schritt 4, gebt in der SSH-Sitzung erneut `/sbin/ifconfig` ein und
+    stellt den Pfad danach wieder her. Beendet die Sitzung anschließend mit
+    `exit`.
 
 6. **Fairness zwischen zwei gleichzeitigen Verbindungen.** Startet
     Iperf-TCP-Server auf `h2` und `h3` (`&` damit ihr das Terminal
@@ -314,16 +343,21 @@ cd ~/rn-practice/topo02
     h0$ sysctl -A | grep tcp | grep congestion
     ```
 
-    Startet auf `h3` einen Iperf3-Server und vergleicht zwei gleichzeitige
-    Iperf3-Client-Verbindungen mit unterschiedlicher Congestion Control –
-    einmal mit der System-Standardeinstellung (typischerweise Cubic) von
-    `h0` zu `h2`, einmal explizit mit Reno von `h1` zu `h3`:
+    Startet auf `h2` und `h3` je einen Iperf3-Server und vergleicht zwei
+    gleichzeitige Iperf3-Client-Verbindungen mit unterschiedlicher
+    Congestion Control: einmal mit der System-Standardeinstellung (Cubic)
+    von `h0` zu `h2`, einmal explizit mit Reno von `h1` zu `h3`:
 
     ```bash
+    h2$ iperf3 -i 10 -s
     h3$ iperf3 -i 10 -s
-    h0$ iperf -t 300 -i 10 -c 10.0.20.10
+    h0$ iperf3 -t 300 -i 10 -c 10.0.20.10
     h1$ iperf3 -C reno -t 300 -i 10 -c 10.0.20.11
     ```
+
+    Beendet auf `h2` vorher den `iperf`-Server aus Schritt 6 mit Strg+C, damit
+    das Terminal frei ist. Ein `iperf`-Server im Hintergrund stört nicht,
+    `iperf3` nutzt einen anderen Port (5201 statt 5001).
 
     Beobachtet den Durchsatzverlauf über die gesamte Laufzeit. Führt danach
     zum Vergleich dieselbe Messung mit `-C cubic` statt `-C reno` durch.
@@ -336,16 +370,16 @@ Verlustbehandlung, Rate-Limiting auf Anwendungsebene).
 
 !!! example "Vertiefung (optional): TCP-Retransmission-Timeout und Backoff selbst vermessen"
     Schritt 4 hat gezeigt, dass eine laufende TCP-Übertragung eine
-    Pfadunterbrechung übersteht. Schaut euch mit einem echten Mitschnitt
-    genauer an, *wie* TCP das tut: Startet auf `h0` `sudo tcpdump -i
-    h0-eth0 -w /tmp/rto.pcap`, dazu eine TCP-Übertragung `h0` → `h2` wie in
-    Schritt 1, und deaktiviert währenddessen erneut `r1-eth0` für etwa eine
-    Minute. Öffnet den Mitschnitt anschließend in Wireshark und filtert auf
+    Pfadunterbrechung übersteht. Schaut euch mit einem Mitschnitt genauer
+    an, *wie* TCP das tut: Startet auf `h0` `tcpdump -i h0-eth0 -w
+    /tmp/rto.pcap`, dazu in einem zweiten Terminal auf `h0` eine
+    TCP-Übertragung `h0` → `h2` wie in Schritt 1, und deaktiviert
+    währenddessen erneut `r1-eth0` für etwa eine Minute. Öffnet den
+    Mitschnitt anschließend in Wireshark und filtert auf
     `tcp.analysis.retransmission`. Vergleicht die Zeitabstände zwischen
-    aufeinanderfolgenden Retransmissionen desselben Segments – sie sollten
-    sich näherungsweise verdoppeln (exponentieller Backoff des
-    Retransmission-Timeout). Im Lehrbuch ist das eine Behauptung; hier ist
-    es eine Zeitstempel-Spalte in eurem eigenen Mitschnitt.
+    aufeinanderfolgenden Retransmissionen desselben Segments: Sie verdoppeln
+    sich näherungsweise (exponentieller Backoff des
+    Retransmission-Timeout).
 
 ### Teil C — Das TCP Congestion Window unter Paketverlust live beobachten (`topoP04`)
 
@@ -353,8 +387,7 @@ Teil A hat gezeigt, dass der verlustbehaftete Link aus `topoP04` (10 %
 Fehlerrate, 10 Mbit/s, MTU 536 Byte) TCP zu Retransmissions zwingt. In
 diesem Teil macht ihr sichtbar, *wie* TCP auf diesen Verlust reagiert:
 Linux erlaubt euch, das aktuelle Congestion Window (`cwnd`) einer laufenden
-Verbindung direkt beim Kernel zu erfragen – kein Wireshark, kein
-Zusatz-Tool nötig.
+Verbindung direkt beim Kernel zu erfragen.
 
 Startet die Topologie, falls nicht mehr aktiv:
 
@@ -389,21 +422,15 @@ Intervall-Durchsatzwerten, die `iperf` auf `h2` selbst ausgibt (die Spalte
 passiert mit `cwnd`, sobald der erste Paketverlust auftritt, und warum
 bricht der gemessene Durchsatz danach so stark ein?
 
-!!! success "Real geprüft"
-    Auf einem frisch gestarteten Container startete `cwnd` bei **40**
-    (Slow-Start-Anfangswert) und brach bereits in der zweiten Sekunde auf
-    **1–2** ein, sobald der erste durch die 10-%-Fehlerrate verlorene
-    Bestätigungs- oder Datenverlust erkannt wurde – und blieb für den Rest
-    der 20-Sekunden-Übertragung durchgehend in diesem Bereich (Werte
-    zwischen 1 und 5), statt sich wie im verlustfreien Fall wieder
-    aufzubauen. Parallel dazu brach der von `iperf` gemeldete
-    Intervall-Durchsatz von anfänglich 3,93 Mbit/s (erstes 2-Sekunden-
-    Intervall, noch mit großem `cwnd`) auf 250–520 Kbit/s ein, mit
-    mehreren Intervallen bei exakt 0 Bit/s – eine sehr konkrete,
-    messtechnisch direkt nachvollziehbare Bestätigung dafür, dass TCP
-    zufälligen Linkverlust fälschlich als Netzüberlastung interpretiert
-    und sein Sendefenster dauerhaft klein hält, obwohl der Link selbst gar
-    nicht überlastet, sondern lediglich fehlerbehaftet ist.
+!!! success "Was ihr seht"
+    Nach den ersten Verlusten fällt `cwnd` auf 1–2 Segmente und bleibt für
+    den Rest der Übertragung in diesem Bereich. `rto:` wächst dabei auf
+    mehrere hundert bis einige tausend Millisekunden (`mss:484`, passend zur
+    MTU 536). `iperf` meldet im ersten Intervall einige hundert Kbit/s,
+    danach wenig bis gar nichts; mehrere Intervalle zeigen 0 Bit/s. TCP
+    deutet den zufälligen Linkverlust als Überlast und hält sein
+    Sendefenster klein, obwohl der Link nicht überlastet, sondern nur
+    fehlerbehaftet ist.
 
 **Vergleich:** Wiederholt die Messung auf einer Verbindung *ohne* die 10-%-
 Fehlerrate – am einfachsten mit derselben `iperf`-Messung aus Teil B auf
@@ -416,32 +443,29 @@ Werten hängen zu bleiben?
 ### Teil D — Störungen selbst erzeugen: Verzögerung, Verlust und Bandbreite mit `tc` (`topo02`)
 
 In Teil A war die Fehlerrate vorgegeben, in Teil C habt ihr gesehen, wie TCP
-darauf reagiert. In beiden Fällen hat jemand anderes die Störung eingebaut.
-Jetzt übernehmt ihr das selbst — und das ändert die Perspektive: Wer eine
+darauf reagiert. In diesem Teil erzeugt ihr Störungen selbst. Wer eine
 Störung erzeugen kann, kann eine gemessene Auffälligkeit auch einer Ursache
 zuordnen.
 
-`tc` (traffic control) ist das Bordmittel des Linux-Kernels für die Steuerung
+`tc` (traffic control) ist das Werkzeug des Linux-Kernels für die Steuerung
 des ausgehenden Verkehrs. Es hängt an eine Schnittstelle eine sogenannte
 **qdisc** (queueing discipline), also eine Warteschlangenregel, die entscheidet,
-wann und ob ein Paket überhaupt losgeschickt wird. Die für uns interessante
-Regel heißt `netem` — der *Netzwerk-Emulator*. Mit ihr lassen sich Verzögerung,
-Paketverlust, Umsortierung und eine künstliche Bandbreitengrenze nachbilden,
-ohne dass am Netz selbst etwas geändert wird.
+wann und ob ein Paket losgeschickt wird. Die hier verwendete Regel heißt
+`netem` (Netzwerk-Emulator). Mit ihr lassen sich Verzögerung, Paketverlust,
+Umsortierung und eine künstliche Bandbreitengrenze nachbilden.
 
 ```bash
 tc qdisc add dev <schnittstelle> root netem delay 100ms   # Verzögerung anlegen
 tc qdisc show dev <schnittstelle>                         # anzeigen, was aktiv ist
 tc qdisc del dev <schnittstelle> root                     # wieder entfernen
-man tc-netem                                              # alle Möglichkeiten
+tc qdisc add netem help                                   # alle Optionen von netem
 ```
 
 !!! warning "Nur in eurer eigenen Topologie, und hinterher aufräumen"
     `tc` verändert das Verhalten einer Schnittstelle sofort und dauerhaft, bis
-    die Regel entfernt wird. Wendet es **ausschließlich** auf Schnittstellen
-    innerhalb eurer Mininet-Topologie an (`h0-eth0`, `r1-eth1` und so weiter),
-    niemals auf `eth0` des Containers — sonst schneidet ihr euch von eurem
-    eigenen Desktop ab. Entfernt jede Regel am Ende wieder mit
+    die Regel entfernt wird. Wendet es nur auf Schnittstellen innerhalb eurer
+    Mininet-Topologie an (`h0-eth0` und so weiter), niemals auf `eth0` des
+    Containers, sonst schneidet ihr euch von eurem eigenen Desktop ab. Entfernt jede Regel am Ende wieder mit
     `tc qdisc del dev <schnittstelle> root`.
 
 Startet die Topologie aus Teil B:
@@ -451,13 +475,11 @@ cd ~/rn-practice/topo02
 ./start-topo02.sh
 ```
 
-Öffnet Terminals für `h0` und `h2` und stellt zuerst den ungestörten Zustand
-fest — ohne Vergleichswert ist jede spätere Messung wertlos:
+Stellt in den Terminals von `h0` und `h2` zuerst den ungestörten Zustand
+fest, als Vergleichswert für alle späteren Messungen:
 
 ```bash
-mininet> xterm h0
-mininet> xterm h2
-h0$ ping -c 10 10.0.2.2
+h0$ ping -c 10 10.0.20.10
 ```
 
 **Aufgabe 1 — Verzögerung.** Legt auf `h0` eine Verzögerung von 100 ms an und
@@ -465,7 +487,7 @@ wiederholt den Ping:
 
 ```bash
 h0$ tc qdisc add dev h0-eth0 root netem delay 100ms
-h0$ ping -c 10 10.0.2.2
+h0$ ping -c 10 10.0.20.10
 ```
 
 Notiert die Laufzeit vorher und nachher. **Warum steigt sie um etwa 100 ms und
@@ -477,7 +499,7 @@ schwankende und beobachtet die Streuung:
 
 ```bash
 h0$ tc qdisc change dev h0-eth0 root netem delay 100ms 40ms
-h0$ ping -c 20 10.0.2.2
+h0$ ping -c 20 10.0.20.10
 ```
 
 Vergleicht `mdev` in der Zusammenfassung von `ping` mit dem Wert aus Aufgabe 1.
@@ -492,12 +514,14 @@ legt stattdessen 5 % Paketverlust an. Messt dann mit `iperf` wie in Teil B:
 h0$ tc qdisc del dev h0-eth0 root
 h0$ tc qdisc add dev h0-eth0 root netem loss 5%
 h2$ iperf -s
-h0$ iperf -c 10.0.2.2 -t 20
+h0$ iperf -c 10.0.20.10 -t 20
 ```
 
 **Bildet vor der Messung eine Erwartung:** Um wie viel bricht der Durchsatz bei
-5 % Verlust ein — um 5 %, oder um deutlich mehr? Messt, und erklärt das
-Ergebnis mit dem, was ihr in Teil C über das Sendefenster gesehen habt.
+5 % Verlust ein: um 5 %, um deutlich mehr oder kaum? Messt und vergleicht mit
+Teil C. Erklärt, warum der Einbruch hier anders ausfällt als auf `topoP04`
+(Hinweise: In welche Richtung wirkt der Verlust hier, in welche dort? Wie
+groß ist die RTT?).
 
 **Aufgabe 4 — Bandbreite.** Entfernt die Verlustregel und begrenzt stattdessen
 die Rate:
@@ -505,32 +529,27 @@ die Rate:
 ```bash
 h0$ tc qdisc del dev h0-eth0 root
 h0$ tc qdisc add dev h0-eth0 root tbf rate 1mbit burst 32kbit latency 400ms
-h0$ iperf -c 10.0.2.2 -t 10
+h0$ iperf -c 10.0.20.10 -t 10
 ```
 
 Vergleicht den gemessenen Durchsatz mit den eingestellten 1 Mbit/s. **Warum
 liegt der gemessene Wert darunter und nicht exakt darauf?** Denkt an das, was
 außer den Nutzdaten noch über die Leitung geht.
 
-Räumt zum Schluss auf und prüft, dass wirklich keine Regel mehr aktiv ist:
+Räumt zum Schluss auf und prüft, dass keine Regel mehr aktiv ist:
 
 ```bash
 h0$ tc qdisc del dev h0-eth0 root
 h0$ tc qdisc show dev h0-eth0
 ```
 
-!!! info "Hintergrund: netem ist kein Spielzeug"
-    `netem` stammt aus der Kernel-Entwicklung und wird dort benutzt, um
-    Protokollimplementierungen gegen Bedingungen zu testen, die im Labor sonst
-    nicht vorkommen — Satellitenstrecken mit 600 ms Laufzeit, Mobilfunk mit
-    schwankender Rate, Funkzellen mit Paketverlust. Dieselbe Technik steckt
-    hinter den Netzwerkprofilen in den Entwicklerwerkzeugen jedes Browsers.
-
-    Der praktische Wert für euch liegt in der Umkehrung: Wer eine Störung
-    gezielt erzeugen kann, erkennt sie später auch wieder. Eine Anwendung, die
-    „manchmal hängt", verhält sich unter 200 ms Verzögerung anders als unter
-    2 % Verlust — und wer beides einmal selbst hergestellt hat, unterscheidet
-    die Fälle am Symptom, statt zu raten.
+!!! info "Hintergrund: wofür netem gedacht ist"
+    `netem` ist Teil des Linux-Kernels und dient dazu, Protokollimplementierungen
+    unter Bedingungen zu testen, die im Labor sonst nicht vorkommen:
+    Satellitenstrecken mit 600 ms Laufzeit, Mobilfunk mit schwankender Rate,
+    Funkzellen mit Paketverlust. Eine Anwendung, die „manchmal hängt",
+    verhält sich unter 200 ms Verzögerung anders als unter 2 % Verlust; wer
+    beides selbst hergestellt hat, kann die Fälle am Symptom unterscheiden.
 
 !!! question "Zum Weiterdenken: warum trifft Verlust TCP härter als UDP?"
     In Aufgabe 3 habt ihr TCP unter Verlust gemessen. Überlegt, wie dieselbe
@@ -539,17 +558,13 @@ h0$ tc qdisc show dev h0-eth0
     und sein Tempo drosselt, und einem, das beides nicht tut. Wer mag, misst
     es nach — die UDP-Variante steht in Teil A.
 
-### Teil E — Soll gegen Ist: was die Emulation wirklich liefert (`topo02`)
+### Teil E — Soll gegen Ist: was die Emulation liefert (`topo02`)
 
-In Teil D habt ihr gelernt, eine Störung mit `tc` **herzustellen**. Jetzt geht
-es um die Gegenrichtung: Ihr **prüft eine Angabe nach**. In `topo02` steht eine
-Bandbreite und eine Verzögerung im Topologie-Skript – aber eine Zahl in einer
-Konfigurationsdatei ist eine Absicht, keine Messung. Wer beides verwechselt,
-sucht später stundenlang einen Fehler an der falschen Stelle.
-
-Das ist die vielleicht wichtigste Gewohnheit dieses ganzen Praktikums: **die
-Prämisse prüfen, bevor man dem Messwert traut.** Ein „der Link hat 10 Mbit/s"
-ist so lange eine Behauptung, bis jemand 10 Mbit/s gemessen hat.
+In Teil D habt ihr eine Störung mit `tc` hergestellt. In diesem Teil geht es
+um die Gegenrichtung: Ihr prüft eine Angabe nach. In `topo02` stehen eine
+Bandbreite und eine Verzögerung im Topologie-Skript. Eine Zahl in einer
+Konfigurationsdatei ist eine Absicht, keine Messung; „der Link hat 10 Mbit/s"
+gilt erst, wenn jemand 10 Mbit/s gemessen hat.
 
 #### Schritt 1 – Das Soll aus dem Skript lesen, nicht aus dem Blatt
 
@@ -560,39 +575,35 @@ zwischen den beiden Routern angelegt wird:
 $ grep -n "TCLink" ~/rn-practice/topo02/topo02.py
 ```
 
-Ihr findet dort genau **eine** Verbindung mit einer Begrenzung — die zwischen
-`r1` und `r2`, mit `bw=10` und `delay='0.1ms'`. Alle anderen Verbindungen der
-Topologie sind unbegrenzt.
+Nur eine Verbindung trägt eine Begrenzung: die zwischen `r1` und `r2`, mit
+`bw=10` und `delay='0.1ms'`. Alle anderen Verbindungen der Topologie sind
+unbegrenzt.
 
 **Haltet fest, bevor ihr weiterliest:** Wenn nur *ein* Abschnitt des Weges
 begrenzt ist, welcher Wert bestimmt dann den Durchsatz von `h0` nach `h2`?
 Und was folgt daraus für die Frage, wo man in einem echten Netz messen muss,
 um eine Zusicherung zu überprüfen?
 
-Kontrolliert das Soll anschließend dort, wo es tatsächlich wirkt – im Kernel
-des Routers:
+Kontrolliert das Soll anschließend dort, wo es wirkt, im Kernel des Routers
+(Terminal von `r1`):
 
 ```bash
 cd ~/rn-practice/topo02
 ./start-topo02.sh
-mininet> xterm r1
 r1$ tc qdisc show dev r1-eth2
 r1$ tc class show dev r1-eth2
 ```
 
 Die `class`-Zeile nennt `rate 10Mbit ceil 10Mbit`, die `qdisc`-Zeile
-`delay 100us`. Damit habt ihr das Soll nicht aus einem Aufgabenblatt
-übernommen, sondern am Gerät gelesen – genau das, was in einer echten
-Störungsmeldung als Erstes zu tun ist.
+`delay 100us`. Damit habt ihr das Soll am Gerät gelesen, wie es bei einer
+echten Störungsmeldung als Erstes zu tun ist.
 
 #### Schritt 2 – Drei Konfigurationen messen
 
 Für jede der drei Konfigurationen messt ihr **zwei** Größen: die Laufzeit mit
-`ping` und den Durchsatz mit `iperf3`. Öffnet Terminals für `h0` und `h2`:
+`ping` und den Durchsatz mit `iperf3`. Startet im Terminal von `h2` den Server:
 
 ```bash
-mininet> xterm h0
-mininet> xterm h2
 h2$ iperf3 -s
 ```
 
@@ -625,10 +636,8 @@ h0$ tc qdisc add dev h0-eth0 root netem rate 5mbit delay 50ms
     `h0-eth0` trägt im Ausgangszustand `qdisc noqueue` – dort ist also nichts,
     was eure Regel verdrängen könnte. Auf `r1-eth2` sitzt dagegen bereits die
     `htb`-Regel, mit der Mininet die 10 Mbit/s durchsetzt. Ein
-    `tc qdisc add … root` auf dieser Schnittstelle würde sie **ersetzen** und
-    damit genau das Soll zerstören, das ihr gerade nachprüfen wollt. Eine
-    eigene Messung so anzulegen, dass sie den Messgegenstand nicht verändert,
-    ist der halbe Beruf.
+    `tc qdisc add … root` auf dieser Schnittstelle würde sie ersetzen und
+    damit genau das Soll verändern, das ihr nachprüfen wollt.
 
 Räumt am Ende auf, wie in Teil D gelernt:
 
@@ -656,59 +665,34 @@ Die Spalte „Soll RTT" ist bewusst leer: Ihr müsst sie selbst herleiten. Der
 Hinweis steckt in Teil D, Aufgabe 1 – eine `netem`-Regel wirkt nur auf den
 ausgehenden Verkehr **einer** Schnittstelle.
 
-Sichert die fertige Tabelle als Datei, damit sie eine Messung bleibt und nicht
-eine Erinnerung:
+Sichert die fertige Tabelle als Datei (in einem normalen Terminal des
+Desktops, nicht im Knoten-Terminal):
 
 ```bash
 $ mkdir -p ~/rn-practice/snapshots
-$ nano ~/rn-practice/snapshots/04-teile-sollist.txt
+$ mousepad ~/rn-practice/snapshots/04-teile-sollist.txt &
 ```
 
-**Die drei Fragen, an denen sich zeigt, ob ihr die Abweichung verstanden habt:**
+**Fragen zur Abweichung:**
 
 1. **Der Ist-Wert liegt immer unter dem Soll-Wert, nie darüber.** Begründet,
     warum das so sein *muss* und nicht Zufall ist. Denkt an alles, was außer
     euren Nutzdaten noch durch dieselbe Leitung passt: Ethernet-Rahmenkopf,
     IP-Kopf, TCP-Kopf, Bestätigungen in der Gegenrichtung.
 2. **`iperf3` nennt zwei Zahlen: `sender` und `receiver`.** Sie sind nicht
-    gleich. Welche der beiden ist die ehrliche Antwort auf „wie viel kam an?",
-    und was misst die andere? (Wer die falsche Zeile abliest, meldet einen
-    Durchsatz, den nie ein Byte erreicht hat.)
+    gleich. Welche der beiden beantwortet „wie viel kam an?", und was misst
+    die andere?
 3. **Die prozentuale Abweichung ist bei kleinen Raten größer als bei großen.**
     Prüft das an euren eigenen drei Zeilen und erklärt es: Der Aufwand je Paket
     ist konstant, die Nutzlast je Paket auch – was ändert sich also?
 
-!!! success "Real geprüft (2026-09-24)"
-    Alle drei Konfigurationen wurden in einem Wegwerfcontainer gegen ein real
-    gestartetes `topo02` gemessen, `iperf3` von `h0` nach `h2` über je
-    8 Sekunden, `ping` mit 10 Paketen:
-
-    | Konfiguration | Soll Rate | Ist (`receiver`) | Abw. | Ist (`sender`) | Ist RTT (min/avg) |
-    |---|---|---|---|---|---|
-    | 1 – unverändert | 10 Mbit/s | **9,52 Mbit/s** | −4,8 % | 13,6 Mbit/s | 0,344 / 0,606 ms |
-    | 2 – `rate 2mbit delay 10ms` | 2 Mbit/s | **1,85 Mbit/s** | −7,5 % | 3,15 Mbit/s | 10,741 / 10,805 ms |
-    | 3 – `rate 5mbit delay 50ms` | 5 Mbit/s | **4,62 Mbit/s** | −7,6 % | 6,42 Mbit/s | 50,523 / 50,563 ms |
-
-    Ebenfalls bestätigt: `tc class show dev r1-eth2` liefert
-    `rate 10Mbit ceil 10Mbit`, `tc qdisc show dev r1-eth2` liefert
-    `delay 100us` – das Soll aus `topo02.py` wirkt also tatsächlich. Auf
-    `h0-eth0` stand vor dem ersten Eingriff `qdisc noqueue`, danach die eigene
-    `netem`-Regel, und nach dem Aufräumen wieder `noqueue`. Die gemessene RTT
-    entspricht in allen drei Fällen der **einfachen** eingestellten
-    Verzögerung (10 ms → 10,7 ms; 50 ms → 50,5 ms), nicht der doppelten.
-
-    Die auffälligste Zahl ist die Lücke zwischen `sender` und `receiver` in
-    Konfiguration 1: **13,6 gegen 9,52 Mbit/s**. Wer hier die `sender`-Zeile
-    abliest, berichtet einen Durchsatz **über** dem eingestellten Limit – ein
-    unmögliches Ergebnis, das sofort verrät, dass die falsche Zeile gemessen
-    wurde.
-
-    **Nicht geprüft:** Die Topologie wurde von einem Skript ohne grafische
-    Oberfläche gestartet, nicht über `./start-topo02.sh` mit den fünf
-    Terminalfenstern. Der Weg über `start-topo02.sh` ist in Teil B und D
-    dieses Blattes bereits verifiziert. Eure absoluten Zahlen werden von den
-    obigen abweichen – die *Richtung* der Abweichung und die Lücke zwischen
-    `sender` und `receiver` nicht.
+!!! success "Was ihr ungefähr seht"
+    `receiver` liegt in allen drei Konfigurationen einige Prozent unter dem
+    Soll (bei 10 Mbit/s etwa 9,5 Mbit/s), `sender` dagegen darüber (bei
+    10 Mbit/s etwa 13 Mbit/s). Die `sender`-Zeile zeigt also einen Durchsatz
+    über dem eingestellten Limit; das verrät, dass sie nicht misst, was
+    angekommen ist. Nach dem Aufräumen zeigt `tc qdisc show dev h0-eth0`
+    wieder `qdisc noqueue`.
 
 !!! question "Zum Weiterdenken: was hätte euch eine Einzelmessung verschwiegen?"
     Ihr habt drei Konfigurationen gemessen, nicht eine. Überlegt, welche der
@@ -717,25 +701,23 @@ $ nano ~/rn-practice/snapshots/04-teile-sollist.txt
     wird und kein Einzelwert: Ein einzelner Wert lässt sich immer erklären,
     ein Verlauf nicht.
 
-### Teil F — Verlust je Richtung wirklich zählen mit `nping` (`topoP04`)
+### Teil F — Round-Trip-Verlust je Sonde zählen mit `nping` (`topoP04`)
 
-Teil A hat euch `ping` gegeben und die Frage gestellt, warum die Verlustrate
-*über* den nominellen 10 % liegt. Die Antwort stand in der Erklärung – jetzt
-messt ihr sie mit einem Werkzeug, das den Verlust nicht nur als Prozentzahl am
-Ende ausspuckt, sondern **jedes einzelne gesendete und empfangene Paket
-einzeln quittiert**. Damit wird aus der Behauptung „ungefähr ein Drittel geht
-verloren" eine Strichliste, die ihr nachzählen könnt.
+In Teil A habt ihr mit `ping` untersucht, warum die Verlustrate *über* den
+nominellen 10 % liegt. In diesem Teil messt ihr das mit einem Werkzeug, das
+jedes gesendete und jedes empfangene Paket einzeln ausgibt. So könnt ihr den
+Verlust Sonde für Sonde nachzählen.
 
 !!! info "Werkzeug: `nping` – was es misst, was nicht"
     `nping` (Teil der Nmap-Sammlung) ist ein Paketgenerator und -zähler. Anders
-    als `ping` zeigt es je Sonde eine `SENT`- und – bei Antwort – eine
+    als `ping` zeigt es je Sonde eine `SENT`- und, bei Antwort, eine
     `RCVD`-Zeile und rechnet am Ende `Raw packets sent / Rcvd / Lost` aus.
-    **Was es misst:** wie viele der von *euch* erzeugten Pakete eine Antwort
-    bekommen haben. **Was es nicht misst:** *wo* auf dem Pfad ein Paket verloren
-    ging – ein fehlendes `RCVD` sagt nur „keine Antwort gesehen", nicht „auf dem
+    **Was es misst:** wie viele der von euch erzeugten Pakete eine Antwort
+    bekommen haben. **Was es nicht misst:** wo auf dem Pfad ein Paket verloren
+    ging; ein fehlendes `RCVD` sagt nur „keine Antwort gesehen", nicht „auf dem
     Hinweg verloren". **Typische Fehldeutung:** die `Lost`-Zahl als reine
-    Hinweg-Verlustrate zu lesen. Sie zählt den *Round Trip*: eine Sonde gilt als
-    verloren, wenn Anfrage **oder** Antwort unterwegs verschwunden ist.
+    Hinweg-Verlustrate zu lesen. Sie zählt den Round Trip: Eine Sonde gilt als
+    verloren, wenn Anfrage oder Antwort unterwegs verschwunden ist.
 
 **Ziel:** Den Round-Trip-Verlust einer verlustbehafteten Strecke sondengenau
 messen und gegen den in Teil A hergeleiteten Erwartungswert `1 − 0,9⁴ ≈ 34 %`
@@ -758,46 +740,35 @@ eine kleine Stichprobe sind.
 **Erwartete Ausgabe:** Eine `Lost`-Zeile mit einem Wert in der Größenordnung
 von 30–40 %, deutlich über den 10 % einer *einzelnen* Teilstrecke.
 
-!!! success "Real geprüft (2026-09-24)"
-    In einem Wegwerfcontainer gegen ein real gebautes `topoP04` lieferte
-    `nping --icmp -c 20 10.0.0.1` von `h2`: `Raw packets sent: 20 (560B) |
-    Rcvd: 12 (336B) | Lost: 8 (40.00%)`, Avg RTT 0,163 ms. Die 40 % liegen im
-    erwarteten Streubereich um `1 − 0,9⁴ ≈ 34,4 %` – kein Widerspruch zu Teil A,
-    sondern derselbe Effekt mit einer zweiten, unabhängigen Messmethode. Ein
-    Kontrolllauf `nping --tcp -p 80 -c 3 10.0.0.1` gegen einen *geschlossenen*
-    Port beantwortete jede durchgekommene Sonde mit einem TCP-`RA`
-    (RST+ACK)-Paket – der saubere Beleg dafür, dass „keine Antwort" bei `nping`
-    zwei verschiedene Dinge heißen kann: verloren oder abgelehnt.
-
-!!! quote "Fun Fact (belegt): der Paketgenerator und der Redis-Erfinder"
+!!! quote "Hintergrund: hping und der Idle-Scan"
     `nping` ist die Nmap-eigene Antwort auf `hping`, das Salvatore Sanfilippo
-    (*antirez*) schrieb – derselbe Entwickler, der später Redis startete. Auf
+    (*antirez*) schrieb, der später auch Redis entwickelte. Auf
     Bugtraq beschrieb er am 18. Dezember 1998 „mit hping" einen Portscan, „so
     scanned hosts can't see your real address"; Nmap setzt ihn heute als
     Idle-Scan (`-sI`) um.
 
-    - Bugtraq, 18.12.1998: <https://seclists.org/bugtraq/1998/Dec/79> (Abruf 2026-09-24)
-    - Nmap-Buch, Idle Scan: <https://nmap.org/book/idlescan.html> (Abruf 2026-09-24)
+    - Bugtraq, 18.12.1998: <https://seclists.org/bugtraq/1998/Dec/79>
+    - Nmap-Buch, Idle Scan: <https://nmap.org/book/idlescan.html>
 
 ### Teil G — Das Sendefenster unter Verlust im Detail lesen: `ss -ti` (`topo02`)
 
-Teil C hat `cwnd` schon einmal beobachtet – auf der fest verdrahteten
-10-%-Strecke von `topoP04`. Jetzt erzeugt ihr den Verlust **selbst** mit `tc`
-(wie in Teil D) auf dem sauberen `topo02`-Link und schaut dem Kernel dabei so
-genau wie möglich über die Schulter: `ss -ti` nennt nicht nur das Congestion
-Window, sondern auch die Zahl der Neuübertragungen (`retrans`), den aktuellen
-Retransmission-Timeout (`rto`) und den verwendeten Staukontroll-Algorithmus.
+Teil C hat `cwnd` auf der fest eingestellten 10-%-Strecke von `topoP04`
+beobachtet. In diesem Teil erzeugt ihr den Verlust selbst mit `tc` (wie in
+Teil D) auf dem verlustfreien `topo02`-Link. `ss -ti` nennt neben dem
+Congestion Window auch die Zahl der Neuübertragungen (`retrans`), den
+aktuellen Retransmission-Timeout (`rto`) und den verwendeten
+Staukontroll-Algorithmus.
 
 !!! info "Werkzeug: `ss -ti` – was es misst, was nicht"
-    `ss` (aus `iproute2`) ist der moderne Nachfolger von `netstat`. Mit `-t`
+    `ss` (aus `iproute2`) ist der Nachfolger von `netstat`. Mit `-t`
     (nur TCP) und `-i` (interne TCP-Informationen) zeigt es je Verbindung eine
     zweite Zeile mit Kernel-Zählern: `cwnd:` (Sendefenster in MSS-Einheiten),
     `retrans:X/Y` (aktuell laufende / insgesamt), `rto:` (Timeout in ms), `mss:`
     und den Namen des Algorithmus (`cubic`, `reno`, …). **Was es misst:** den
-    *Ist*-Zustand einer Verbindung im Moment der Abfrage. **Was es nicht misst:**
-    den Verlauf – `ss` ist eine Momentaufnahme, kein Mitschnitt. **Typische
+    Ist-Zustand einer Verbindung im Moment der Abfrage. **Was es nicht misst:**
+    den Verlauf; `ss` ist eine Momentaufnahme, kein Mitschnitt. **Typische
     Fehldeutung:** ein niedriges `cwnd` als „langsame Leitung" zu lesen. Ein
-    kleines Fenster ist bei Verlust die *Folge* von TCPs Reaktion, nicht die
+    kleines Fenster ist bei Verlust die Folge von TCPs Reaktion, nicht die
     Ursache der Störung.
 
 **Ziel:** Den Zusammenhang zwischen Paketverlust, Neuübertragungen und einem
@@ -814,7 +785,7 @@ zwischen `r1` und `r2` verbunden.
 h0$ tc qdisc add dev h0-eth0 root netem loss 8%
 h2$ iperf3 -s
 h0$ iperf3 -c 10.0.20.10 -t 8 &          # Transfer im Hintergrund
-h0$ ss -ti dst 10.0.20.10                # waehrend der Transfer laeuft, mehrfach
+h0$ ss -ti dst 10.0.20.10                # während der Transfer läuft, mehrfach
 ```
 
 Lasst `ss -ti` während der acht Sekunden mehrmals laufen. Räumt am Ende auf:
@@ -823,22 +794,16 @@ Lasst `ss -ti` während der acht Sekunden mehrmals laufen. Räumt am Ende auf:
 h0$ tc qdisc del dev h0-eth0 root
 ```
 
-**Erwartete Ausgabe:** In der zweiten Zeile von `ss -ti` ein kleines `cwnd:`
-(einstellig bis niedrig zweistellig), eine steigende `retrans:`-Zahl und ein
-`rto:`, das über dem verlustfreien Wert liegt.
+**Erwartete Ausgabe:** `ss -ti` listet zwei Verbindungen zu Port 5201:
+die Steuerverbindung von `iperf3` (kaum Daten, `cwnd:10`) und die
+Messverbindung. Bei der Messverbindung steht in der zweiten Zeile ein sehr
+kleines `cwnd:` (meist 1 bis 3) und eine mit jeder Abfrage steigende
+Gesamtzahl hinter `retrans:`. Ohne Verlustregel wächst `cwnd` derselben
+Verbindung auf mehrere hundert Segmente.
 
-!!! success "Real geprüft (2026-09-24)"
-    Gegen ein real gebautes `topo02` mit `netem loss 8%` auf `h0-eth0` zeigte
-    `ss -ti` während eines `iperf3`-Transfers Werte wie `cwnd:10`, `cwnd:1`,
-    `rto:201`, `rto:204` und `retrans:1/171` bis `retrans:247312` – das Fenster
-    fiel unter dem selbst erzeugten Verlust auf **ein einziges Segment**
-    zurück, exakt das Verhalten aus Teil C, hier aber mit einer Verlustrate,
-    die *ihr* eingestellt habt. Auf dem verlustfreien Link derselben Topologie
-    stand dagegen `cwnd:878` – ein Fenster, das ungestört wachsen darf.
-
-!!! quote "Fun Fact (belegt): der erste Congestion Collapse, 1986"
-    Dass ein volles Netz *langsamer* wird, statt nur „voll" zu sein, lernte das
-    Internet 1986 auf die harte Tour: Im Oktober 1986 brach der Durchsatz
+!!! quote "Hintergrund: der erste Congestion Collapse, 1986"
+    Dass ein volles Netz langsamer wird, statt nur „voll" zu sein, zeigte sich
+    im Oktober 1986: Damals brach der Durchsatz
     zwischen dem Lawrence Berkeley Laboratory und der UC Berkeley – 400 Yards
     und zwei IMP-Hops voneinander entfernt – von 32 kbit/s auf **40 bit/s** ein,
     also um den Faktor tausend. Van Jacobson und Michael J. Karels untersuchten
@@ -846,46 +811,45 @@ h0$ tc qdisc del dev h0-eth0 root
     mit *Slow Start* als einem von sieben neuen Algorithmen im 4BSD-TCP. Genau
     dieses Slow Start seht ihr oben zusammenbrechen und wieder anlaufen.
 
-    - Jacobson, „Congestion Avoidance and Control", LBL: <https://ee.lbl.gov/papers/congavoid.pdf> (Abruf 2026-09-24)
-    - Nachdruck in ACM SIGCOMM CCR 1995: <http://ccr.sigcomm.org/archive/1995/jan95/ccr-9501-jacobson.pdf> (Abruf 2026-09-24)
+    - Jacobson, „Congestion Avoidance and Control", LBL: <https://ee.lbl.gov/papers/congavoid.pdf>
+    - Nachdruck in ACM SIGCOMM CCR 1995: <http://ccr.sigcomm.org/archive/1995/jan95/ccr-9501-jacobson.pdf>
 
-    Die formale Beschreibung von Slow Start und Congestion Avoidance steht heute
+    Die formale Beschreibung von Slow Start und Congestion Avoidance steht
     in **RFC 5681, Abschnitt 3.1**; die Reaktion auf drei doppelte
     Bestätigungen (Fast Retransmit) in **Abschnitt 3.2**.
 
-### Teil H — UDP ehrlich vermessen: Jitter und Verlust mit `iperf3 -u` (`topo02`)
+### Teil H — UDP vermessen: Jitter und Verlust mit `iperf3 -u` (`topo02`)
 
 In Teil B habt ihr UDP mit `iperf` (Version 2) gemessen. `iperf3` gibt für
 UDP zusätzlich zwei Größen aus, die für Echtzeitanwendungen (Sprache, Video,
 Spiele) wichtiger sind als der reine Durchsatz: den **Jitter** (die Schwankung
 der Paketabstände) und den **Anteil verlorener Datagramme**. In diesem Teil
-lernt ihr, diese Zeile zu lesen – und warum sie bei UDP überhaupt existiert,
-während TCP sie nicht braucht.
+lest ihr diese Zeile und begründet, warum es sie bei UDP gibt, während TCP sie
+nicht braucht.
 
 !!! info "Werkzeug: `iperf3 -u` – was es misst, was nicht"
-    `iperf3 -u` sendet UDP-Datagramme mit einer *vorgegebenen* Rate (`-b`) und
+    `iperf3 -u` sendet UDP-Datagramme mit einer vorgegebenen Rate (`-b`) und
     lässt den Empfänger zählen, wie viele ankamen, in welcher Reihenfolge und
     mit welcher Abstandsschwankung. **Was es misst:** Jitter und Datagramm-
     Verlust bei einer festen Senderate. **Was es nicht misst:** den „maximal
-    möglichen" UDP-Durchsatz – bei UDP bestimmt *ihr* die Rate mit `-b`, das
+    möglichen" UDP-Durchsatz; bei UDP bestimmt ihr die Rate mit `-b`, das
     Protokoll drosselt nicht von selbst. **Typische Fehldeutung:** die
     `sender`-Zeile für das Ergebnis zu halten. Bei UDP zählt allein die
     `receiver`-Zeile, denn nur sie sagt, was tatsächlich ankam.
 
-!!! warning "iperf3 gehört auf den sauberen Link, nicht auf `topoP04`"
-    Real geprüft (2026-09-24): Ein `iperf3 -u` gegen einen Server über den
-    verlustbehafteten `topoP04`-Link (10 %, MTU 536) bricht mit
-    `iperf3: error - unable to read from stream socket: Resource temporarily
-    unavailable` ab. Grund: `iperf3` hält neben dem Messstrom eine **TCP-
-    Steuerverbindung**, und die übersteht 10 % Verlust auf einer 536-Byte-MTU
+!!! warning "iperf3 gehört auf den verlustfreien Link, nicht auf `topoP04`"
+    Ein `iperf3 -u` über den verlustbehafteten `topoP04`-Link (10 %, MTU 536)
+    bricht dort immer wieder mit `iperf3: error - unable to read from stream
+    socket: Resource temporarily unavailable` ab. Grund: `iperf3` hält neben
+    dem Messstrom eine TCP-Steuerverbindung, und die übersteht 10 % Verlust
     schlecht. `iperf` (Version 2) hat diese getrennte Steuerverbindung nicht und
-    läuft dort (siehe Teil A). Deshalb messt ihr `iperf3 -u` hier auf dem
-    sauberen `topo02`-Link und erzeugt Verlust bei Bedarf gezielt mit `tc`.
+    läuft dort (siehe Teil A). Deshalb messt ihr `iperf3 -u` auf dem
+    verlustfreien `topo02`-Link und erzeugt Verlust bei Bedarf gezielt mit `tc`.
 
 **Ziel:** Die UDP-Zusammenfassung von `iperf3` (Jitter, Lost/Total) lesen und
 den Unterschied zwischen `sender`- und `receiver`-Zeile begründen.
 
-**Vorbedingung:** `topo02` läuft. `h0` → `h2` über den sauberen 10-Mbit/s-Link.
+**Vorbedingung:** `topo02` läuft. `h0` → `h2` über den 10-Mbit/s-Link.
 
 **Schritte:**
 
@@ -894,47 +858,47 @@ h2$ iperf3 -s
 h0$ iperf3 -u -b 8M -t 5 -c 10.0.20.10
 ```
 
-Wiederholt danach mit `-b 12M` (über der Link-Kapazität) und vergleicht die
-`Lost/Total`-Spalte.
+Wiederholt die Messung danach mit einer Rate über der Link-Kapazität und
+vergleicht die `Lost/Total`-Spalte:
+
+```bash
+h0$ iperf3 -u -b 12M -t 10 -c 10.0.20.10
+```
 
 **Erwartete Ausgabe:** Zwei Zeilen (`sender`/`receiver`) mit `Jitter` in
-Millisekunden und `Lost/Total Datagrams`. Bei `-b 8M` nahezu verlustfrei, bei
-`-b 12M` deutlicher Verlust, weil ihr mehr in die Leitung drückt, als sie
-trägt.
+Millisekunden und `Lost/Total Datagrams`. Bei `-b 8M` kein Verlust; den Jitter
+zeigt nur die `receiver`-Zeile, beim `sender` steht `0.000 ms`. Bei `-b 12M`
+geht ein Teil der Datagramme verloren (um 10 %), weil ihr mehr in die Leitung
+drückt, als sie trägt. Bei sehr kurzer Laufzeit (`-t 5`) kann der Verlust noch
+ausbleiben: Die Warteschlange vor dem 10-Mbit/s-Link fängt den Überschuss
+zunächst auf.
 
-!!! success "Real geprüft (2026-09-24)"
-    `iperf3 -u -b 8M -t 5` von `h0` nach `h2` über den sauberen `topo02`-Link:
-    `8.00 Mbits/sec  0.025 ms  0/2764 (0%)` in der `receiver`-Zeile – Jitter
-    25 Mikrosekunden, kein Verlust. Der Kontrast zur `sender`-Zeile
-    (`0.000 ms`) macht die Werkzeug-Notiz oben konkret: den Jitter kann nur der
-    Empfänger sehen.
-
-!!! quote "Fun Fact (belegt): woher iperf kommt"
+!!! quote "Hintergrund: woher iperf kommt"
     `iperf` entstand am NLANR/DAST (ursprünglich von Mark Gates und Alex
     Warshavsky); `iperf3` ist eine vollständige Neuimplementierung von ESnet /
-    Lawrence Berkeley National Laboratory – derselben Institution, aus der auch
-    `tcpdump` und die Congestion-Avoidance-Arbeit von 1986 stammen. Dass beide
-    Werkzeuge dieselbe Kommandozeilen-Idee, aber unterschiedliche Interna haben,
-    ist der Grund für die Steuerverbindungs-Falle in der Warnung oben.
+    Lawrence Berkeley National Laboratory, derselben Institution, aus der auch
+    `tcpdump` und die Congestion-Avoidance-Arbeit von 1986 stammen. Beide
+    Werkzeuge haben ähnliche Optionen, aber unterschiedliche Interna, etwa die
+    getrennte Steuerverbindung von `iperf3`.
 
-    - ESnet iperf3: <https://software.es.net/iperf/> (Abruf 2026-09-24)
-    - Debian-Manpage iperf (AUTHORS/NLANR): <https://manpages.debian.org/bookworm/iperf/iperf.1.en.html> (Abruf 2026-09-24)
+    - ESnet iperf3: <https://software.es.net/iperf/>
+    - Debian-Manpage iperf (AUTHORS/NLANR): <https://manpages.debian.org/bookworm/iperf/iperf.1.en.html>
 
-    Die drei UDP-Diensteigenschaften – keine Zustellgarantie, mögliche
-    Umsortierung, aber Verwerfen beschädigter Datagramme – stehen in **RFC 768**
+    Die drei UDP-Diensteigenschaften (keine Zustellgarantie, mögliche
+    Umsortierung, aber Verwerfen beschädigter Datagramme) stehen in **RFC 768**
     (im Abschnitt *Introduction* bzw. *Fields*; RFC 768 hat keine nummerierten
     Abschnitte).
 
 ### Teil I — Bufferbloat: warum eine schnelle Leitung träge werden kann (`topo02`)
 
-Bisher habt ihr Verlust und Verzögerung getrennt betrachtet. Jetzt kommt ein
-Effekt dazu, der beides verbindet und in echten Heimnetzen alltäglich ist:
-Eine Leitung, die eigentlich schnell genug ist, wird unter Last plötzlich
-sekundenlang träge – nicht weil Pakete verloren gehen, sondern weil sie in
-einer **zu großen Warteschlange** stehen. Der Name dafür ist *Bufferbloat*.
+Bisher habt ihr Verlust und Verzögerung getrennt betrachtet. Dieser Teil
+behandelt einen Effekt, der in Heimnetzen häufig auftritt: Eine Leitung, die
+schnell genug ist, wird unter Last sekundenlang träge, nicht weil Pakete
+verloren gehen, sondern weil sie in einer zu großen Warteschlange stehen. Der
+Name dafür ist *Bufferbloat*.
 
 **Ziel:** Zeigen, dass ein sättigender Durchsatzstrom die Round-Trip-Zeit einer
-gleichzeitigen `ping`-Messung dramatisch erhöht, obwohl kein Paket verloren
+gleichzeitigen `ping`-Messung stark erhöht, obwohl kein Paket verloren
 geht.
 
 **Vorbedingung:** `topo02` läuft. Ihr braucht zwei Terminals auf `h0`.
@@ -942,49 +906,37 @@ geht.
 **Schritte:**
 
 ```bash
-h0$ tc qdisc add dev h0-eth0 root netem rate 2mbit limit 1000   # kleine Rate, grosse Queue
+h0$ tc qdisc add dev h0-eth0 root netem rate 2mbit limit 1000   # kleine Rate, große Queue
 h0$ ping -c 3 10.0.20.10                                        # Leerlauf-RTT merken
 h2$ iperf3 -s
-h0$ iperf3 -c 10.0.20.10 -t 8 &                                # Leitung saettigen
+h0$ iperf3 -c 10.0.20.10 -t 8 &                                 # Leitung sättigen
 h0$ ping -c 5 10.0.20.10                                        # RTT unter Last
-h0$ tc qdisc del dev h0-eth0 root                              # aufraeumen
+h0$ tc qdisc del dev h0-eth0 root                               # aufräumen
 ```
 
-**Erwartete Ausgabe:** Die Leerlauf-RTT liegt bei wenigen Millisekunden; unter
-Last steigt sie um **Größenordnungen** an – auf Hunderte bis Tausende von
-Millisekunden.
-
-!!! success "Real geprüft (2026-09-24)"
-    Gegen ein real gebautes `topo02` mit `netem rate 2mbit limit 1000` auf
-    `h0-eth0`: Leerlauf `rtt min/avg/max = 0,725/1,522/3,069 ms`, unter einem
-    sättigenden `iperf3`-Strom `rtt min/avg/max = 2000,9/2743,5/3016,3 ms` –
-    die durchschnittliche Laufzeit stieg von rund **1,5 ms auf über 2,7
-    Sekunden**, ohne einen einzigen Paketverlust. Die Pakete gehen nicht
-    verloren, sie *warten* – in genau der überdimensionierten Queue, die dem
-    Effekt den Namen gibt.
+**Erwartete Ausgabe:** Die Leerlauf-RTT liegt unter einer Millisekunde; unter
+Last steigt sie um Größenordnungen auf mehrere Sekunden, ohne dass ein
+`ping`-Paket verloren geht. Die Pakete warten in der großen Queue.
 
 !!! question "Zum Weiterdenken: warum eine kleinere Queue hier hilft"
     Ihr habt die Queue mit `limit 1000` absichtlich groß gemacht. Überlegt, was
     passiert, wenn ihr `limit 20` setzt: Die RTT unter Last sinkt, aber etwas
     anderes verschlechtert sich. Was? (Hinweis: Wohin gehen die Pakete, die
     nicht mehr in die Queue passen – und wie reagiert TCP aus Teil G darauf?)
-    Genau diese Abwägung ist der Grund, warum moderne Router keine simple große
-    FIFO-Queue mehr verwenden, sondern Verfahren wie `fq_codel` (das Kernmodul
-    `sch_fq_codel` ist im Abbild geladen).
+    Diese Abwägung ist der Grund, warum Router statt einer einfachen großen
+    FIFO-Queue Verfahren wie `fq_codel` verwenden.
 
 ### Teil J — Zwei Staukontroll-Algorithmen nebeneinander sichtbar machen (`topo02`)
 
-Teil B, Schritt 7 hat Reno und Cubic am *Durchsatz* verglichen. Der Durchsatz
-ist aber nur das Ergebnis; die Entscheidung fällt im Algorithmus, und den könnt
-ihr euch direkt anzeigen lassen. In diesem Teil macht ihr sichtbar, dass eine
-einzelne Verbindung ihren Algorithmus als Eigenschaft trägt – und dass `ss`
-ihn benennt.
+Teil B, Schritt 7 hat Reno und Cubic am Durchsatz verglichen. In diesem Teil
+macht ihr sichtbar, dass jede einzelne Verbindung ihren Algorithmus als
+Eigenschaft trägt und dass `ss` ihn benennt.
 
-**Ziel:** Belegen, dass `iperf3 -C reno` tatsächlich Reno benutzt, und den
+**Ziel:** Belegen, dass `iperf3 -C reno` Reno benutzt, und den
 Algorithmusnamen sowie die MSS in `ss -ti` ablesen.
 
 **Vorbedingung:** `topo02` läuft. Prüft zuerst, welche Algorithmen der Kernel
-überhaupt anbietet:
+anbietet:
 
 ```bash
 h0$ sysctl -n net.ipv4.tcp_available_congestion_control
@@ -995,93 +947,70 @@ h0$ sysctl -n net.ipv4.tcp_available_congestion_control
 ```bash
 h2$ iperf3 -s
 h0$ iperf3 -C reno -c 10.0.20.10 -t 6 &
-h0$ ss -ti dst 10.0.20.10        # waehrend der Transfer laeuft
+h0$ ss -ti dst 10.0.20.10        # während der Transfer läuft
 ```
 
-Wiederholt danach ohne `-C reno` (System-Standard, meist Cubic) und vergleicht
+Wiederholt danach ohne `-C reno` (System-Standard Cubic) und vergleicht
 die von `ss` genannte Algorithmus-Zeile.
 
-**Erwartete Ausgabe:** `sysctl` listet die verfügbaren Algorithmen; in der
-`ss -ti`-Ausgabe steht bei der Reno-Verbindung `reno`, sonst `cubic`,
-begleitet von `mss:` und `cwnd:`.
-
-!!! success "Real geprüft (2026-09-24)"
-    `sysctl -n net.ipv4.tcp_available_congestion_control` lieferte `reno cubic`.
-    Während eines `iperf3 -C reno`-Transfers zeigte `ss -ti` in der internen
-    Zeile `reno` (neben `cubic` für andere, parallele Sockets) sowie `mss:1448`
-    bzw. `mss:536` und `cwnd:10` – der Algorithmus ist also keine globale
-    Einstellung, sondern eine Eigenschaft *je Verbindung*.
+**Erwartete Ausgabe:** `sysctl` liefert `reno cubic`. `ss -ti` zeigt zwei
+Verbindungen: Die Messverbindung trägt in der zweiten Zeile `reno`, die
+Steuerverbindung von `iperf3` daneben `cubic`, jeweils mit `mss:` und `cwnd:`.
+Der Algorithmus ist also keine globale Einstellung, sondern eine Eigenschaft
+je Verbindung.
 
 !!! info "Hintergrund: AIMD, und warum Cubic der Standard wurde"
     Beide Algorithmen folgen dem Grundprinzip *Additive Increase, Multiplicative
     Decrease* (AIMD): das Fenster wächst langsam linear und wird bei einem
     Verlust drastisch (multiplikativ) verkleinert. Reno halbiert bei einem
     Verlust und wächst danach um rund ein Segment je Round Trip – auf Strecken
-    mit hoher Bandbreite *und* hoher Latenz braucht es dadurch quälend lange, um
-    das Fenster wieder zu füllen. Cubic (Linux-Standard) löst genau dieses
-    Problem mit einer kubischen Wachstumskurve, die sich nach einem Verlust erst
-    schnell, dann vorsichtig dem alten Wert nähert. Der Begriff AIMD stammt aus
-    dem CNP3-Lehrbuch (Kapitel *Congestion control*); die konkrete Reno-Regel –
-    „bei drei doppelten Bestätigungen halbieren" – steht in **RFC 5681,
-    Abschnitt 3.2**.
+    mit hoher Bandbreite und hoher Latenz braucht es dadurch sehr lange, um
+    das Fenster wieder zu füllen. Cubic (Linux-Standard) löst dieses Problem
+    mit einer kubischen Wachstumskurve, die sich nach einem Verlust erst
+    schnell, dann vorsichtig dem alten Wert nähert. AIMD wird im CNP3-Lehrbuch
+    (Kapitel *Congestion control*) erklärt; die konkrete Reno-Regel („bei drei
+    doppelten Bestätigungen halbieren") steht in **RFC 5681, Abschnitt 3.2**.
 
     Quelle des Konzepts: *Computer Networking: Principles, Protocols and
     Practice*, O. Bonaventure u. a., UCLouvain, Kapitel „Congestion control"
-    (CC BY-SA 3.0), <https://beta.computer-networking.info/syllabus/default/protocols/congestion.html>
-    (Abruf 2026-09-24).
+    (CC BY-SA 3.0), <https://beta.computer-networking.info/syllabus/default/protocols/congestion.html>.
 
 --8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
 
-- Die in Teil A beobachtete Ping-Verlustrate kann durch die
-  bidirektionale Natur von ICMP Echo/Reply höher als die nominelle
-  Link-Fehlerrate ausfallen — das ist kein Environment-Fehler, sondern
-  Teil der Lernaufgabe (siehe Erklärung oben).
-- Schritt 6 (Fairness) setzt voraus, dass die Iperf-Server-Instanzen aus
-  Schritt 1/3 noch laufen bzw. neu gestartet werden.
-- **Teil E: `netem rate` braucht keinen zweiten Regelsatz.** Ältere
-  Anleitungen kombinieren `tbf` (Rate) und `netem` (Verzögerung) in einer
-  Hierarchie. Der in diesem Abbild vorhandene `tc` unterstützt beides in
-  *einer* `netem`-Regel (`netem rate 2mbit delay 10ms`, am 2026-09-24 real
-  bestätigt) – das ist kürzer und weniger fehleranfällig.
-- **Teil E: die eigene Regel niemals auf `r1-eth2`.** Dort sitzt die
-  `htb`-Regel, mit der Mininet die 10 Mbit/s aus `topo02.py` durchsetzt. Ein
-  `tc qdisc add … root` ersetzt sie und zerstört damit den Messgegenstand.
-  Begründung und Beleg (`qdisc noqueue` auf `h0-eth0`) stehen in Teil E.
+- Die in Teil A beobachtete Ping-Verlustrate liegt über der nominellen
+  Link-Fehlerrate, weil Echo Request und Echo Reply den Verlust jeweils
+  getrennt überstehen müssen (siehe Teil A).
+- Schritt 6 in Teil B setzt voraus, dass die Iperf-Server aus Schritt 1 und 3
+  noch laufen oder neu gestartet werden.
+- **Teil E: `netem rate` braucht keinen zweiten Regelsatz.** Rate und
+  Verzögerung passen in eine einzige `netem`-Regel
+  (`netem rate 2mbit delay 10ms`); eine Hierarchie aus `tbf` und `netem` ist
+  nicht nötig.
+- **Teil E: die eigene Regel nie auf `r1-eth2`.** Dort sitzt die `htb`-Regel,
+  mit der Mininet die 10 Mbit/s aus `topo02.py` durchsetzt. Ein
+  `tc qdisc add … root` ersetzt sie und verändert damit den Messgegenstand.
 - **Teil F: `nping`s `Lost`-Zahl ist Round-Trip-Verlust, kein Hinweg-Verlust.**
-  Wer sie mit der 10-%-Angabe *einer* Teilstrecke vergleicht, sucht einen
-  Fehler, wo keiner ist – ein Round Trip in `topoP04` quert vier
-  verlustbehaftete Teilstrecken (real gemessen 2026-09-24: 40 % bei 20 Sonden).
-- **Teil H: `iperf3 -u` läuft nicht über den verlustbehafteten `topoP04`-Link.**
-  Die TCP-Steuerverbindung von `iperf3` scheitert dort (`unable to read from
-  stream socket`, real geprüft 2026-09-24). Auf `topoP04` bleibt es bei `iperf`
-  (Version 2, Teil A); `iperf3 -u` gehört auf den sauberen `topo02`-Link (Teil H).
+  Ein Round Trip in `topoP04` quert vier verlustbehaftete Teilstrecken; der
+  Wert liegt deshalb deutlich über 10 %.
+- **Teil H: `iperf3` auf `topoP04` ist unzuverlässig.** Die
+  TCP-Steuerverbindung von `iperf3` scheitert dort immer wieder
+  (`unable to read from stream socket`). Auf `topoP04` bleibt es bei `iperf`
+  (Teil A); `iperf3 -u` gehört auf `topo02` (Teil H).
 - **Teil G/J: `ss -ti` ist eine Momentaufnahme.** `cwnd`, `retrans` und der
-  Algorithmusname stimmen nur für den Augenblick der Abfrage; für einen Verlauf
-  muss man `ss` wiederholt aufrufen (oder `watch`), es zeichnet nichts auf.
-- **Teil I: `netem rate … limit …` niemals auf `eth0` des Containers**, nur auf
-  `h0-eth0` innerhalb der Topologie – dieselbe Regel wie in Teil D. Eine große
-  Queue auf der falschen Schnittstelle macht euren eigenen Desktop sekundenlang
-  unbedienbar.
-- **`tshark` und `mtr` fehlen im Abbild** (geprüft 2026-09-24); für die Teile
-  F–J werden sie nicht gebraucht (`nping`, `ss`, `iperf3`, `tc` genügen und sind
-  vorhanden). Anleitungen aus dem Netz, die `mtr` für die Verlustmessung oder
-  `tshark` für die Auswertung verlangen, laufen hier nicht.
+  Algorithmusname gelten nur für den Augenblick der Abfrage; für einen Verlauf
+  ruft ihr `ss` wiederholt auf (oder mit `watch`).
+- **Teil I: `netem rate … limit …` nie auf `eth0` des Containers**, nur auf
+  `h0-eth0` innerhalb der Topologie, wie in Teil D. Eine große Queue auf der
+  falschen Schnittstelle macht euren Desktop sekundenlang unbedienbar.
+- **`tshark` und `mtr` sind nicht installiert.** Für die Teile F bis J werden
+  sie nicht gebraucht (`nping`, `ss`, `iperf3`, `tc` genügen).
 
 ## Quellen
 
-- `mininet-labs/vertiefung/Labor-04-TCP-UDP.tex` — fachliche Basis für Teil A.
-- `mininet-labs/intro/02-TCP-IP-Suite.tex` ("Lab 2: TCP/IP Suite – Ein
-  Start") — fachliche Basis für Teil B.
-- `mininet-labs/rn-practice/topo02/` — Referenztopologie für Teil B, Teil D
-  und Teil E (`h0`–`h3`, Adressen `10.0.10.x`/`10.0.20.x`), dieselbe Topologie
-  wie in [Lab 05](05-arp-spoofing-dos.md). Die Soll-Werte in Teil E
-  (`bw=10`, `delay='0.1ms'`) stehen in `topo02.py` selbst.
 - Olivier Bonaventure u. a.: *Computer Networking: Principles, Protocols and
   Practice*, UCLouvain (Université catholique de Louvain), Repository
-  `cnp3/ebook` — Lizenz **CC BY-SA 3.0**. (Einzelne Übungskapitel tragen im
-  Dateikopf CC BY 3.0; die Angaben widersprechen sich, hier wird konservativ
-  von **BY-SA** ausgegangen.) Von dort stammt die **Idee** zu Teil E, eine
-  zugesicherte Netzeigenschaft gegen die Messung zu halten statt ihr zu
-  glauben. Es wird kein Text und keine Datei aus diesem Werk übernommen.
+  `cnp3/ebook`, Lizenz CC BY-SA 3.0. Von dort stammt die Idee zu Teil E, eine
+  zugesicherte Netzeigenschaft gegen die Messung zu halten. Es wird kein Text
+  und keine Datei aus diesem Werk übernommen.
