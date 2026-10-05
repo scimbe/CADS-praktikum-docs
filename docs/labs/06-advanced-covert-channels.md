@@ -145,16 +145,15 @@ Wireshark sichtbar gemacht werden.
     ist der Client für Schritt 3):
 
     ```bash
-    h1$ sudo iodined -f -P geheim123 10.99.0.1 tunnel.h1
+    h1$ sudo iodined -f -p 5354 -P geheim123 10.99.0.1 tunnel.h1
     ```
 
     Ohne `-P` fragt `iodined` interaktiv nach einem Passwort; Server und
     Client müssen dasselbe verwenden.
 
-2. **Optional, für die transparente Variante:** In `topo01` läuft auf `h1`
-    bereits ein `dnsmasq`, über den `h2` seine Namen auflöst. Für den Tunnel
-    selbst reicht Schritt 3 unten, weil der Client dort `h1` direkt als
-    Nameserver angegeben bekommt.
+2. In `topo01` beantwortet auf `h1` bereits ein `dnsmasq` alle DNS-Anfragen
+    auf Port 53. Anfragen für `tunnel.h1` reicht er an `iodined` auf Port
+    5354 weiter – deshalb startet der Server oben mit `-p 5354`.
 
 3. Verbindet euch auf `h2` als Client (mit demselben Passwort und demselben
     Topdomain wie oben) und gebt `h1` (`10.0.1.2`) explizit als Nameserver
