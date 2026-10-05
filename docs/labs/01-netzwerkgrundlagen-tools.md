@@ -53,7 +53,9 @@ das Symbol "Terminal" am linken Bildschirmrand.
     Teil 2) öffnet auf diesem Desktop ebenfalls ein `xfce4-terminal`-Fenster.
 
 **Übung:** Öffnet ein Terminal über das Symbol und lasst es für die
-folgenden Schritte offen.
+folgenden Schritte offen. (Ihr findet das Symbol auf dem Desktop.
+
+--8<-- "issue-feedback.md"
 
 #### Schritt 1: Wireshark starten und aufzeichnen
 
@@ -122,6 +124,8 @@ folgenden Schritte offen.
         Capture-Optionen), siehe Schritt 4. Das rote Quadrat in der
         Symbolleiste stoppt die Aufzeichnung.
 
+--8<-- "issue-feedback.md"
+
 #### Schritt 2: `nslookup` – die IP-Adresse ermitteln
 
 !!! info "Werkzeug: `nslookup` – was es tut"
@@ -132,7 +136,7 @@ folgenden Schritte offen.
     `becke.net`, damit wir den Wireshark-Mitschnitt in Schritt 4 gezielt auf
     genau diese Adresse filtern können, statt im gesamten Verkehr zu suchen.
 
-1. Öffnet ein **zweites** Terminal (Wireshark läuft im ersten weiter) und
+1. Öffnet ein **zweites** Terminal (Wireshark läuft im ersten weiter, keine Sorge dies hält das Schiff aus) und
     führt aus:
 
     ```bash
@@ -172,6 +176,8 @@ folgenden Schritte offen.
         nicht nur auf `eth0`: `any` erfasst alle Schnittstellen einschließlich
         dieses rein lokalen Verkehrs.
 
+--8<-- "issue-feedback.md"
+
 #### Schritt 3: `curl` – Verkehr zur ermittelten Adresse erzeugen
 
 !!! info "Werkzeug: `curl` – was es tut"
@@ -189,6 +195,8 @@ curl https://becke.net
 Die Ausgabe ist der HTML-Quelltext der Seite; für diesen Schritt zählt nur
 der erzeugte Netzwerkverkehr.
 
+--8<-- "issue-feedback.md"
+
 #### Schritt 4: Auf den erzeugten Verkehr filtern
 
 Filtert in Wireshark auf genau diesen Verkehr, damit ihr nicht im restlichen
@@ -197,6 +205,8 @@ Hintergrundrauschen des Betriebssystems sucht:
 ```text
 ip.addr == <eure ermittelte IP-Adresse>
 ```
+
+--8<-- "issue-feedback.md"
 
 #### Schritt 5: Die vier Schichten im Detailbaum identifizieren
 
@@ -218,7 +228,7 @@ ip.addr == <eure ermittelte IP-Adresse>
 
 Wählt eines der TCP-Pakete dieser Kommunikation aus (ein Klick in der
 Paketliste) und klappt im Detailbaum von außen/unten nach innen/oben die
-einzelnen Zeilen auf – jede eingerückte Zeile ist eine Schicht:
+einzelnen Zeilen auf, versucht die Schichten vielleicht zu identifizieren:
 
 - **Anwendungsschicht:** HTTP (bzw. TLS-Record bei HTTPS)
 - **Transportschicht:** TCP-Segment (Ports, Sequenznummern, Flags)
@@ -246,6 +256,10 @@ einzelnen Zeilen auf – jede eingerückte Zeile ist eine Schicht:
     Auf welcher tatsächlichen Schnittstelle (nicht `any`) lief dieses Paket
     vermutlich – und woran im Detailbaum könnt ihr das festmachen, obwohl
     `any` selbst kein echter Ethernet-Header ist?
+
+Ihr dürft an dieser Stelle gerne alle Fenster schliessen und danach wieder einen Terminal öffnen, um Euch mehr Übersicht zu ermöglichen. 
+
+--8<-- "issue-feedback.md"
 
 #### Vom externen zum lokalen Verkehr: Wechsel zu Schritt 6
 

@@ -1,6 +1,8 @@
 # Rechnernetze-Praktikum
 
-Hier stehen die Aufgabenblätter des Rechnernetze-Praktikums. Jedes Blatt ist
+Moin moin,
+
+hier stehen die Aufgabenblätter des Rechnernetze-Praktikums. Jedes Blatt ist
 als Text lesbar und als PDF herunterladbar.
 
 ## Praktika
