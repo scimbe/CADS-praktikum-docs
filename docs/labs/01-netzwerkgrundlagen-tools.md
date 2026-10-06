@@ -206,6 +206,14 @@ Hintergrundrauschen des Betriebssystems sucht:
 ip.addr == <eure ermittelte IP-Adresse>
 ```
 
+Macht anschließend einen Rechtsklick auf eines der gefilterten TCP-Pakete und
+wählt "Follow → TCP Stream". Wireshark zeigt dann die gesamte Übertragung
+dieser einen Verbindung am Stück. Weil Schritt 3 die Seite über HTTPS abruft,
+seht ihr nach dem Beginn des TLS-Handshakes nur verschlüsselte, nicht lesbare
+Bytes; in Teil 2 folgt ihr auf demselben Weg einem unverschlüsselten Strom.
+Wireshark ersetzt dabei den Anzeigefilter durch `tcp.stream eq <Nummer>` –
+tragt für Schritt 5 wieder den Filter von oben ein.
+
 --8<-- "issue-feedback.md"
 
 #### Schritt 5: Die vier Schichten im Detailbaum identifizieren
