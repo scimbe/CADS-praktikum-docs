@@ -38,7 +38,7 @@ Hintergrund läuft dabei ebenfalls `xfce4-terminal`, nicht das Programm
 
 `mininet`, `openvswitch-switch`, `frr` (Routing-Daemons: `zebra`, `ripd`,
 `bgpd`, per `vtysh` bedienbar), `iperf`/`iperf3`, `hping3`, `dsniff`,
-`tcpdump`, `wireshark`, `nmap`, `whois`, `dnsutils`, `netcat-openbsd`,
+`tcpdump`, `wireshark`/`tshark` (Mitschnitt als Nutzer über Datei-Capabilities auf `dumpcap`, Gruppe `wireshark`), `nmap`, `whois`, `dnsutils`, `netcat-openbsd`,
 `exploitdb`/`searchsploit`, `firefox-esr`.
 
 ## Ressourcen-Modell
