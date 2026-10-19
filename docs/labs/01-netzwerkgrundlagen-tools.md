@@ -832,7 +832,8 @@ Der Echo-Dienst aus Teil 4 läuft noch auf `h1` (sonst neu starten). Startet auf
 `h1-eth0` läuft nur der Internet-Uplink) und schickt von `h2` eine Zeile durch:
 
 ```bash
-h1$ tcpdump -i h1-eth1 -A -w /tmp/klartext.pcap tcp port 8080 &
+h1$ mkdir -p ~/rn-practice/pcaps
+h1$ tcpdump -i h1-eth1 -A -w ~/rn-practice/pcaps/01-klartext.pcap tcp port 8080 &
 h2$ printf 'GEHEIM: passwort123\n' | socat -T2 - TCP:10.0.1.2:8080
 ```
 
@@ -840,7 +841,15 @@ Der Echo-Dienst schickt dieselbe Zeile zurück. Beendet den Mitschnitt auf
 `h1` (`pkill tcpdump`) und sucht euren Text darin:
 
 ```bash
-h1$ tcpdump -r /tmp/klartext.pcap -A | grep GEHEIM
+h1$ tcpdump -r ~/rn-practice/pcaps/01-klartext.pcap -A | grep GEHEIM
+```
+
+Der Mitschnitt liegt in eurem Home-Verzeichnis und bleibt über das Ende der
+Sitzung hinaus erhalten. Löscht ihn, sobald ihr die Aufgabe beantwortet habt –
+er enthält das „Passwort" im Klartext:
+
+```bash
+h1$ rm ~/rn-practice/pcaps/01-klartext.pcap
 ```
 
 **Aufgabe:** Der Text `GEHEIM: passwort123` steht unverschlüsselt im
