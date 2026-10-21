@@ -2,27 +2,29 @@
 
 [:material-file-pdf-box: Als PDF herunterladen](../../pdf/06-advanced-covert-channels.pdf){ .md-button }
 
-!!! warning "Zusatzwerkzeuge vor dem Start von `topo01` im Desktop-Terminal installieren"
+!!! warning "Werkzeuge vor dem Start von `topo01` im Desktop-Terminal prüfen"
     Für dieses Aufgabenblatt gibt es kein eigenes Topologie-Skript – ihr
-    arbeitet in der bekannten Topologie `topo01`. Drei Werkzeuge sind nicht
-    vorinstalliert (siehe
-    [Desktop-/Mininet-Umgebung](../reference/umgebung.md)): `iodine` für
-    DNS-Tunneling (Teil 2) sowie `tshark` und `jq` für JA3-Fingerprinting
-    (Teil 5).
+    arbeitet in der bekannten Topologie `topo01`. Benötigt werden `iodine`
+    (DNS-Tunneling, Teil 2), `faketime` (Teil 6) sowie `tshark` und `jq`
+    (JA3-Fingerprinting, Teil 5). `iodine` und `faketime` gehören zum
+    aktuellen Desktop-Image. Prüft im Desktop-Terminal, bevor ihr
+    `./start-topo01.sh` startet:
 
-    Installiert sie im Desktop-Terminal, bevor ihr `./start-topo01.sh`
-    startet:
+    ```bash
+    command -v iodine iodined faketime tshark jq
+    ```
+
+    Fehlt eines davon (ältere Abbildversion), installiert es nach:
 
     ```bash
     sudo apt-get update
-    sudo apt-get install -y iodine tshark jq
+    sudo apt-get install -y iodine faketime tshark jq
     ```
 
     `h1` und `h2` teilen sich das Dateisystem des Desktops (nur die
     Netzwerk-Namensräume unterscheiden sich), also stehen die Programme
-    nach der Installation auch in den Knoten bereit. Von den Knoten selbst
-    erreicht nur `h1` das Internet; auf `h2` schlägt ein `apt install`
-    fehl, weil `h2` keine externen Ziele erreicht.
+    auch in den Knoten bereit. Von den Knoten selbst erreicht nur `h1` das
+    Internet; auf `h2` schlägt ein `apt install` fehl.
 
 ## Lernziele
 
@@ -328,47 +330,135 @@ mittels JA3-Fingerprint.
     wurde. Was bedeutet das für jemanden, der verschlüsselten Verkehr
     beobachtet, ihn aber nicht entschlüsseln kann?
 
-### Teil 6 – NTP-Manipulation und zeitabhängige Angriffe
+### Teil 6 – Zeitabhängige Prüfungen: Wenn die Uhr nicht stimmt
 
-**Ziel:** Verändert gezielt die Systemzeit und beobachtet die Auswirkungen
-auf TLS-Verbindungen.
+**Ziel:** Ihr beobachtet, dass Zertifikatsprüfung (und jede andere
+zeitabhängige Sicherheitsprüfung) stillschweigend voraussetzt, dass die Uhr
+stimmt – und was passiert, wenn ein Angreifer (z. B. über einen gefälschten
+NTP-Server) die Uhr eines Opfers verstellt. Ihr tut das, **ohne** die
+Systemuhr zu verstellen.
 
-!!! note "Auf dem aktuellen Image nicht durchführbar"
-    Das Setzen der Systemzeit schlägt im Container fehl: `timedatectl`
-    setzt `systemd` als PID 1 voraus, `date -s` die Berechtigung
-    `CAP_SYS_TIME` – beides ist nicht gegeben (siehe
-    [Potenzielle Herausforderungen](#potenzielle-herausforderungen)).
-    Arbeitet die Schritte als Gedankenexperiment durch und meldet euch bei
-    der Kursleitung, wenn ihr an diese Grenze stoßt.
-
-1. Deaktiviert die Zeitsynchronisation auf `h1` und setzt eine falsche
-    Zeit:
-
-    ```bash
-    h1$ sudo timedatectl set-ntp false
-    h1$ sudo date -s "next monday 10:00"
-    ```
-
-2. Versucht anschließend eine HTTPS-Verbindung:
+!!! info "Warum ihr die Uhr nicht verstellen könnt"
+    `date -s` und `timedatectl` scheitern im Container mit `Operation not
+    permitted`. Das ist Absicht: Die Wanduhr (`CLOCK_REALTIME`) gehört zu
+    keinem Namensraum (Namespace), sie ist für den **gesamten Knoten**
+    gemeinsam. Würdet ihr sie im Container verstellen, liefe die Uhr aller
+    anderen Sitzungen auf dem Knoten mit falsch – samt deren
+    Zertifikatsprüfung. Stattdessen verstellt ihr die Zeit nur **für einen
+    einzelnen Prozess**: `faketime` lädt eine Bibliothek, die die
+    Zeit-Abfragen genau dieses Programms abfängt. Für das Programm sieht das
+    aus wie eine falsche Systemuhr; der Rest des Systems merkt nichts. Alle
+    Befehle laufen als normaler Benutzer, ohne `sudo`.
 
     ```bash
-    h1$ curl https://example.com
+    date -s "next monday 10:00"                 # scheitert: Operation not permitted
+    date                                        # die echte Zeit
+    faketime '2035-01-01 10:00:00' date         # nur dieser Prozess "lebt" 2035
     ```
 
-3. Beobachtet: Gibt es einen TLS-Fehler (Zertifikat nicht mehr gültig, weil
-    das System jetzt "in der Zukunft" liegt)? Ordnet ein, warum eine
-    korrekte Systemzeit eine stillschweigende Voraussetzung für
-    funktionierende Zertifikatsprüfung ist.
+1. **Ein Zertifikat mit kurzer Lebensdauer erzeugen.** Legt ein
+    selbstsigniertes Zertifikat an, das einen Tag gültig ist, und lest das
+    Gültigkeitsfenster aus:
 
-4. **Erweiterung:** Betreibt einen lokalen NTP-Dienst mit absichtlich
-    falscher Zeit (z. B. `ntpd` im Fake-Modus) und manipuliert damit gezielt
-    die Zeit von `h2`.
+    ```bash
+    mkdir -p ~/zeit && cd ~/zeit
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+      -keyout k.pem -out c.pem -subj /CN=localhost \
+      -addext subjectAltName=DNS:localhost -days 1
+    openssl x509 -in c.pem -noout -subject -dates
+    ```
+
+    Prüft mit `-checkend` (Sekunden ab jetzt), ob das Zertifikat dann noch
+    gilt:
+
+    ```bash
+    openssl x509 -in c.pem -noout -checkend 0;      echo "Rückgabe: $?"
+    openssl x509 -in c.pem -noout -checkend 172800; echo "Rückgabe: $?"
+    ```
+
+    *Erwartet:* `Certificate will not expire` (Rückgabe 0) und
+    `Certificate will expire` (Rückgabe 1) – in 48 Stunden ist das
+    Zertifikat abgelaufen.
+
+2. **Dieselbe Prüfung zu einem anderen Zeitpunkt.** `openssl verify` kennt
+    dafür `-attime` (Unix-Zeit):
+
+    ```bash
+    openssl verify -CAfile c.pem c.pem
+    openssl verify -attime $(date -d '+3 days' +%s) -CAfile c.pem c.pem
+    ```
+
+    *Erwartet:* `c.pem: OK`, dann `error 10 … certificate has expired`.
+
+3. **Eine echte TLS-Verbindung bei „falscher Uhr".** Startet einen lokalen
+    TLS-Server mit diesem Zertifikat im Hintergrund und verbindet euch mit
+    dem Client – einmal mit der echten Zeit, einmal drei Tage in der
+    Zukunft, einmal zwei Tage in der Vergangenheit:
+
+    ```bash
+    openssl s_server -accept 8443 -cert c.pem -key k.pem -www -quiet >/dev/null 2>&1 &
+    echo | openssl s_client -connect localhost:8443 -CAfile c.pem -verify_return_error 2>&1 | grep -E "Verification|Verify return"
+    echo | faketime -f '+3d' openssl s_client -connect localhost:8443 -CAfile c.pem -verify_return_error 2>&1 | grep -E "Verification|Verify return"
+    echo | faketime -f '-2d' openssl s_client -connect localhost:8443 -CAfile c.pem -verify_return_error 2>&1 | grep -E "Verification|Verify return"
+    ```
+
+    *Erwartet:* `Verification: OK`, dann `certificate has expired` (Code 10),
+    dann `certificate is not yet valid` (Code 9). Das ist derselbe Server und
+    dasselbe Zertifikat – nur die Uhr des **Clients** unterscheidet sich.
+
+    Dasselbe mit `curl` (hier ist der Rückgabecode 60 der Beleg):
+
+    ```bash
+    curl -sS -o /dev/null -w '%{http_code}\n' --cacert c.pem https://localhost:8443/
+    faketime -f '+3d' curl -sS -o /dev/null -w '%{http_code}\n' --cacert c.pem https://localhost:8443/
+    ```
+
+    Beendet den Server danach mit `kill %1`.
+
+4. **Ein echter Server im Internet** (nur wenn euer Knoten das Internet
+    erreicht, z. B. `h1`):
+
+    ```bash
+    curl -sS -o /dev/null -w '%{http_code}\n' https://example.com
+    faketime '2035-01-01 10:00:00' curl -sS -o /dev/null -w '%{http_code}\n' https://example.com
+    faketime '2001-01-01 10:00:00' curl -sS -o /dev/null -w '%{http_code}\n' https://example.com
+    ```
+
+    *Erwartet:* `200`; dann `curl: (60) SSL certificate problem: certificate
+    has expired`; dann `… certificate is not yet valid`. Das Serverzertifikat
+    ist gültig und unverändert – nur die Uhr, mit der es geprüft wird, ist
+    verstellt.
+
+5. **Ein Zertifikat, das schon abgelaufen ist.** Erzeugt eines „aus der
+    Vergangenheit": `faketime` lässt `openssl` glauben, es sei vor zehn Tagen,
+    und das Zertifikat gilt sieben Tage:
+
+    ```bash
+    faketime '-10 days' openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+      -nodes -keyout k2.pem -out c2.pem -subj /CN=alt -days 7 2>/dev/null
+    openssl x509 -in c2.pem -noout -dates
+    openssl x509 -in c2.pem -noout -checkend 0; echo "Rückgabe: $?"
+    ```
+
+    *Erwartet:* `notBefore` vor zehn Tagen, `notAfter` vor drei Tagen,
+    `Certificate will expire`, Rückgabe 1.
+
+6. **Erweiterung (Denkaufgabe):** Ein Angreifer, der einem Client einen
+    gefälschten NTP-Server unterschiebt, verstellt dessen Uhr genau so wie
+    `faketime` die Uhr eines Prozesses. Welche der Beobachtungen aus 3 und 4
+    entspricht einem Angriff, der ein **abgelaufenes, gestohlenes**
+    Zertifikat wieder „gültig" machen soll – Zukunft oder Vergangenheit? Und
+    warum bringt es einem Angreifer nichts, die Uhr in die Zukunft zu
+    stellen, wenn er ein *noch nicht gültiges* Zertifikat benutzen will?
 
 !!! question "Kurz nachgedacht"
-    Ihr habt die Systemzeit nach vorne verschoben. Zertifikate prüfen ein
-    Gültigkeitsfenster mit zwei Grenzen (nicht davor, nicht danach). Was
-    würde eine Zeit deutlich in der **Vergangenheit** statt in der Zukunft
-    für dieselbe Prüfung bedeuten?
+    Zertifikate prüfen ein Gültigkeitsfenster mit zwei Grenzen (nicht davor,
+    nicht danach). Was bedeutet eine Uhr deutlich in der **Vergangenheit**
+    für dieselbe Prüfung? Welche anderen Mechanismen hängen ebenfalls von
+    einer korrekten Uhr ab (z. B. TOTP-Einmalcodes, die Gültigkeit von
+    DNSSEC-Signaturen, Kerberos-Tickets)? Und warum darf ein Programm, das
+    die Zeit selbst „anfragen" kann, trotzdem nie der alleinige Garant für
+    die Uhrzeit sein?
 
 --8<-- "issue-feedback.md"
 ### Teil 7 — Den TTL-Kanal aus Teil 3 wirklich decodieren (`topo01`)
@@ -440,8 +530,7 @@ Sender und Empfänger sich vorher auf ein Encoding geeinigt haben.
 
 ### Teil 8 – DNS-Kanal ohne `iodine`: der lesbare DNS-Server als Endpunkt (`topo01`)
 
-Teil 2 verlangte `iodine`, das erst per `apt install` aus dem Netz
-nachgeladen werden muss. Diesen verdeckten DNS-Kanal baut ihr hier mit einem
+Teil 2 verlangte `iodine`, ein zusätzliches Werkzeug. Diesen verdeckten DNS-Kanal baut ihr hier mit einem
 Werkzeug, das im Image bereits liegt und dessen Innenleben ihr lesen könnt:
 dem Python-DNS-Server `dns-server.py` aus dem Topologie-Verzeichnis (siehe
 [Aufgabenblatt 01, Teil 3](01-netzwerkgrundlagen-tools.md)).
@@ -740,18 +829,15 @@ Kanäle erkennen könnte – **ohne** eine einzige Nutzlast zu entschlüsseln.
 --8<-- "issue-feedback.md"
 ## Potenzielle Herausforderungen
 
-- **`iodine`, `tshark` und `jq` sind nicht vorinstalliert** (siehe
-  [Desktop-/Mininet-Umgebung](../reference/umgebung.md)) und müssen vor dem
-  Start von `topo01` im Desktop-Terminal installiert werden (siehe Hinweis
-  am Blattanfang). Von den Knoten erreicht nur `h1` das Internet; auf `h2`
-  schlägt ein `apt install` fehl.
-- **`timedatectl`** setzt systemd als PID 1 voraus und schlägt daher fehl
-  (`System has not been booted with systemd as init system (PID 1). Can't
-  operate.`). Auch `date -s "next monday 10:00"` scheitert, mit
-  `date: cannot set date: Operation not permitted` (dem Capability-Set des
-  Containers fehlt `CAP_SYS_TIME`). Teil 6 ist auf dem aktuellen Image daher
-  **nicht durchführbar**; meldet euch bei der Kursleitung, wenn ihr an diese
-  Grenze stoßt.
+- **Fehlende Werkzeuge** (`iodine`, `faketime`, `tshark`, `jq`): Das
+  aktuelle Image enthält `iodine` und `faketime`. Bei einer älteren
+  Abbildversion müssen sie vor dem Start von `topo01` im Desktop-Terminal
+  nachinstalliert werden (siehe Hinweis am Blattanfang). Von den Knoten
+  erreicht nur `h1` das Internet; auf `h2` schlägt ein `apt install` fehl.
+- **`date -s` und `timedatectl` scheitern** (`Operation not permitted`,
+  bzw. `System has not been booted with systemd …`). Das ist Absicht: Die
+  Wanduhr ist nicht namespaced, sie gilt für den ganzen Knoten. Teil 6 nutzt
+  deshalb `faketime`, das die Uhr nur für den gestarteten Prozess verstellt.
 - **Kein dediziertes `topoXX`-Skript für dieses Lab** – alle Übungen laufen
   in der bekannten `topo01`-Topologie. Dort löst `dnsmasq` auf `h1` die
   Namen für `h1` und `h2` auf.
@@ -761,6 +847,6 @@ Kanäle erkennen könnte – **ohne** eine einzige Nutzlast zu entschlüsseln.
 - `mininet-labs/intro/05-advanced.tex` ("Lab 5: Sicherheitsanalyse und
   verdeckte Kanäle in Netzwerken")
 - `docs/reference/umgebung.md` — Abgleich der vorinstallierten Werkzeuge
-  (Lücken: `iodine`, `tshark`, s. o.)
+  (Stand der Werkzeuge: `iodine`, `faketime`, `tshark`, s. o.)
 - `mininet-labs/rn-practice/topo01/` — Topologie, in der alle Teilaufgaben
   dieses Labs stattfinden, inklusive `dns-server.py` (Teil 8)

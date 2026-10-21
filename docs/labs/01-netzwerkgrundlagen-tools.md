@@ -143,11 +143,12 @@ folgenden Schritte offen. (Ihr findet das Symbol auf dem Desktop.
     nslookup becke.net
     ```
 
-    Die Ausgabe sieht etwa so aus (eure IP-Adresse kann abweichen):
+    Die Ausgabe sieht etwa so aus (eure IP-Adresse kann abweichen; die
+    Zeilen `Server`/`Address` hängen von eurer Umgebung ab, siehe unten):
 
     ```text
-    Server:      127.0.0.11
-    Address:     127.0.0.11#53
+    Server:      <Adresse eures DNS-Servers>
+    Address:     <Adresse eures DNS-Servers>#53
 
     Non-authoritative answer:
     Name:  becke.net
@@ -156,6 +157,21 @@ folgenden Schritte offen. (Ihr findet das Symbol auf dem Desktop.
 
     Merkt euch die ausgegebene IPv4-Adresse – ihr braucht sie gleich für den
     Wireshark-Filter.
+
+    !!! note "Welcher DNS-Server ist das bei euch?"
+        Die Adresse hinter `Server:` ist je nach Umgebung verschieden – auf
+        einem Docker-Knoten typischerweise `127.0.0.11`, auf einem
+        Kubernetes-Knoten die Adresse des Cluster-DNS (z. B. `10.43.0.10`),
+        in `topo01` die Adresse von `h1` (`10.0.1.2`). Lest nach, welche bei
+        euch gilt, statt sie zu raten:
+
+        ```bash
+        cat /etc/resolv.conf
+        ```
+
+        Die Zeile `nameserver …` nennt den Resolver, den `nslookup` benutzt.
+        Notiert die Adresse; im nächsten Schritt seht ihr in Wireshark, dass
+        die DNS-Anfrage genau an sie geht.
 
 2. Wechselt zu Wireshark und tippt in die Anzeigefilter-Zeile oben `dns`,
     dann Enter, um die soeben erzeugte DNS-Abfrage wiederzufinden:
@@ -167,11 +183,12 @@ folgenden Schritte offen. (Ihr findet das Symbol auf dem Desktop.
     ("Standard query response … A becke.net A …") als eigene Zeilen mit
     Protokoll "DNS".
 
-    !!! note "Warum diese Pakete zwischen 127.0.0.1 und 127.0.0.11 laufen"
+    !!! note "Warum die Pakete an euren Resolver gehen, nicht ins Internet"
         Die DNS-Anfrage geht auf diesem Desktop nicht direkt ins
-        Internet, sondern an den eingebauten DNS-Resolver des Desktops
-        (`127.0.0.11`) – ihr seht hier also lokalen Verkehr, keinen Verkehr
-        zu einem Server im Internet. Das ist mit ein Grund, warum in
+        Internet, sondern an den Resolver aus `/etc/resolv.conf` (auf einem
+        Docker-Knoten `127.0.0.11` – der Screenshot zeigt diesen Fall –, auf
+        Kubernetes die Cluster-DNS-Adresse) – ihr seht hier also Verkehr zum
+        Resolver eurer Umgebung, nicht zu einem Server im Internet. Das ist mit ein Grund, warum in
         Schritt 1 auf der Pseudo-Schnittstelle `any` mitgeschnitten wird und
         nicht nur auf `eth0`: `any` erfasst alle Schnittstellen einschließlich
         dieses rein lokalen Verkehrs.
@@ -514,6 +531,27 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     ```bash
     whois mozilla.com
     ```
+
+    !!! warning "Wenn `whois` keine Antwort liefert"
+        `whois` spricht TCP-Port 43. Dieser Port wird in manchen Netzen
+        blockiert – etwa durch Netzwerk-Richtlinien (Firewall-Regeln) der HAW
+        oder eures Heimnetzes. Dann hängt `whois` oder meldet einen
+        Verbindungsfehler; das ist kein Fehler eurer Eingaben. Die
+        Registrierungsdaten lassen sich stattdessen über **RDAP**
+        abfragen, den Nachfolger von WHOIS, der über normales HTTPS
+        (Port 443) läuft:
+
+        ```bash
+        curl -sL https://rdap.org/domain/mozilla.com | head -c 600
+        curl -s https://rdap.denic.de/domain/bundesregierung.de | head -c 600
+        curl -sL https://rdap.org/ip/141.22.28.227 | head -c 600
+        ```
+
+        `rdap.org` leitet per Weiterleitung (deshalb `-L`) an den zuständigen
+        Registry-Server weiter; für
+        `.de` ist `rdap.denic.de` direkt zuständig (`rdap.org` kennt `.de`
+        nicht und antwortet mit 404). Die Antwort ist JSON; mit
+        `curl -s … | python3 -m json.tool` wird sie lesbar.
 
     Achtet auf Felder wie Street/City. `whois` muss dafür zunächst den Namen
     des zuständigen WHOIS-Servers auflösen (z. B.
