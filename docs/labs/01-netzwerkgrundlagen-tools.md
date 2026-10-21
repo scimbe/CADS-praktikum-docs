@@ -177,7 +177,8 @@ folgenden Schritte offen. (Ihr findet das Symbol auf dem Desktop.
     dann Enter, um die soeben erzeugte DNS-Abfrage wiederzufinden:
 
     ![Wireshark mit Anzeigefilter „dns": Paketliste zeigt „Standard query ... A becke.net" und die Antwort „Standard query response ... A becke.net A 81.169.145.66" zwischen 127.0.0.1 und 127.0.0.11](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-dns-filter.png)
-    *Die DNS-Anfrage (Protokollspalte „DNS") und ihre Antwort, direkt nach `nslookup becke.net`.*
+    *Die DNS-Anfrage (Protokollspalte „DNS") und ihre Antwort, direkt nach `nslookup becke.net`.
+    Die Adressen in den Spalten Source und Destination hängen vom Desktop ab, siehe unten.*
 
     Ihr seht die Anfrage ("Standard query … A becke.net") und die Antwort
     ("Standard query response … A becke.net A …") als eigene Zeilen mit
@@ -192,6 +193,9 @@ folgenden Schritte offen. (Ihr findet das Symbol auf dem Desktop.
         Schritt 1 auf der Pseudo-Schnittstelle `any` mitgeschnitten wird und
         nicht nur auf `eth0`: `any` erfasst alle Schnittstellen einschließlich
         dieses rein lokalen Verkehrs.
+        Der Resolver ist nicht der für `becke.net` zuständige Server; er
+        reicht die Anfrage weiter, und diese Weiterleitung seht ihr in eurem
+        Mitschnitt nicht.
 
 --8<-- "issue-feedback.md"
 
@@ -399,24 +403,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Notiert euch die Ausgaben (RTT, TTL) der lokalen Ziele und vergleicht
     sie miteinander: Was fällt euch auf, und wie erklärt ihr die Unterschiede?
 
-    Wechselt danach zum Terminal von `h2` und wiederholt das Experiment aus
-    dessen Sicht:
-
-    ```bash
-    ping -c 4 10.0.1.1
-    ping -c 4 h1
-    ping -c 4 1.1.1.1         # h2 hat keinen Weg ins Internet
-    ```
-
-    Vergleicht RTT und TTL der lokalen Ziele zwischen `h1` und `h2`. Warum sind
-    sie unterschiedlich? Was sagt euch das über die Anzahl der Zwischenstationen
-    (Hops)? Welche Meldung liefert `ping 1.1.1.1` auf `h2`, und welcher Router
-    schickt sie?
-
-    !!! warning "Die Internet-Pings von `h1` schlagen fehl"
-        `ping 1.1.1.1` und `ping one.one.one.one` liefern auf `h1` 100 %
-        Paketverlust, obwohl `h1` einen Weg ins Internet hat. Weist nach,
-        woran das liegt:
+    !!! warning "`h1` hat Internet, bekommt aber keine Ping-Antwort"
+        `h1` ist der einzige Knoten mit Weg ins Internet. Trotzdem liefern
+        `ping 1.1.1.1` und `ping one.one.one.one` auf `h1` 100 %
+        Paketverlust. Weist nach, woran das liegt:
 
         ```bash
         getent hosts one.one.one.one       # löst der Name auf?
@@ -439,6 +429,21 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
 
         ICMP gesperrt, TCP erlaubt: Diese Asymmetrie ist in Unternehmens- und
         Hochschulnetzen häufig.
+
+    Wechselt danach zum Terminal von `h2` und wiederholt das Experiment aus
+    dessen Sicht. Anders als `h1` hat `h2` keinen Weg ins Internet: `r1` und
+    `r2` kennen nur die Netze der Topologie.
+
+    ```bash
+    ping -c 4 10.0.1.1
+    ping -c 4 h1
+    ping -c 4 1.1.1.1         # h2 hat keinen Weg ins Internet
+    ```
+
+    Vergleicht RTT und TTL der lokalen Ziele zwischen `h1` und `h2`. Warum sind
+    sie unterschiedlich? Was sagt euch das über die Anzahl der Zwischenstationen
+    (Hops)? Welche Meldung liefert `ping 1.1.1.1` auf `h2`, und welcher Router
+    schickt sie? Worin unterscheidet sich dieser Fehler von dem auf `h1`?
 
     !!! info "h1 ↔ h2: erreichbar, aber langsam"
         Ein `ping` zwischen `h1` und `h2` kommt an, die Laufzeit liegt aber

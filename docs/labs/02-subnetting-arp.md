@@ -23,6 +23,14 @@
 
 --8<-- "issue-feedback.md"
 
+!!! info "Schreibweise der Befehle (Prompts)"
+    `h1$` bedeutet: Befehl im Terminal des Knotens `h1` eingeben (in Mininet
+    über `mininet> xterm h1` geöffnet); entsprechend `r1$`, `h0$` usw. Ohne
+    Knotenpräfix (`$`) läuft der Befehl in einem normalen Terminal des
+    Desktops, `mininet>` steht für die Mininet-Kommandozeile. Der echte Prompt
+    sieht anders aus, z. B. `root@desktop-…:~/rn-practice/topoXX#` im
+    Knotenterminal; gemeint ist trotzdem derselbe Eingabeort.
+
 ## Aufgaben
 
 ### Teil 1 – VLSM-Subnetting nachvollziehen (`topoP02`)
@@ -235,11 +243,18 @@ sysctl net.ipv4.ip_forward=1
     Alles, was ihr von Hand eingetippt habt, ist mit `mininet> quit`
     verschwunden. Schreibt die Befehle stattdessen in eine Datei, eine Zeile
     je Befehl mit dem Knoten vorweg, z. B.
-    `~/rn-practice/topoP02/meine-config.sh`:
+    `~/rn-practice/topoP02/meine-config.sh`. **Die Reihenfolge zählt:**
+    erst die Adressen setzen, dann die Routen. Eine Route über ein Gateway
+    lässt der Kernel nur zu, wenn das Gateway über ein bereits konfiguriertes
+    Interface direkt erreichbar ist; sonst meldet `route add default gw`
+    `SIOCADDRT: Network is unreachable`. Ein Ausschnitt für das Netz von
+    `h1`, der in dieser Reihenfolge durchläuft – ergänzt ihn um eure übrigen
+    Befehle aus Teil 2:
 
     ```text
+    r1 ifconfig r1-eth0 128.155.128.1/18
     r1 ifconfig r1-eth1 10.0.0.1/30
-    r1 ip route add 128.155.192.0/18 via 10.0.0.2
+    h1 ifconfig h1-eth0 128.155.128.2/18
     h1 route add default gw 128.155.128.1
     ```
 
@@ -485,8 +500,10 @@ $ sudo watch -n 1 ovs-appctl fdb/show s1
 
 **Messwert:** Nach wie vielen Sekunden ist der Eintrag für `h0`s MAC-Adresse
 (`00:00:00:00:00:01`) verschwunden? Wiederholt die Messung zwei- bis dreimal,
-vergleicht mit den eingestellten 15 Sekunden und erklärt die Abweichung. Der
-Hinweis: Ein Switch hält keinen Wecker für jeden einzelnen Eintrag – er räumt
+vergleicht mit den eingestellten 15 Sekunden und erklärt die Abweichung. Die
+Werte streuen von Lauf zu Lauf und müssen nicht genau bei 15 Sekunden liegen,
+auch nicht darüber (gemessen wurden Ablaufzeiten von wenigen Sekunden bis
+etwa 10 Sekunden). Der Hinweis: Ein Switch hält keinen Wecker für jeden einzelnen Eintrag – er räumt
 in Durchläufen auf. Ist eine Alterungszeit damit eine Zusage oder eine
 Untergrenze?
 
@@ -549,7 +566,7 @@ $ sudo ovs-vsctl remove bridge s1 other-config mac-aging-time
     | Ports von `s1` | `s1-eth1` (`h0`), `s1-eth0` (`r1`), `r1-eth2` (`h1`) |
     | Fluten an ein unbekanntes Ziel (Schritt 2) | `h1` sieht **3 von 3** Rahmen |
     | Gegenprobe mit bekanntem Ziel (Schritt 3) | `h1` sieht höchstens die erste Anfrage (und deren Antwort) direkt nach dem Leeren, danach nichts mehr |
-    | Alterung bei `mac-aging-time=15` | Eintrag verschwindet nach etwa 15 bis 20 s, gelegentlich später |
+    | Alterung bei `mac-aging-time=15` | Eintrag verschwindet nach einer Zeit in der Größenordnung der eingestellten 15 s; der genaue Wert streut von Lauf zu Lauf (gemessen: einige Sekunden bis etwa 10 s), weil der Switch nicht pro Eintrag einen Wecker hält |
     | Obergrenze der Tabelle (Standard) | **8192** Einträge |
     | `macof` 5 s gegen die Standardtabelle | Tabelle läuft je nach Senderate teilweise oder ganz voll (bis `8192/8192`) |
     | `macof` 5 s bei `mac-table-size=64` | genau **64** Einträge, `evicted` steigt um eine sechsstellige Zahl |
@@ -572,8 +589,11 @@ danach im Nachbarschafts-Cache über den Nachbarn notiert.
 !!! info "Werkzeug: `nping --arp` und `ip neigh`"
     `nping --arp` (aus der Nmap-Sammlung) verschickt **eine** ARP-Anfrage und
     zeigt Frage und Antwort im Klartext – genau einen Auflösungsvorgang, ohne
-    das Rauschen eines Dauer-Mitschnitts. (`arping` ist in dieser Umgebung
-    nicht installiert.)
+    das Rauschen eines Dauer-Mitschnitts. `nping` sendet den Rahmen selbst über
+    einen Raw-Socket am Kernel vorbei; der Kernel erfährt von dieser
+    Auflösung nichts und legt deshalb **keinen** Eintrag im
+    Nachbarschafts-Cache an. (`arping` ist in dieser Umgebung nicht
+    installiert.)
     `ip neigh` zeigt den Nachbarschafts-Cache mit einem **Zustand** je Eintrag:
     `REACHABLE` (kürzlich bestätigt), `STALE` (alt, aber nutzbar), `DELAY`/`PROBE`
     (wird gerade neu geprüft). `STALE` ist kein Fehler: Der Eintrag wird beim
@@ -591,13 +611,17 @@ danach im Nachbarschafts-Cache über den Nachbarn notiert.
 h0$ ip neigh flush all
 h0$ ip neigh show 10.0.10.1          # leer
 h0$ nping --arp -c 1 10.0.10.1       # eine ARP-Anfrage, Antwort im Klartext
+h0$ ip neigh show 10.0.10.1          # weiterhin leer: nping umgeht den Kernel
 h0$ ping -c 1 10.0.10.1 ; ip neigh show 10.0.10.1
 ```
 
 **Erwartete Ausgabe:** `ip neigh show 10.0.10.1` ist nach dem Flush leer.
 `nping` zeigt `SENT (…) ARP who has 10.0.10.1? Tell 10.0.10.10` und darunter
-`RCVD (…) ARP reply 10.0.10.1 is at 00:00:00:00:00:05`. Nach dem Ping steht
-`10.0.10.1 dev h0-eth0 lladdr 00:00:00:00:00:05 REACHABLE`.
+`RCVD (…) ARP reply 10.0.10.1 is at 00:00:00:00:00:05`. Nach `nping` ist
+`ip neigh show 10.0.10.1` weiterhin leer – der Kernel hat die Antwort nicht
+selbst ausgelöst. Erst nach dem Ping steht
+`10.0.10.1 dev h0-eth0 lladdr 00:00:00:00:00:05 REACHABLE`: Der Ping zwingt
+den Kernel zur eigenen ARP-Auflösung.
 
 !!! quote "Hintergrund: ARP ist älter als das Sicherheitsdenken"
     ARP wurde im **November 1982** von David C. Plummer in **RFC 826** definiert
