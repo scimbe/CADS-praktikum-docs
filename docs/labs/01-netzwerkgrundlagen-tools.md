@@ -596,15 +596,20 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     `h1` den SSH-Server:
 
     ```bash
-    /usr/sbin/sshd -D -f sshd.conf
+    /usr/sbin/sshd -D -e -f sshd.conf
     ```
+
+    Das Terminal von `h1` bleibt dabei belegt, das ist gewollt: `-D` hält
+    `sshd` im Vordergrund, `-e` schreibt seine Meldungen hierher (ohne `-e`
+    bleibt es stumm). Hier seht ihr später jeden Anmeldeversuch, auch
+    gescheiterte.
 
     Ihr meldet euch als Nutzer `cads` an, dessen Passwort ihr nicht kennt.
     Erzeugt deshalb auf `h2` ein eigenes Schlüsselpaar und tragt den
     öffentlichen Teil als vertrauenswürdig ein:
 
     ```bash
-    h2$ mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    h2$ install -d -m 700 -o cads ~/.ssh
     h2$ ssh-keygen -t ed25519 -N "" -f ~/.ssh/rn-practice-key -q
     h2$ cat ~/.ssh/rn-practice-key.pub >> ~/.ssh/authorized_keys
     h2$ chmod 600 ~/.ssh/authorized_keys
@@ -612,8 +617,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     ```
 
     Das Knoten-Terminal läuft als `root`, `sshd` liest `authorized_keys`
-    aber mit den Rechten von `cads`. Ohne das `chown` lehnt `sshd` den
-    Schlüssel ab (`Permission denied (publickey,password)`).
+    aber mit den Rechten von `cads`. Deshalb muss `chown` der **letzte**
+    Schritt sein: Alles, was `root` danach noch anlegt, gehört wieder `root`
+    und `sshd` kann es nicht lesen.
 
     !!! note "Warum ein auf `h2` erzeugter Schlüssel auch für den Login auf `h1` gilt"
         `h1` und `h2` sind zwei Netzwerk-Namespaces desselben Containers mit
@@ -628,6 +634,33 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     ```
 
     Die Datei liegt unter `~/rn-practice/`, nicht unter `~/rn-practice/topo01/`.
+
+    !!! tip "Wenn der Login scheitert"
+        `sshd.conf` erlaubt nur den Schlüssel-Login, nach einem Passwort wird
+        nie gefragt. Fehlt beim `scp` das `-i ~/.ssh/rn-practice-key` (der
+        Schlüssel hat keinen Standardnamen und wird sonst nicht angeboten)
+        oder lehnt `sshd` ihn ab, kommt sofort `Permission denied (publickey)`.
+        Im zweiten Fall steht im
+        `h1`-Terminal nur `Failed publickey for cads`. Prüft auf `h2`, wem
+        die Dateien gehören:
+
+        ```bash
+        ls -lnd ~/.ssh ~/.ssh/authorized_keys
+        ```
+
+        Erwartet sind das Verzeichnis mit `drwx------` und `authorized_keys`
+        mit `-rw-------`, beide mit Besitzer `911` (das ist `cads`). Steht
+        dort `0`, ist `chown` zu früh oder gar nicht gelaufen. Korrigiert es
+        und versucht den `scp` erneut:
+
+        ```bash
+        chown -R cads ~/.ssh && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys
+        ```
+
+        Zwei Rückfragen sind normal: Beim ersten Verbinden fragt `scp` nach dem
+        Fingerabdruck von `h1` (mit `yes` antworten), und ein zweiter Lauf von
+        `ssh-keygen` fragt `Overwrite (y/n)?` (`y` ersetzt den Schlüssel, der
+        alte Eintrag in `authorized_keys` bleibt harmlos).
 
     !!! warning "`test30M.txt` ist ein Shell-Skript"
         Trotz des Namens ist `test30M.txt` keine 30-MB-Testdatei, sondern ein
