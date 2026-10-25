@@ -539,7 +539,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
 
     !!! warning "Wenn `whois` keine Antwort liefert"
         `whois` spricht TCP-Port 43. Dieser Port wird in manchen Netzen
-        blockiert – etwa durch Netzwerk-Richtlinien (Firewall-Regeln) der HAW
+        blockiert – etwa durch Netzwerk-Richtlinien (Firewall-Regeln) der Hochschule
         oder eures Heimnetzes. Dann hängt `whois` oder meldet einen
         Verbindungsfehler; das ist kein Fehler eurer Eingaben. Die
         Registrierungsdaten lassen sich stattdessen über **RDAP**
