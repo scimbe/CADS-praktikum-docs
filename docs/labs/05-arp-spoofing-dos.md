@@ -565,15 +565,6 @@ h3$ editcap -r "$P" ~/rn-practice/pcaps/05-teilh-auszug.pcap 1-3   # Beweis-Auss
 
 ## Potenzielle Herausforderungen
 
-- In `topo02.py` fällt bei genauerem Lesen eine Ungereimtheit in der
-  Interface-Benennung auf: mehrere `addLink()`-Aufrufe vergeben für `h1`
-  literal den Namen `h0-eth0` statt `h1-eth0` (z. B.
-  `addLink(h[1], s[1], intfName1='h0-eth0', ...)`). Das ist zwar
-  ungewöhnlich benannt, aber harmlos: `h1`
-  bekommt dadurch konsequent selbst eine Schnittstelle namens `h0-eth0`
-  zugewiesen und alle nachfolgenden Befehle referenzieren denselben Namen,
-  sodass kein tatsächlicher Namenskonflikt zwischen verschiedenen Nodes
-  entsteht (Interface-Namen sind ohnehin pro Netzwerk-Namespace separat).
 - `--rand-source` bei `hping3` kann innerhalb der Mininet-Namespaces zu
   ungewöhnlichem ARP-/Routing-Verhalten führen, da die vorgetäuschten
   Quell-IPs im Testnetz nicht existieren. Im isolierten Mininet-Setup ist
