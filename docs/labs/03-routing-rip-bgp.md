@@ -273,7 +273,7 @@ Ziel.*
         (`mininet> xterm h3`).
 
     ??? success druck-zu "Lösung"
-        Der Ping schlägt fehl (`100% packet loss`), obwohl `tcpdump` auf `h3`
+        Ergebnis: Der Ping schlägt fehl (`100% packet loss`), obwohl `tcpdump` auf `h3`
         die Anfragen `echo request` sehr wohl zeigt. Es fehlen nur die
         Antworten: `h3` hat keine Route zurück in das Netz `10.0.0.0/24` und
         kann deshalb nicht antworten. Ein fehlgeschlagener Ping heißt also nicht
@@ -914,7 +914,7 @@ r1$ ip route del 192.168.3.1/32
     Topologie danach neu.
 
     ??? success druck-zu "Lösung"
-        `show ip rip` auf `r1` zeigt die bereits gelernten RIP-Routen nach
+        Beobachtung: `show ip rip` auf `r1` zeigt die bereits gelernten RIP-Routen nach
         dem Abschalten zunächst weiter, dann mit Metrik `16` (= unerreichbar),
         und nach ablaufendem RIP-Timeout (180 s) sind sie weg. Die Routen über
         BGP bleiben die ganze Zeit; `ping 192.168.3.1` gelingt weiter. Auch
