@@ -1481,7 +1481,7 @@ h0$ iperf3 -u -b 12M -t 10 -c 10.0.20.10
 ```
 
 ??? success "Erwartung und Lösung"
-    Echte Ausgabe:
+    So sieht die echte Ausgabe aus:
 
     ```text
     [  5]   0.00-10.00  sec  14.3 MBytes  12.0 Mbits/sec  0.000 ms  0/10360 (0%)  sender
@@ -1576,6 +1576,8 @@ h0$ tc qdisc del dev h0-eth0 root
 Wiederholt das mit `latency 400ms`.
 
 ??? success "Erwartung und Lösung"
+    Die Messwerte der drei Queue-Varianten:
+
     | Queue | RTT unter Last (min/avg/max) | `dropped` | Durchsatz (receiver) |
     |---|---|---|---|
     | `netem … limit 1000` (Vorgemacht) | 2,8 / 2,9 / 3,1 s | 0 | 1,9 Mbit/s |
