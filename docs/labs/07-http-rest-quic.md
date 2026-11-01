@@ -3,15 +3,12 @@
 [:material-file-pdf-box: Als PDF herunterladen](../../pdf/07-http-rest-quic.pdf){ .md-button }
 
 !!! info "QUIC läuft hier im eigenen Netz, nicht gegen einen Server im Internet"
-    Ein Aufruf gegen einen echten QUIC-Server im Internet würde in dieser
-    Umgebung scheitern: UDP/443 ist nach außen gesperrt. Die Teile 4–7 nutzen
-    deshalb einen **lokalen HTTP/3-Server in `topo01`** – das Kurs-Image
-    bringt beide dafür nötigen Seiten mit: `nginx` ist mit
-    `--with-http_v3_module` übersetzt (`nginx -V` zeigt es) und `curl` bringt
-    HTTP/3 mit (`curl -V` listet `HTTP3`). Der Server liegt als **lesbares
-    Startskript** (`startHTTP3Server.sh`) im Topologie-Verzeichnis – ihr seht
-    darin, welche nginx-Zeile QUIC überhaupt einschaltet, und der
-    QUIC-Verkehr wird im eigenen Netz mit `tcpdump` als UDP sichtbar.
+    UDP/443 ist nach außen gesperrt; ein Aufruf gegen einen QUIC-Server im
+    Internet scheitert deshalb in dieser Umgebung. Die Teile 4–7 nutzen
+    stattdessen einen lokalen HTTP/3-Server in `topo01`. Er liegt als lesbares
+    Startskript (`startHTTP3Server.sh`) im Topologie-Verzeichnis – ihr seht
+    darin, welche nginx-Zeile QUIC einschaltet. Der QUIC-Verkehr wird im
+    eigenen Netz mit `tcpdump` als UDP sichtbar.
 
 ## Lernziele
 
@@ -71,12 +68,11 @@ schiefgehen kann.
     `Host`-Header notwendig, damit der Server antwortet.) Beobachtet die
     Antwort: Status-Zeile, Header, Leerzeile, HTML-Body.
 
-    !!! note "Namensauflösung schlägt ohne laufenden dnsmasq fehl"
-        `netcat h1 80` liefert `getaddrinfo for host "h1"
-        port 80: Temporary failure in name resolution`, solange kein
-        DNS-Forwarder (`dnsmasq`, siehe [Aufgabenblatt 01](01-netzwerkgrundlagen-tools.md))
-        läuft, der den Namen `h1` auflöst. Verwendet ersatzweise die
-        numerische Adresse, z. B. `netcat 10.0.1.2 80`.
+    !!! note "Namen h1/h2 und die numerische Adresse"
+        `topo01` startet auf `h1` einen DNS-Forwarder, der die Namen `h1` und
+        `h2` auflöst; `netcat h1 80` erreicht den Server damit direkt. Ihr
+        könnt ebenso die numerische Adresse verwenden, z. B.
+        `netcat 10.0.1.2 80`.
 
     ![Terminalfenster "Node: h2": Ausgabe von netcat 10.0.1.2 80 mit Request (GET / HTTP/1.1, Host: h1) und der kompletten Antwort inkl. Status-Zeile "HTTP/1.0 200 OK", Headern (Cache-Control, Server, Date, Content-Type, Content-Length) und dem Beginn des HTML-Bodys](../assets/screenshots/07-http-rest-quic/netcat-manual-http.png)
     *Echte, von Hand über `netcat` gesprochene HTTP/1.1-Anfrage gegen den
@@ -117,9 +113,10 @@ schiefgehen kann.
 
 ### Teil 2 – Manuelles HTTP/REST gegen die externe OpenWeatherMap-API
 
-Dieser Teil läuft **außerhalb** der Mininet-Topologie, direkt im
-Desktop-Terminal (keine Topologie nötig) – ihr braucht einen echten
-Internet-Zugriff, keinen NAT-Uplink einer Mininet-Topologie.
+Diesen Teil bearbeitet ihr auf `h1` in `topo01`: Nur `h1` hat über den
+NAT-Uplink einen Weg ins Internet, und der DNS-Forwarder auf `h1` löst auch
+externe Namen wie `api.openweathermap.org` auf. `h2` hat keine Route nach
+draußen. Startet `topo01` wie in Teil 1 und arbeitet im Terminal von `h1`.
 
 !!! note "Voraussetzungen"
     - `netcat` oder `telnet` müssen installiert sein (sind es auf dem
@@ -130,16 +127,16 @@ Internet-Zugriff, keinen NAT-Uplink einer Mininet-Topologie.
       [openweathermap.org/appid](https://openweathermap.org/appid)
       registrieren).
 
-1. Baut eine rohe TCP-Verbindung zum API-Server auf:
+1. Baut von `h1` aus eine rohe TCP-Verbindung zum API-Server auf:
 
     ```bash
-    nc api.openweathermap.org 80
+    h1$ nc api.openweathermap.org 80
     ```
 
     oder
 
     ```bash
-    telnet api.openweathermap.org 80
+    h1$ telnet api.openweathermap.org 80
     ```
 
 2. Schickt eine manuelle HTTP-GET-Anfrage (ersetzt `CITY_NAME` und
@@ -225,13 +222,13 @@ Startet auf `h1` denselben HTTPS-Server, den ihr schon aus
 h1$ python3 startHTTPsServer.py
 ```
 
-!!! warning "PEM-Passphrase erforderlich – bisher undokumentiert"
+!!! warning "PEM-Passphrase erforderlich"
     Der Server fragt beim Start interaktiv nach einer Passphrase für
     `key.pem`, bevor er auf Port 443 lauscht. Die
     Passphrase ist **`mininet`**. Ohne sie bleibt der Server hängen und
-    öffnet nie einen Port – dieselbe, bisher nirgends dokumentierte
-    Voraussetzung gilt auch für den bereits bestehenden HTTPS-Schritt in
-    [Aufgabenblatt 01](01-netzwerkgrundlagen-tools.md#potenzielle-herausforderungen).
+    öffnet nie einen Port – dieselbe Voraussetzung gilt auch für den
+    bereits bestehenden HTTPS-Schritt in
+    [Aufgabenblatt 01, Teil 2, Aufgabe 10](01-netzwerkgrundlagen-tools.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01).
 
 Baut von `h2` aus eine TLS-Verbindung zu `h1` auf:
 
@@ -306,19 +303,17 @@ einzigen TCP-Verbindung binär gerahmte, gemultiplexte Ströme, während
 HTTP/1.1 pro Anfrage seriell arbeitet. Beide sind – anders als HTTP/3 in
 Teil 5 – **TCP**.
 
-!!! quote "Fun Fact (belegt): HTTP/2 löst nur das halbe Blockier-Problem"
-    HTTP/2 ersetzte den Textklartext von HTTP/1.1 durch **binäre Frames**
+!!! quote "Hintergrund: HTTP/2 löst nur das halbe Blockier-Problem"
+    HTTP/2 ersetzte den Textklartext von HTTP/1.1 durch binäre Frames
     (RFC 9113, Abschnitt 4) und schickt alle Anfragen als parallele Ströme über
-    **eine einzige** TCP-Verbindung (Abschnitt 5). Damit verschwindet das
-    Head-of-Line-Blocking auf HTTP-Ebene – aber RFC 9113, Abschnitt 1, sagt
-    selbst unmissverständlich: „TCP head-of-line blocking is not addressed by
-    this protocol." Genau dieses verbliebene Problem eine Schicht tiefer war
-    der Grund, HTTP/3 auf QUIC (über UDP) zu stellen. (Randnotiz zur
-    Quellenarbeit: RFC 9113 obsoletet **RFC 7540 und RFC 8740**, nicht nur
-    7540.)
+    eine einzige TCP-Verbindung (Abschnitt 5). Damit verschwindet das
+    Head-of-Line-Blocking auf HTTP-Ebene – aber RFC 9113, Abschnitt 1, hält
+    selbst fest: „TCP head-of-line blocking is not addressed by this protocol."
+    Genau dieses verbliebene Problem eine Schicht tiefer war der Grund, HTTP/3
+    auf QUIC (über UDP) zu stellen.
 
-    - RFC 9113, Abschnitt 1/4/5 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc9113.html> (Abruf 2026-09-25)
-    - MDN, „Evolution of HTTP": <https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Evolution_of_HTTP> (Abruf 2026-09-25)
+    - RFC 9113, Abschnitt 1/4/5: <https://www.rfc-editor.org/rfc/rfc9113.html>
+    - MDN, „Evolution of HTTP": <https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Evolution_of_HTTP>
 
 --8<-- "issue-feedback.md"
 ### Teil 5 – HTTP/3 von Hand beobachten: QUIC ist UDP (`topo01`)
@@ -349,20 +344,20 @@ Auf welcher Transportschicht (Protokoll, Port) läuft HTTP/3? Warum sieht ein
 Filter wie `tcp port 443` hier **nichts**, obwohl ihr eine „HTTPS"-Seite
 abgerufen habt?
 
-!!! quote "Fun Fact (belegt): „QUIC" ist kein Akronym – und läuft absichtlich in UDP"
+!!! quote "Hintergrund: „QUIC" ist kein Akronym und läuft absichtlich in UDP"
     QUIC ist kein neues Transportprotokoll neben TCP und UDP, sondern läuft
     *in* UDP-Datagrammen: „QUIC packets are carried in UDP datagrams … to
     better facilitate deployment in existing systems and networks" (RFC 9000,
-    Abschnitt 1). Der eigentliche Grund – NATs und Middleboxen lassen praktisch
-    nur TCP und UDP durch – steht ausdrücklich in RFC 9308, Abschnitt 2: UDP
-    „permits traversal of network middleboxes (including NAT) without requiring
-    updates to existing network infrastructure". Und für Besserwisser: RFC
-    9000, Abschnitt 1.2, hält fest „QUIC is a name, not an acronym" – die überall
-    gelesene Auflösung „Quick UDP Internet Connections" stammt von Googles
-    Vorläuferprotokoll und gilt für den IETF-Standard **nicht**.
+    Abschnitt 1). Der Grund – NATs und Middleboxen lassen praktisch nur TCP und
+    UDP durch – steht in RFC 9308, Abschnitt 2: UDP „permits traversal of
+    network middleboxes (including NAT) without requiring updates to existing
+    network infrastructure". RFC 9000, Abschnitt 1.2, hält zudem fest „QUIC is
+    a name, not an acronym" – die oft gelesene Auflösung „Quick UDP Internet
+    Connections" stammt von Googles Vorläuferprotokoll und gilt für den
+    IETF-Standard nicht.
 
-    - RFC 9000, Abschnitt 1/1.2, und RFC 9308, Abschnitt 2 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc9000.html> (Abruf 2026-09-25)
-    - Cloudflare Blog, „The Road to QUIC": <https://blog.cloudflare.com/the-road-to-quic/> (Abruf 2026-09-25)
+    - RFC 9000, Abschnitt 1/1.2, und RFC 9308, Abschnitt 2: <https://www.rfc-editor.org/rfc/rfc9000.html>
+    - Cloudflare Blog, „The Road to QUIC": <https://blog.cloudflare.com/the-road-to-quic/>
 
 ### Teil 6 – Der QUIC-Handshake im Mitschnitt: das 1200-Byte-Initial (`topo01`)
 
@@ -384,19 +379,18 @@ das erste Paket vor? (Stichwort: Ein Angreifer könnte mit einer kleinen,
 gefälschten Anfrage eine große Antwort an ein Opfer auslösen – eine
 *Amplification*. Wie verhindert eine Mindestgröße der Anfrage genau das?)
 
-!!! quote "Fun Fact (belegt): warum das erste QUIC-Paket auf 1200 Byte aufgeblasen wird"
+!!! quote "Hintergrund: warum das erste QUIC-Paket auf 1200 Byte aufgefüllt wird"
     Ein QUIC-Client muss jedes UDP-Datagramm, das ein Initial-Paket trägt, mit
-    PADDING-Frames auf mindestens **1200 Byte** UDP-Nutzlast auffüllen (RFC
-    9000, Abschnitt 14.1). Das dient zwei Zwecken: Es beweist, dass der Pfad
-    Pakete dieser Größe trägt, und es dämpft Amplification-Angriffe – denn vor
-    der Adressvalidierung darf ein Server höchstens **dreimal** so viele Bytes
-    senden, wie er empfangen hat (RFC 9000, Abschnitt 8.1). Ein Server *muss*
-    zu kleine Initial-Pakete sogar verwerfen, sonst würde er zum Reflektor für
-    gefälschte Absenderadressen. (Genau gelesen sind es 1200 Byte UDP-Nutzlast,
-    nicht IP-Paketgröße.)
+    PADDING-Frames auf mindestens 1200 Byte UDP-Nutzlast auffüllen (RFC 9000,
+    Abschnitt 14.1). Das dient zwei Zwecken: Es beweist, dass der Pfad Pakete
+    dieser Größe trägt, und es dämpft Amplification-Angriffe – denn vor der
+    Adressvalidierung darf ein Server höchstens dreimal so viele Bytes senden,
+    wie er empfangen hat (RFC 9000, Abschnitt 8.1). Ein Server muss zu kleine
+    Initial-Pakete sogar verwerfen, sonst würde er zum Reflektor für gefälschte
+    Absenderadressen.
 
-    - RFC 9000, Abschnitt 8.1/14.1 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc9000.html> (Abruf 2026-09-25)
-    - „The Illustrated QUIC Connection" (quic.xargs.org): <https://quic.xargs.org/> (Abruf 2026-09-25)
+    - RFC 9000, Abschnitt 8.1/14.1: <https://www.rfc-editor.org/rfc/rfc9000.html>
+    - „The Illustrated QUIC Connection" (quic.xargs.org): <https://quic.xargs.org/>
 
 !!! question "Kurz nachgedacht"
     Das Padding auf 1200 Byte schützt vor Amplification-Angriffen, weil ein
@@ -431,14 +425,14 @@ den Server vorher kennt? (Stichwort: Der Client weiß vor dem `Alt-Svc`-Hinweis
 nicht, ob der Server QUIC überhaupt spricht – und ein blindes UDP/443 könnte
 unterwegs gesperrt sein, wie in dieser Umgebung nach außen.)
 
-!!! quote "Fun Fact (belegt): `Alt-Svc` – und was 2023 an seine Stelle trat"
+!!! quote "Hintergrund: `Alt-Svc` und die DNS-Alternative"
     Ein über HTTP/1.1 oder HTTP/2 verbundener Client erfährt von HTTP/3 durch
     das Antwort-Header-Feld `Alt-Svc` (RFC 7838, Abschnitt 3), z. B.
     `Alt-Svc: h3=":443"`. Welche Version dann tatsächlich gesprochen wird,
     klärt der ALPN-Token im TLS-Handshake: „h3" steht für HTTP/3 (RFC 9114,
-    Abschnitt 3.1). Der heute praktisch wichtigere Weg ist allerdings der
-    HTTPS/SVCB-Eintrag im DNS (RFC 9460, November 2023) – wer nur `Alt-Svc`
-    kennt, beschreibt den Stand vor 2023.
+    Abschnitt 3.1). Ein weiterer Weg ist der HTTPS/SVCB-Eintrag im DNS
+    (RFC 9460), über den der Client schon vor dem ersten Kontakt erfährt, dass
+    ein Dienst HTTP/3 anbietet.
 
 !!! question "Kurz nachgedacht"
     Der Client musste den Server erst über TCP erreichen, bevor er von
@@ -563,14 +557,13 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
   `topo01.py` keine Default-Route mit), und `startXSSLabServer.py` nimmt
   selbst nie eine ausgehende Verbindung auf – ein Aufruf gegen ein Ziel
   außerhalb der Topologie scheitert daher technisch, nicht nur aus Vorsicht.
-- **Internetzugriff für Teil 2 läuft nicht über den Mininet-NAT-Uplink.**
-  Die Anfragen laufen direkt vom Desktop-Terminal (Container-Host-Netzwerk)
-  aus, nicht über den NAT-Uplink von `topo01`. Ob der Container selbst
-  uneingeschränkten ausgehenden Internetzugriff auf
-  `api.openweathermap.org:80` hat, hängt von der Firewall-/Proxy-Konfiguration
-  des jeweiligen Container-Hosts ab. Schlägt die Verbindung in Teil 2 fehl,
-  obwohl Teil 1 (rein lokal in `topo01`) funktioniert, ist das ein Hinweis
-  auf eine restriktive Egress-Regel und kein Anwendungsfehler.
+- **Internet-Zugriff für Teil 2 nur über `h1`.** In `topo01` hat allein `h1`
+  über den NAT-Uplink einen Weg nach draußen; `h2` hat keine Route ins
+  Internet. Bearbeitet Teil 2 deshalb auf `h1`. Ob der ausgehende Zugriff auf
+  `api.openweathermap.org:80` gelingt, hängt zusätzlich von der
+  Firewall-/Proxy-Konfiguration des Container-Hosts ab. Schlägt die Verbindung
+  trotz laufender Topologie fehl, ist das ein Hinweis auf eine restriktive
+  Egress-Regel und kein Anwendungsfehler.
 - **Timeouts bei manueller Eingabe.** Wie im Hinweistext oben erwähnt,
   gelten für handgetippte Anfragen dieselben Server-seitigen Timeouts wie
   für einen echten Client – bereitet die Anfragezeilen vorher vor.

@@ -30,6 +30,51 @@
 
 ### Teil A — ARP-Spoofing als Aufwärmübung (Zwei-Netz-Routing-Topologie)
 
+!!! abstract "Auf einen Blick"
+    - **Lernziel** – Ihr könnt mit gefälschten, unaufgeforderten ARP-Replies
+      den ARP-Cache eines Hosts vergiften und dadurch dessen Verkehr auf
+      einen anderen Host im selben Segment umleiten.
+    - **Wozu?** – Das ist der einfachste Fall von Man-in-the-Middle in
+      lokalen Netzen, z. B. in einem offenen WLAN oder einem Firmennetz ohne
+      Portsicherheit. Pentester nutzen genau diesen Mechanismus, um sich
+      unbemerkt zwischen zwei Gegenstellen zu schalten; Administrator:innen
+      müssen das Muster kennen, um es im eigenen Netz zu erkennen und
+      abzustellen (siehe Teil D und Teil G).
+    - **Vorwissen** – ARP-Grundlagen und `ip neigh` aus
+      [Lab 02](02-subnetting-arp.md), die Zwei-Netz-Topologie mit Router aus
+      [Lab 03](03-routing-rip-bgp.md).
+
+!!! info "Werkzeug: `arpspoof`"
+    Teil des `dsniff`-Pakets. Es verschickt wiederholt gefälschte,
+    unaufgeforderte ARP-Replies und arbeitet auf der Sicherungsschicht
+    (Schicht 2) – es bringt den Zielrechner dazu, eine IP-Adresse der
+    MAC-Adresse des Angreifers statt der echten Gegenstelle zuzuordnen.
+
+    Aufruf-Muster: `arpspoof -i <interface> -t <ziel-ip> <vorgetäuschte-ip>`
+
+    - `-i <interface>` – über welche eigene Netzwerkkarte die gefälschten
+      Antworten gesendet werden (z. B. `h2-eth0`).
+    - `-t <ziel-ip>` – wessen ARP-Cache vergiftet werden soll (ohne `-t`:
+      das ganze Segment).
+    - `<vorgetäuschte-ip>` – die Adresse, die scheinbar zur MAC-Adresse des
+      Angreifers gehört (hier meist das Gateway).
+
+    Echte Ausgabe (Angreifer `h2`, `arpspoof -i h2-eth0 -t 10.0.20.11 10.0.20.1`):
+
+    ```
+    0:0:0:0:0:3 0:0:0:0:0:4 0806 42: arp reply 10.0.20.1 is-at 0:0:0:0:0:3
+    ```
+
+    Gelesen: Ethernet-Quelle `0:0:0:0:0:3` (MAC von `h2`) an Ziel
+    `0:0:0:0:0:4` (MAC des Opfers), Ethertype `0806` (ARP), 42 Byte lang –
+    Inhalt: eine ARP-Reply, die behauptet, `10.0.20.1` (das Gateway) gehöre
+    zu `0:0:0:0:0:3` (tatsächlich die MAC von `h2`). Diese eine Zeile
+    wiederholt sich, solange `arpspoof` läuft.
+
+    **Typische Fehlermeldung:** `arpspoof -i lo …` bricht mit einem
+    Python-Traceback ab – auf der Loopback-Schnittstelle gibt es kein ARP.
+    Immer eine echte Schnittstelle wie `h2-eth0` angeben.
+
 Nutzt die aus [Lab 03](03-routing-rip-bgp.md) bekannte Zwei-Netz-Topologie
 (`10.0.0.0/24` mit h1/h2, `20.0.0.0/24` mit h3/h4, verbunden über einen
 Router) mit funktionierenden Routen zwischen beiden Netzen.
@@ -41,6 +86,18 @@ irreführenderweise — selbst mit einer Antwort beantworten, sodass h4 einen
 scheinbar erfolgreichen Ping von h1 sieht, obwohl h3 geantwortet hat.
 
 ### Teil B — ARP-Spoofing mit HTTP-Content-Swap (`topo02`)
+
+!!! abstract "Auf einen Blick"
+    - **Lernziel** – Ihr könnt zeigen, dass ARP-Spoofing nicht nur einzelne
+      Pings umleitet, sondern einen kompletten Dienst (hier: HTTP) unbemerkt
+      durch einen gefälschten ersetzen kann.
+    - **Wozu?** – Das ist der Schritt von der Demo zum echten Schaden:
+      Angreifer im selben Netzsegment – etwa im Café-WLAN oder auf einem
+      kompromittierten Firmenrechner – können so Login-Seiten, Downloads
+      oder Software-Updates manipulieren, ohne dass im Browser eine andere
+      Adresse erscheint.
+    - **Vorwissen** – Teil A (ARP-Spoofing-Mechanismus), `curl` und
+      HTTP-Grundlagen aus [Lab 01](01-netzwerkgrundlagen-tools.md).
 
 Teil A hat ARP-Spoofing an einem einzelnen umgeleiteten Ping gezeigt. Jetzt
 wechselt ihr zur Topologie `topo02` und einer Angriffsvariante mit echtem
@@ -66,8 +123,7 @@ cd ~/rn-practice/topo02
 
     Ein zusätzliches manuelles `python3 startHTTPD.py` scheitert mit
     `OSError: [Errno 98] Address already in use`, weil der Port bereits
-    belegt ist — das ist kein Fehler, sondern der Beleg, dass der Server
-    schon läuft.
+    belegt ist — der Server läuft also schon.
 
 2. **Normalzustand prüfen:** Vom Opfer-Host aus den Server per Browser/`curl`
     aufrufen und den unveränderten Inhalt (`index.html`) bestätigen.
@@ -124,18 +180,15 @@ cd ~/rn-practice/topo02
     $ ./clear-cache.sh   # entspricht: ip -s -s neigh flush all
     ```
 
-    !!! warning "Nach dem Leeren zuerst EINEN Aufruf, dann warten"
-        Leert den Zwischenspeicher **nicht** unmittelbar vor der Probe.
+    !!! warning "Nach dem Leeren zuerst einen Aufruf, dann warten"
+        Leert den Zwischenspeicher nicht unmittelbar vor der Probe.
         Linux legt auf eine unaufgeforderte ARP-Reply keinen neuen Eintrag
         an, es aktualisiert nur vorhandene. Direkt nach dem Leeren fragt
-        euer Rechner das Gateway selbst per ARP - und der **echte** Router
+        euer Rechner das Gateway selbst per ARP - und der echte Router
         antwortet darauf. Ihr landet dann beim echten Server und haltet den
         Angriff faelschlich fuer gescheitert.
 
-        Am 2026-09-25 in dieser Umgebung gemessen: unmittelbar nach
-        `clear-cache.sh` war `ip neigh show` leer, nach fuenf Aufrufen stand
-        `10.0.20.1` auf `00:00:00:00:00:03` - der MAC-Adresse des Angreifers.
-        Setzt also erst **einen** Aufruf ab, wartet etwa zehn Sekunden und
+        Setzt deshalb erst einen Aufruf ab, wartet etwa zehn Sekunden und
         prueft mit `ip neigh show 10.0.20.1`, dass dort die MAC des
         Angreifers steht. Erst dann ist die Probe aussagekraeftig.
 
@@ -163,6 +216,60 @@ cd ~/rn-practice/topo02
 
 ### Teil C — SYN-Flood-DoS mit `hping3` (`topo02`)
 
+!!! abstract "Auf einen Blick"
+    - **Lernziel** – Ihr könnt einen SYN-Flood gegen einen eigenen Server
+      fahren und beobachten, wie halboffene Verbindungen den Dienst für
+      legitime Nutzer:innen blockieren.
+    - **Wozu?** – SYN-Flood ist einer der häufigsten Gründe, warum Webserver
+      in freier Wildbahn ausfallen. Wer die Mechanik einmal selbst erzeugt
+      hat, erkennt sie in echten Logs und Mitschnitten wieder und versteht,
+      warum SYN-Cookies (Teil E) die Standardabwehr des Linux-Kernels sind.
+    - **Vorwissen** – Der TCP-Drei-Wege-Handshake aus
+      [Lab 04](04-tcp-udp-congestion.md), HTTP-Zugriff mit `curl`/Browser aus
+      [Lab 01](01-netzwerkgrundlagen-tools.md).
+
+!!! info "Werkzeug: `hping3`"
+    Ein Paketgenerator, mit dem sich einzelne TCP/IP-Pakete frei
+    zusammenbauen lassen – hier auf der Transportschicht (Schicht 4), um
+    reine SYN-Pakete ohne vollständigen Handshake zu verschicken.
+
+    Aufruf-Muster: `hping3 -c <n> -d <bytes> -S -w <fenster> -p <port> --flood --rand-source <ziel>`
+
+    - `-c <n>` – Anzahl der zu sendenden Pakete.
+    - `-d <bytes>` – Nutzlast je Paket in Byte.
+    - `-S` – setzt nur das SYN-Flag (Verbindungsaufbau, keine Nutzdaten).
+    - `-w <fenster>` – TCP-Fenstergröße im SYN-Paket.
+    - `-p <port>` – Zielport (hier `80` für HTTP).
+    - `--flood` – sendet ohne Rücksicht auf Antworten so schnell wie möglich.
+    - `--rand-source` – täuscht für jedes Paket eine andere, zufällige
+      Absender-IP vor.
+
+    Echte Ausgabe (Angreifer `h0`, 3 Sekunden Flood gegen `10.0.10.11`,
+    beendet mit `Strg+C`):
+
+    ```
+    HPING 10.0.10.11 (h0-eth0 10.0.10.11): S set, 40 headers + 120 data bytes
+    hping in flood mode, no replies will be shown
+
+    --- 10.0.10.11 hping statistic ---
+    181024 packets transmitted, 0 packets received, 100% packet loss
+    round-trip min/avg/max = 0.0/0.0/0.0 ms
+    ```
+
+    Gelesen: In nur 3 Sekunden wurden 181.024 SYN-Pakete verschickt – `0
+    packets received` ist dabei **kein Fehler**, sondern erwartet: `--flood`
+    wertet Antworten gar nicht erst aus, und `--rand-source` sorgt zusätzlich
+    dafür, dass etwaige Antworten an erfundene Absender-IPs gehen, die
+    `h0` nie erreichen.
+
+    **Hintergrund:** `--rand-source` ist kein Detail, sondern der Kern des
+    Angriffs. Ohne es käme entweder ein `RST` von der echten festen Quelle
+    zurück (das gäbe den halboffenen Slot sofort wieder frei) oder die Quelle
+    wäre trivial zu sperren. Dass die vorgetäuschten Absender-IPs im
+    Testnetz gar nicht existieren, ist hier unkritisch, zeigt aber zugleich,
+    warum echte Netze IP-Spoofing über Ingress-Filterung an der Netzgrenze
+    (BCP 38) unterbinden.
+
 Teil A und B haben gezeigt, wie ein Angreifer im selben Segment den
 Datenverkehr eines Opfers umleiten kann (ARP-Spoofing). Dieser Teil
 wechselt die Angriffsart: Statt Verkehr umzuleiten, überflutet ihr einen
@@ -189,12 +296,8 @@ annehmen kann (Denial-of-Service). Nutzt weiterhin die aus Teil B laufende
     h0$ hping3 -c 15000 -d 120 -S -w 64 -p 80 --flood --rand-source 10.0.10.11
     ```
 
-    `-c 15000` sendet 15.000 Pakete à `-d 120` Byte, `-S` setzt das SYN-Flag
-    mit TCP-Fenstergröße `-w 64`, `-p 80` richtet den Angriff auf den
-    HTTP-Port, `--flood` sendet ohne Rücksicht auf Antworten so schnell wie
-    möglich, und `--rand-source` täuscht wechselnde, gefälschte
-    Absender-IPs vor – das verschleiert die echte Quelle und verhindert
-    zugleich, dass die SYN-ACK-Antworten des Opfers den Angreifer erreichen.
+    Siehe Werkzeug-Steckbrief oben für die Bedeutung der Optionen und eine
+    echte Beispielausgabe.
 
 4. **Wirkung beobachten:** Öffnet erneut Firefox auf `h3` und versucht,
     `http://10.0.10.11` erneut aufzurufen. Startet zusätzlich auf `h1` einen
@@ -234,6 +337,17 @@ ein SYN-Flood von einer einzelnen, festen Quell-IP, und welche Gegenmaßnahme
     Netz wäre schon der erste Versuch nicht erlaubt gewesen.
 
 ### Teil D — Selbst zum Verteidiger werden: ARP-Spoofing als Opfer erkennen (`topo02`)
+
+!!! abstract "Auf einen Blick"
+    - **Lernziel** – Ihr könnt ARP-Spoofing als Opfer erkennen, ohne vorher
+      zu wissen, dass ein Angriff läuft, und ohne den Angriffstraffic selbst
+      mitgeschnitten zu haben.
+    - **Wozu?** – Genau das ist die Situation realer Administrator:innen:
+      Sie bemerken nur Symptome (Verbindungsabbrüche, falsche Inhalte) und
+      müssen ohne fertigen Beweis-Mitschnitt entscheiden, ob ein Angriff
+      läuft.
+    - **Vorwissen** – Der Angriffsablauf aus Teil B, `ip neigh` aus
+      [Lab 02](02-subnetting-arp.md).
 
 In Teil B habt ihr den Angriff aus Sicht des Angreifers (`h2`) durchgeführt
 und in Wireshark bestätigt. In diesem Teil dreht ihr die Perspektive um:
@@ -289,19 +403,17 @@ cd ~/rn-practice/topo02
     identifiziert – rein aus der Opfer-Perspektive, ohne den Angriffs-Traffic
     selbst mitgeschnitten zu haben.
 
-!!! success "Real geprüft"
-    Auf einem frisch gestarteten Container zeigte `ip neigh show 10.0.20.1`
-    auf `h3` vor dem Angriff `lladdr 00:00:00:00:00:06` (die echte MAC von
-    `r2`) und nach dem Start von `startARP-AttackerOnNodeH2.sh`
-    `lladdr 00:00:00:00:00:03` – exakt die MAC-Adresse, die `ip link show
-    h2-eth0` auf `h2` als dessen eigene Interface-Adresse ausweist. Als
-    zusätzliches, nicht erwartetes Indiz erschien während des Angriffs beim
-    Ping auf `h3` zudem einmalig die Meldung
-    `From 10.0.20.10: icmp_seq=1 Redirect Host(New nexthop: 10.0.20.1)` –
-    ein ICMP-Redirect, ausgelöst dadurch, dass der Angreifer (`10.0.20.10`)
-    kurzzeitig als vermeintlicher Zwischen-Hop auftaucht. Auch das ist ein
-    beobachtbares Warnsignal, auch wenn es nicht in jedem Timing-Fenster
-    zuverlässig auftritt.
+!!! info "Was ihr seht"
+    Vor dem Angriff zeigt `ip neigh show 10.0.20.1` auf `h3`
+    `lladdr 00:00:00:00:00:06` (die echte MAC von `r2`), nach dem Start von
+    `startARP-AttackerOnNodeH2.sh` dagegen `lladdr 00:00:00:00:00:03` – genau
+    die MAC-Adresse, die `ip link show h2-eth0` auf `h2` als dessen eigene
+    Interface-Adresse ausweist. Beim Ping auf `h3` kann während des Angriffs
+    zusätzlich die Meldung
+    `From 10.0.20.10: icmp_seq=1 Redirect Host(New nexthop: 10.0.20.1)`
+    erscheinen – ein ICMP-Redirect, ausgelöst dadurch, dass der Angreifer
+    (`10.0.20.10`) kurzzeitig als vermeintlicher Zwischen-Hop auftaucht. Auch
+    das ist ein Warnsignal, es tritt aber nicht in jedem Timing-Fenster auf.
 
 **Aufgabe:** Nennt zwei Gründe, warum diese Erkennungsmethode (manueller
 Vergleich der Nachbarschafts-Tabelle) in einem echten, großen Firmennetz
@@ -313,6 +425,19 @@ Prinzip (Änderung einer IP-zu-MAC-Zuordnung erkennen) automatisieren.
 --8<-- "issue-feedback.md"
 
 ### Teil E — SYN-Flood quantitativ: den Schaden messen und SYN-Cookies wirken sehen (`topo02`)
+
+!!! abstract "Auf einen Blick"
+    - **Lernziel** – Ihr könnt den Schaden eines SYN-Floods in Zahlen fassen
+      (Anzahl halboffener Verbindungen, Erfolg/Misserfolg einer legitimen
+      Verbindung) und die Gegenmaßnahme SYN-Cookies aktivieren und ihre
+      Wirkung messen.
+    - **Wozu?** – „Ich glaube, der Angriff wirkt" reicht in der Praxis
+      nicht: Monitoring und Incident-Response verlangen Zahlen – wie viele
+      halboffene Verbindungen, wie viele legitime Anfragen scheitern –
+      vor und nach dem Schalten einer Gegenmaßnahme.
+    - **Vorwissen** – Teil C (SYN-Flood mit `hping3`), `ss` kennt ihr bereits
+      aus [Lab 04](04-tcp-udp-congestion.md); hier nutzt ihr den Filter
+      `state syn-recv`.
 
 Teil C hat den SYN-Flood *gestartet* und über den Browser beobachtet. Das ist
 ein qualitativer Eindruck („die Seite lädt nicht mehr"). Jetzt messt ihr den
@@ -339,7 +464,7 @@ legitimer Client ist `h3`.
 !!! warning "`sysctl -w` allein schlägt hier fehl"
     `/proc/sys` ist in diesem Container schreibgeschützt; ein direktes
     `sysctl -w net.ipv4.tcp_syncookies=0` bricht mit `sysctl: permission
-    denied on key "net.ipv4.tcp_syncookies"` ab (real geprüft 2026-09-27).
+    denied on key "net.ipv4.tcp_syncookies"` ab.
     Da `tcp_syncookies` eine Eigenschaft je Netzwerk-Namespace ist, genügt ein
     auf den eigenen Host beschränkter Umweg über eine neue Sicht auf
     `/proc/sys`:
@@ -350,8 +475,8 @@ legitimer Client ist `h3`.
 
     Der Kernelwert bleibt danach für diesen Host gesetzt, auch wenn jeder
     weitere Befehl wieder in der ursprünglichen, weiterhin schreibgeschützten
-    Sicht läuft — geprüft, indem ein anschließendes einfaches `sysctl
-    net.ipv4.tcp_syncookies` (ohne `unshare`) den neuen Wert zeigt.
+    Sicht läuft — bestätigen lässt sich das mit einem anschließenden einfachen
+    `sysctl net.ipv4.tcp_syncookies` (ohne `unshare`), das den neuen Wert zeigt.
 
 **Schritte:**
 
@@ -375,18 +500,16 @@ eine `SYN-RECV`-Zahl in Höhe des Server-Backlogs und ein legitimer Abruf, der
 mit `000` (keine Verbindung) scheitert. Bei `syncookies=1` unter demselben
 Flood: wieder `200`.
 
-!!! success "Real geprüft (2026-09-27)"
-    Gegen ein real gebautes `topo02` mit `hping3 -S --flood --rand-source` gegen
-    `h1:80`: legitimer `curl` von `h3` vor dem Angriff `200`. Unter Flood mit
-    `net.ipv4.tcp_syncookies=0` (gesetzt über den `unshare`-Umweg oben): `ss …
-    syn-recv` zählte **6** halboffene Verbindungen (das entspricht dem kleinen
-    Listen-Backlog des Python-Servers), und der legitime `curl` lieferte
-    **`000`** – der Angriff war erfolgreich. Nach demselben `unshare`-Umweg mit
-    `net.ipv4.tcp_syncookies=1` lieferte bei weiterlaufendem Flood derselbe
-    `curl` wieder **`200`**, obwohl `ss` weiter 6 halboffene Verbindungen
-    zeigte. Genau das ist der Trick: SYN-Cookies halten für die Flut **keinen**
-    Zustand vor, sondern kodieren ihn in die Sequenznummer – der Backlog kann
-    gar nicht erst volllaufen.
+!!! info "Was ihr seht"
+    Der legitime `curl` von `h3` liefert vor dem Angriff `200`. Unter Flood mit
+    `net.ipv4.tcp_syncookies=0` zählt `ss … syn-recv` nur wenige halboffene
+    Verbindungen (so viele wie der kleine Listen-Backlog des Python-Servers),
+    und der legitime `curl` liefert `000` – der Angriff greift. Mit
+    `net.ipv4.tcp_syncookies=1` liefert derselbe `curl` bei weiterlaufendem
+    Flood wieder `200`, obwohl `ss` dieselbe Zahl halboffener Verbindungen
+    zeigt. Das ist der Kern: SYN-Cookies halten für die Flut keinen Zustand vor,
+    sondern kodieren ihn in die Sequenznummer – der Backlog läuft gar nicht
+    erst voll.
 
 !!! info "Hintergrund: warum `--rand-source` den Angriff erst wirksam macht"
     `--rand-source` fälscht für jedes SYN eine andere Absender-IP. Dadurch (a)
@@ -399,6 +522,18 @@ Flood: wieder `200`.
     aufsetzt, scheitert (siehe Teil F).
 
 ### Teil F — Eine naheliegende Gegenmaßnahme, die scheitert: die nft-Ratenbegrenzung (`topo02`)
+
+!!! abstract "Auf einen Blick"
+    - **Lernziel** – Ihr könnt eine naheliegende, aber wirkungslose
+      Gegenmaßnahme (SYN-Ratenbegrenzung per Firewall) selbst bauen, ihre
+      Wirkung messen und begründen, warum sie scheitert.
+    - **Wozu?** – In der Praxis greifen Teams oft zuerst zur Firewall-Regel,
+      bevor sie verstehen, warum diese bei gefälschten Absenderadressen
+      nicht hilft. Dieser Teil zeigt das am eigenen gemessenen Fehlschlag,
+      nicht nur in der Theorie – eine wichtige Erfahrung, bevor man Budget
+      für die falsche Lösung ausgibt.
+    - **Vorwissen** – Teil E (SYN-Flood, `ss`), Grundbegriff Paketfilter/
+      Firewall-Regel.
 
 Bevor man zur richtigen Lösung (SYN-Cookies, Teil E) greift, liegt eine andere
 nahe: „Dann begrenze ich eben die SYN-Rate mit der Firewall." In diesem Teil
@@ -436,15 +571,14 @@ h1$ nft flush ruleset          # aufraeumen
 **Erwartete Ausgabe:** Der legitime `curl` scheitert **weiterhin** (`000`),
 obwohl die Firewall-Regel aktiv ist.
 
-!!! success "Real geprüft (2026-09-27)"
-    Gegen ein real gebautes `topo02` blieb der legitime `curl` von `h3` unter
-    Flood auch **mit** der `nft`-SYN-Ratenbegrenzung bei **`000`** – exakt wie
-    ohne Regel. Der Grund ist präzise: Die Ratenbegrenzung verwirft SYN-Pakete
-    *ohne Ansehen der Quelle*. Während der Flut ist das 20/s-Budget von den
-    Angreifer-SYN aufgebraucht, bevor das eine legitime SYN von `h3` an die
-    Reihe kommt – die Regel trifft Freund und Feind gleich. Erst SYN-Cookies
-    (Teil E), die **nichts verwerfen**, sondern ohne Zustand auskommen, lösen
-    das Problem.
+!!! info "Was ihr seht"
+    Der legitime `curl` von `h3` bleibt unter Flood auch mit der
+    `nft`-SYN-Ratenbegrenzung bei `000` – genau wie ohne Regel. Der Grund: Die
+    Ratenbegrenzung verwirft SYN-Pakete ohne Ansehen der Quelle. Während der
+    Flut ist das 20/s-Budget von den Angreifer-SYN aufgebraucht, bevor das eine
+    legitime SYN von `h3` an die Reihe kommt – die Regel trifft Freund und Feind
+    gleich. Erst SYN-Cookies (Teil E), die nichts verwerfen, sondern ohne
+    Zustand auskommen, lösen das Problem.
 
 !!! question "Zum Weiterdenken"
     Überlegt, unter welchen Umständen die Ratenbegrenzung *doch* helfen würde –
@@ -453,6 +587,17 @@ obwohl die Firewall-Regel aktiv ist.
     zu *unterscheiden*, und warum nimmt euch `--rand-source` genau das?)
 
 ### Teil G — Der feste ARP-Eintrag als gemessene Gegenmaßnahme (`topo02`)
+
+!!! abstract "Auf einen Blick"
+    - **Lernziel** – Ihr könnt einen festen (`nud permanent`) ARP-Eintrag
+      als Gegenmaßnahme setzen und messen, dass er den Angriff aus Teil D
+      tatsächlich abwehrt.
+    - **Wozu?** – Bevor man eine zentrale Lösung wie Dynamic ARP Inspection
+      einführt, muss man zeigen können, dass die einfache Variante
+      technisch funktioniert – und anschließend begründen, warum sie
+      trotzdem im großen Netz nicht eingesetzt wird (siehe Vertiefungsbox).
+    - **Vorwissen** – Teil B/D, `ip neigh replace` kennt ihr bereits aus der
+      Vertiefungsbox in Teil B.
 
 In Teil B/D habt ihr gesehen, dass ARP jeder Antwort glaubt – auch einer
 unaufgeforderten. Die Vertiefungsbox zu Teil B hat einen festen ARP-Eintrag als
@@ -485,12 +630,12 @@ h3$ ip neigh show 10.0.20.1                      # unveraendert?
 `10.0.20.1` trotz laufendem `arpspoof` unverändert die **echte** MAC des
 Gateways – anders als in Teil D, wo sie auf die MAC des Angreifers umsprang.
 
-!!! success "Real geprüft (2026-09-27)"
-    Gegen ein real gebautes `topo02`: nach `ip neigh flush all` + `ping` lernte
-    `h3` die echte Gateway-MAC von `r2` (`00:00:00:00:00:06`). Nach dem Setzen
-    als `permanent` und dem Start von `arpspoof` auf `h2` blieb
-    `ip neigh show 10.0.20.1` unverändert bei `00:00:00:00:00:06` – der Angriff,
-    der in Teil D die MAC nachweislich tauscht, lief ins Leere.
+!!! info "Was ihr seht"
+    Nach `ip neigh flush all` + `ping` lernt `h3` die echte Gateway-MAC von
+    `r2` (`00:00:00:00:00:06`). Nach dem Setzen als `permanent` und dem Start
+    von `arpspoof` auf `h2` bleibt `ip neigh show 10.0.20.1` unverändert bei
+    `00:00:00:00:00:06` – der Angriff, der in Teil D die MAC tauscht, läuft ins
+    Leere.
 
 !!! warning "Kontrolliert, dass der Angriff wirklich euer Segment trifft"
     Ein unveränderter Eintrag beweist die Abwehr nur, wenn in diesem Moment
@@ -511,6 +656,17 @@ Gateways – anders als in Teil D, wo sie auf die MAC des Angreifers umsprang.
 
 ### Teil H — Den Angriff forensisch festhalten: gefälschte ARP-Replies mitschneiden und zählen (`topo02`)
 
+!!! abstract "Auf einen Blick"
+    - **Lernziel** – Ihr könnt einen laufenden Angriff mit `tcpdump`
+      aufzeichnen und die Aufzeichnung ohne grafische Oberfläche mit
+      `capinfos`/`editcap` auswerten und ein Beweis-Artefakt sichern.
+    - **Wozu?** – Ein Sicherheitsvorfall ist für Kolleg:innen oder in einem
+      Bericht nur nachvollziehbar, wenn es einen Mitschnitt gibt, den man
+      zählen, auswerten und ausschneiden kann – genau das macht ihr hier,
+      die Grundlage jeder forensischen Analyse bzw. Incident-Response.
+    - **Vorwissen** – `tcpdump` aus [Lab 03](03-routing-rip-bgp.md), der
+      Angriffsablauf aus Teil B/D (woher die ARP-Replies kommen).
+
 Die bisherigen Teile haben den Angriff *live* beobachtet. Ein Mitschnitt ist
 etwas anderes: ein **dauerhaftes Artefakt**, das man auch nach dem Angriff noch
 auswerten, zählen und vorlegen kann – die Grundlage jeder Incident-Analyse. In
@@ -524,7 +680,7 @@ diesem Teil zeichnet ihr die gefälschten ARP-Replies auf und wertet sie ohne
     `mergecap` fügt Dateien zusammen. **Typische Fehldeutung:** anzunehmen, ohne
     `tshark` sei eine `pcap`-Datei auf der Kommandozeile nicht auswertbar. Für
     Zählen, Zuschneiden und Zusammenführen genügen diese Werkzeuge – und sie
-    sind im Abbild vorhanden (geprüft 2026-09-24), `tshark` nicht.
+    sind vorhanden, `tshark` nicht.
 
 **Ziel:** Die gefälschten ARP-Replies eines laufenden Angriffs mitschneiden, ihre
 Zahl bestimmen und einen Ausschnitt als Beweis-Artefakt sichern.
@@ -550,15 +706,15 @@ h3$ editcap -r "$P" ~/rn-practice/pcaps/05-teilh-auszug.pcap 1-3   # Beweis-Auss
 `grep -c is-at` zählt die gefälschten Replies; die Beispielzeile zeigt eine
 `is-at`-Zuordnung auf die MAC des Angreifers `h2`.
 
-!!! success "Real geprüft (2026-09-24)"
-    Gegen ein real gebautes `topo02`, `arpspoof` rund 5 Sekunden aktiv:
-    `capinfos -c` meldete **4** ARP-Pakete, `grep -c is-at` zählte **3**
-    gefälschte Replies der Form `ARP, Reply 10.0.20.11 is-at <MAC von h2>`, und
-    `editcap -r … 1-3` schnitt daraus ein Drei-Paket-Artefakt heraus (per
-    `capinfos` bestätigt). Eure Zahlen hängen davon ab, wie lange ihr aufzeichnet
-    – die Zahl der gefälschten Replies wächst linear mit der Angriffsdauer.
+!!! info "Was ihr seht"
+    `capinfos -c` meldet die Zahl der mitgeschnittenen ARP-Pakete, `grep -c
+    is-at` zählt die gefälschten Replies der Form
+    `ARP, Reply 10.0.20.1 is-at <MAC von h2>`, und `editcap -r … 1-3` schneidet
+    daraus ein kleines Beweis-Artefakt heraus (per `capinfos` prüfbar). Eure
+    Zahlen hängen davon ab, wie lange ihr aufzeichnet – die Zahl der gefälschten
+    Replies wächst mit der Angriffsdauer.
 
-!!! quote "Fun Fact (belegt): woher `tcpdump` und `pcap` stammen"
+!!! quote "Hintergrund: woher `tcpdump` und `pcap` stammen"
     `tcpdump` – und damit das `pcap`-Dateiformat, das alle diese Werkzeuge lesen
     – stammt von Van Jacobson, Craig Leres und Steven McCanne am Lawrence
     Berkeley Laboratory; eine Manpage ist auf Juni 1989 datiert, das erste
@@ -567,44 +723,10 @@ h3$ editcap -r "$P" ~/rn-practice/pcaps/05-teilh-auszug.pcap 1-3   # Beweis-Auss
     Netzwerk-Analysewerkzeuge – auch Wireshark – bauen bis heute auf diesem
     Format auf.
 
-    - tcpdump-Manpage (AUTHORS): <https://www.tcpdump.org/manpages/tcpdump.1.html> (Abruf 2026-09-24)
-    - tcpdump CHANGES (v2.0, Jan 1991): <https://raw.githubusercontent.com/the-tcpdump-group/tcpdump/master/CHANGES> (Abruf 2026-09-24)
+    - tcpdump-Manpage (AUTHORS): <https://www.tcpdump.org/manpages/tcpdump.1.html>
+    - tcpdump CHANGES (v2.0, Jan 1991): <https://raw.githubusercontent.com/the-tcpdump-group/tcpdump/master/CHANGES>
 
 --8<-- "issue-feedback.md"
-
-## Potenzielle Herausforderungen
-
-- In `topo02.py` fällt bei genauerem Lesen eine Ungereimtheit in der
-  Interface-Benennung auf: mehrere `addLink()`-Aufrufe vergeben für `h1`
-  literal den Namen `h0-eth0` statt `h1-eth0` (z. B.
-  `addLink(h[1], s[1], intfName1='h0-eth0', ...)`). Das ist zwar
-  ungewöhnlich benannt, aber (auf dieser Codebasis real geprüft) harmlos: `h1`
-  bekommt dadurch konsequent selbst eine Schnittstelle namens `h0-eth0`
-  zugewiesen und alle nachfolgenden Befehle referenzieren denselben Namen,
-  sodass kein tatsächlicher Namenskonflikt zwischen verschiedenen Nodes
-  entsteht (Interface-Namen sind ohnehin pro Netzwerk-Namespace separat).
-- `--rand-source` bei `hping3` kann innerhalb der Mininet-Namespaces zu
-  ungewöhnlichem ARP-/Routing-Verhalten führen, da die vorgetäuschten
-  Quell-IPs im Testnetz nicht existieren. Im isolierten Mininet-Setup ist
-  das unkritisch, verdeutlicht aber gleichzeitig, warum echte Netze
-  IP-Spoofing üblicherweise per Ingress-Filterung (BCP 38) unterbinden.
-- **Teil E: die `SYN-RECV`-Zahl ist durch den Server-Backlog gedeckelt.** Der
-  Python-HTTP-Server hat einen kleinen Listen-Backlog (real gemessen: ~6
-  halboffene Verbindungen bei Flood). Wer eine große Zahl erwartet, misst den
-  Backlog, nicht den Angriff – entscheidend ist nicht die Höhe der Zahl, sondern
-  dass der legitime Abruf scheitert (`000`) und mit SYN-Cookies wieder gelingt
-  (`200`, real geprüft 2026-09-24).
-- **Teil F: die nft-Ratenbegrenzung rettet die legitime Verbindung NICHT** (real
-  geprüft: `000` mit und ohne Regel). Das ist der Befund, kein Fehler – eine
-  Regel, die SYN ohne Ansehen der Quelle verwirft, trifft Freund und Feind
-  gleich. Wer hier „Firewall hilft" erwartet, übernimmt eine plausible, aber
-  falsche Annahme (Begründung in Teil F).
-- **Teil H: `tshark` fehlt im Abbild** (geprüft 2026-09-24). Für das Zählen und
-  Zuschneiden der `pcap`-Datei genügen `capinfos`, `editcap` und `tcpdump -r` –
-  alle vorhanden. Anleitungen mit `tshark -Y arp` laufen hier nicht.
-- **`arpspoof` niemals auf `lo`** – dort stürzt es ab (kein ARP auf Loopback).
-  In den Aufgaben läuft es korrekt auf den `veth`-Schnittstellen der Topologie
-  (`h2-eth0`), wie in Teil B/D/H.
 
 ## Quellen
 
@@ -616,5 +738,5 @@ h3$ editcap -r "$P" ~/rn-practice/pcaps/05-teilh-auszug.pcap 1-3   # Beweis-Auss
   — fachliche Basis für Teil B (ARP-MitM) und Teil C (SYN-Flood).
 - `mininet-labs/vertiefung/Labor-03-Routing.tex`, Abschnitt "Man in the
   Middle" — fachliche Basis für Teil A.
-- `docs/reference/umgebung.md` — Bestätigung, dass `hping3` im Image
-  vorinstalliert ist.
+- `docs/reference/umgebung.md` — Überblick über die verwendete Umgebung und
+  die vorinstallierten Werkzeuge.
