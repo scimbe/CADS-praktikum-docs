@@ -117,6 +117,14 @@ jobs:
 
           test "$fehler" -eq 0 || exit 1
 
+      # Aufklappbare Bloecke (`??? …`) muessen mit Inhalt im PDF stehen.
+      # Chromium druckt ein geschlossenes <details> sonst nur mit der
+      # Titelzeile; render-lab-pdfs.mjs oeffnet sie deshalb vor dem Druck.
+      - name: Gegenprobe - Inhalt aufklappbarer Bloecke im PDF
+        run: |
+          sudo apt-get install -y -qq poppler-utils >/dev/null
+          python3 scripts/check-pdf-details.py site
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
