@@ -612,7 +612,8 @@ Paarungen zu testen (`h1`↔`h2`, `h1`↔`h3`, `h1`↔`h4`, `h2`↔`h3`, `h2`↔
     enden).
 
 Zum Abschluss lasst Mininet alle Paare auf einmal prüfen. Gebt in der
-Mininet-Kommandozeile ein:
+Mininet-Kommandozeile ein (das dauert bis zu einer Minute und bleibt dabei
+eine Weile sichtbar bei `r3 ->` stehen – nicht abbrechen):
 
 ```bash
 mininet> pingall
@@ -1074,7 +1075,10 @@ für die nächsten Befehle.
     (`source`); jede Zeile ist ein Befehl **mit dem Knoten vorweg**. Die
     Datei bleibt bewusst ohne Kommentarzeilen, weil Mininet jede Zeile als
     Befehl liest; die Erklärung steht deshalb darunter. Legt die Datei
-    `~/rn-practice/topoP02/meine-config.sh` mit genau diesem Inhalt an:
+    `~/rn-practice/topoP02/meine-config.sh` mit genau diesem Inhalt an,
+    zum Beispiel im Desktop-Terminal mit dem Editor `mousepad`
+    (`mousepad ~/rn-practice/topoP02/meine-config.sh &`; `nano` ist im
+    Image nicht installiert):
 
     ```text
     r1 ifconfig r1-eth0 128.155.128.1/18
@@ -1180,7 +1184,7 @@ Nutzlast, die ein Link in einem Paket transportiert. Ist ein IP-Paket größer,
 muss es **fragmentiert** werden: Der Absender teilt es in Stücke, die jeweils
 in die MTU passen; erst der Empfänger setzt sie wieder zusammen. Die Stücke
 tragen Offset und das Flag `MF` („More Fragments"). Bei MTU 536 passen pro
-Fragment 516 Byte IP-Nutzlast hinein, aufgerundet auf ein Vielfaches von 8:
+Fragment 516 Byte IP-Nutzlast hinein, abgerundet auf ein Vielfaches von 8:
 512 Byte.
 
 **Gemeinsam:** Startet die Topologie und beobachtet mit `ping`, ab welcher
@@ -1192,6 +1196,13 @@ cd ~/rn-practice/topoP04
 h1$ ping -c 4 -M do -s 1000 10.0.0.2   # "do" = Don't Fragment
 h1$ ping -c 4 -s 1000 10.0.0.2         # ohne DF-Bit
 ```
+
+`start-topoP04.sh` öffnet die Terminalfenster `Node: h1` und `Node: h2`
+selbst; sie liegen anfangs übereinander, und das zuletzt geöffnete
+(`Node: h2`) hat den Fokus. Zieht sie auseinander und achtet auf die
+Titelzeile: Die Zeilen mit `h1$` gehören in `Node: h1`. In den
+Knoten-Fenstern tippt ihr den Befehl **ohne** den Knotennamen davor
+(`ping …`, nicht `h1 ping …` – das gibt dort `bash: h1: command not found`).
 
 **Erwartung:** Mit gesetztem DF-Bit verweigert schon `h1` das Senden
 (`ping: sendmsg: Message too long`). Ohne DF-Bit wird jedes Echo in zwei
@@ -1215,9 +1226,9 @@ trägt die restlichen 496 Byte (1008 − 512; Länge 516 mit Kopf) und zeigt
 enthält.
 
 Beobachtet mit `tcpdump -n -v -i h1-eth0` den Unterschied zwischen beiden
-Aufrufen (Felder `offset` und `flags [+]`). Öffnet dafür mit
-`mininet> xterm h1` ein Terminalfenster, startet dort den Mitschnitt und
-schickt den Ping aus der Mininet-Kommandozeile:
+Aufrufen (Felder `offset` und `flags [+]`). Startet dafür im offenen
+Fenster `Node: h1` den Mitschnitt und schickt den Ping aus der
+Mininet-Kommandozeile:
 
 ```bash
 h1$ tcpdump -n -v -c 4 -i h1-eth0 icmp
@@ -1238,30 +1249,49 @@ Schickt anschließend die Textdateien per UDP über die Leitung:
 
     | Eingabe | Wirkung |
     |---|---|
-    | `nc -u -l 5000` | lauscht auf UDP-Port 5000 und schreibt Empfangenes ins Terminal |
+    | `nc -u -l -k 5000` | lauscht auf UDP-Port 5000 und nimmt Datagramme von jedem Absender an (`-k`); ohne `-k` hört `nc` nach dem ersten Datagramm nur noch diesem einen Absender zu |
     | `nc -u -w1 10.0.0.2 5000 < datei` | schickt den Inhalt der Datei als UDP-Datagramm an `10.0.0.2:5000`; `-w1` beendet nach 1 Sekunde Ruhe |
     | `-u` | UDP statt TCP |
 
-    **Echte Ausgabe:** Der Sender schweigt. Im Fenster des Empfängers erscheint
-    der Dateitext, wenn das Datagramm vollständig ankommt. In der
-    Mininet-Zeile prüft `h2 sh -c 'wc -c /tmp/nc.out'` die Menge: `1638` Byte
-    (die ganze Datei) oder `0`. Dazwischen gibt es nichts, weil UDP ein
-    Datagramm nur vollständig oder gar nicht zustellt (Nachgedacht unten).
+    **Echte Ausgabe:** Der Sender schweigt. Leitet ihr die Ausgabe des
+    Empfängers in eine Datei um (`> /tmp/nc.out`), wächst sie mit jedem
+    vollständig angekommenen Datagramm um genau `1638` Byte (die ganze
+    Datei). Ein halbes Datagramm gibt es nicht, weil UDP ein Datagramm nur
+    vollständig oder gar nicht zustellt (Nachgedacht unten).
 
     **Typische Fehlermeldung:** Läuft schon ein Listener auf dem Port, meldet
     der zweite `nc` `Address already in use`. Bei `Connection refused` fehlt
     der Listener oder ihr habt Port oder Adresse vertippt.
 
+Startet im Fenster `Node: h2` zuerst den Empfänger im Hintergrund und dann
+den Mitschnitt; schickt die Datei danach aus dem Fenster `Node: h1` –
+mindestens fünfmal hintereinander:
+
 ```bash
-h2$ nc -u -l 5000
+h2$ nc -u -l -k 5000 > /tmp/nc.out &
+h2$ tcpdump -n -v -i h2-eth0 udp
 h1$ nc -u -w1 10.0.0.2 5000 < MehrAls1500ByteText.txt
 ```
 
-Bei der 1638-Byte-Datei zeigt der Mitschnitt auf `h2` vier Fragmente der
-UDP-Nachricht (`offset 0`, `512`, `1024` mit `flags [+]`, zuletzt `offset
-1536` mit `flags [none]`, Länge 130). Kam alles an, erscheint der Text im
-Fenster von `h2`. Wiederholt den Versuch mehrmals: Mal kommen alle 1638 Byte
-an, mal nichts – so viel zur Rechnung in der folgenden Denkaufgabe.
+Bei der 1638-Byte-Datei zeigt der Mitschnitt auf `h2` je Sendung bis zu vier
+Fragmente der UDP-Nachricht (`offset 0`, `512`, `1024` mit `flags [+]`,
+zuletzt `offset 1536` mit `flags [none]`, Länge 130). Beendet den Mitschnitt
+mit Strg+C und zählt, wie viele Datagramme vollständig angekommen sind:
+
+```bash
+h2$ wc -c /tmp/nc.out
+```
+
+Die Bytezahl geteilt durch 1638 ist die Zahl der vollständig angekommenen
+Datagramme: mal kommt eine Sendung ganz an, mal gar nicht – so viel zur
+Rechnung in der folgenden Denkaufgabe.
+
+!!! warning "Ohne `-k` kommt nach dem ersten Datagramm nichts mehr an"
+    `nc -u -l 5000` (ohne `-k`) bindet sich nach dem ersten empfangenen
+    Datagramm fest an Adresse und Port dieses Absenders (`ss -uanp` zeigt
+    dann `ESTAB`). Jeder neue `nc` auf `h1` sendet von einem neuen Quellport
+    und wird verworfen – das sieht aus wie Verlust, ist aber keiner. Nehmt
+    deshalb `-k`, oder startet den Empfänger vor jedem Versuch neu.
 
 !!! question "Nachgedacht: Ein Fragment geht verloren"
     Zählt die Fragmente im Mitschnitt und überlegt, was mit dem ganzen
@@ -1672,7 +1702,8 @@ Kopfzeile von `fdb/show` mit; gemessen wurden `8193` Zeilen und
 ![Desktop-Terminal mit sudo ovs-appctl fdb/show s1 | wc -l (8193) und fdb/stats-show s1: 8192/8192 Einträge, 166529 gelernt, 158337 verdrängt](../assets/screenshots/02-subnetting-arp/topo02-macof-ueberlauf.png)
 *Nach fünf Sekunden `macof`: Die Lerntabelle ist mit 8192 von 8192 Einträgen
 voll, über 150.000 Einträge wurden verdrängt.*
- Verkleinert die Tabelle
+
+Verkleinert die Tabelle
 danach absichtlich und wiederholt den Versuch:
 
 ```bash
@@ -1948,7 +1979,11 @@ Host im Entwicklungsnetz)? Entscheidet auf Papier und prüft mit
     spezifischere Route verhindert genau das. Gemessen: Ohne das `/19` zeigt
     `r2$ ip route get 128.155.192.5` die Route `via 10.0.1.2 dev r2-eth2`, ein
     Ping von `h1` zu `h2` endet mit `From 10.0.0.2 icmp_seq=1 Time to live
-    exceeded`, und `traceroute` zeigt `10.0.0.2` (`r2`) immer wieder. (Zum
+    exceeded`, und `traceroute` zeigt abwechselnd `10.0.0.2` (`r2`) und
+    `* * *` (`r3` bleibt aus demselben `rp_filter`-Grund stumm wie bei Hop 3;
+    steht die Route aus der Hop-3-Lösung noch, wechseln `10.0.0.2` und
+    `10.0.1.2`). Ab etwa Hop 6 kommen nur noch Sterne, weil die Router ihre
+    ICMP-Meldungen begrenzen. (Zum
     Ausprobieren: `r2$ ip route del 128.155.192.0/19`; zurück geht es nur mit
     einem Neustart der Topologie.)
 
@@ -2359,10 +2394,37 @@ warum `h2` die Adresse `10.0.1.2` von `h1` erreicht, die Adresse `10.0.5.2`
 desselben Rechners aber nicht – und warum das eine direkte Folge der
 Subnetz- und Routing-Struktur ist.
 
+??? success "Lösung"
+    `h2` schickt alles, was nicht in `10.0.6.0/24` liegt, über seine
+    Standardroute an `r2` (`10.0.6.1`). `r2$ ip route` zeigt nur die beiden
+    direkt angeschlossenen Netze `10.0.4.0/24` und `10.0.6.0/24` sowie
+    `10.0.1.0/24 via 10.0.4.1` – aber **keine Route nach `10.0.5.0/24` und
+    keine Standardroute**. Für `10.0.1.2` findet `r2` also einen Eintrag und
+    leitet über `r1` weiter (Rückweg: `h1` kennt `10.0.6.0/24 via 10.0.1.1`).
+    Für `10.0.5.2` findet `r2` keinen passenden Eintrag und antwortet selbst
+    mit `Destination Net Unreachable` (Absender `10.0.6.1`). Dass beide
+    Adressen zum selben Rechner gehören, spielt keine Rolle: Router
+    entscheiden nach dem **Zielnetz**, nicht nach dem Rechner. `10.0.5.0/24`
+    hängt nur an `h1-eth0` und ist nur über `s0` angebunden, das `r1` und
+    `r2` nicht kennen.
+
 --8<-- "issue-feedback.md"
 
 ## Potenzielle Herausforderungen
 
+- **`*** Error setting resource limits. Mininet's performance may be
+  affected.`** beim Start ist harmlos: Der Übungs-Container darf die
+  Systemgrenzen nicht anheben, die Topologie läuft trotzdem.
+- **`topoP04` öffnet `Node: h1` und `Node: h2` selbst**, das zuletzt
+  geöffnete Fenster hat den Fokus. `bash: h1: command not found` heißt: Ihr
+  habt `h1 …` in ein Knoten-Fenster getippt – dort ohne Knotennamen
+  eingeben, oder in die Mininet-Kommandozeile wechseln.
+- **Prozesse nie mit `pkill nc` o. Ä. beenden.** Mininet-Knoten teilen sich
+  die Prozessliste mit eurem Desktop; `pkill nc` trifft jeden Prozess,
+  dessen Name `nc` enthält, und kann eure Desktop-Sitzung beenden. Beendet
+  Programme mit Strg+C im jeweiligen Fenster, Hintergrundprozesse mit
+  `kill %1` im selben Fenster oder höchstens mit exaktem Namen
+  (`pkill -x nc`).
 - **Übungsvariante starten:** `topoP02-self` startet ihr mit
   `sudo python3 topoP02-self.py` (im Verzeichnis `~/rn-practice/topoP02`).
 - **`topo02` öffnet seine Terminalfenster selbst** (`r1`, `h0`, `h1`, `h2`,
