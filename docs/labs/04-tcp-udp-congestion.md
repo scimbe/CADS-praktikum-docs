@@ -191,8 +191,11 @@ eure Werte in der Spannweite?
 
     **Wichtig:** Maßgeblich ist immer die Server-Seite. Die Zeile „Server
     Report“, die der Client am Ende ausgibt, zeigt hier unbrauchbare Werte
-    (`(0%)` oder riesige Zahlen), weil auch dieser Bericht über den
-    verlustbehafteten Link muss. Beim iperf-Parameter `-b` steht `M` für
+    (`(0%)`, riesige Verlustzahlen wie `4294966296/0`, `-nan bits/sec` oder
+    das Intervall `0.0000-0.0000 sec`), weil auch dieser Bericht über den
+    verlustbehafteten Link muss. Das ist eine Eigenheit der Client-Ausgabe von
+    `iperf` (Version 2), kein Messwert; lest den Verlust nur am Server ab, oder
+    messt UDP mit `iperf3 -u` (Teil H, `topo02`). Beim iperf-Parameter `-b` steht `M` für
     1 048 576 Bit/s, nicht für 1 000 000.
 
     Typische Fehlermeldung: `connect failed: Connection refused` (oder
