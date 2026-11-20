@@ -136,8 +136,10 @@ draußen. Startet `topo01` wie in Teil 1 und arbeitet im Terminal von `h1`.
 
 !!! note "Voraussetzungen"
     - `netcat` ist installiert; `telnet` ist optional.
-    - Ein API-Schlüssel für OpenWeatherMap. Für die Veranstaltung nutzt bitte
-      den bereitgestellten Schlüssel: `a4a906b6169e02b17c9ef0022802b89b`
+    - Ein API-Schlüssel für OpenWeatherMap. Den Schlüssel für die
+      Veranstaltung bekommt ihr zu Beginn des Termins von den Lehrenden; er
+      steht bewusst nicht in diesem öffentlichen Blatt. Setzt ihn überall
+      dort ein, wo unten `YOUR_API_KEY` steht
       (bei Bedarf könnt ihr auch kostenlos einen eigenen unter
       [openweathermap.org/appid](https://openweathermap.org/appid)
       registrieren).
