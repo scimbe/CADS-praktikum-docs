@@ -54,6 +54,15 @@ schiefgehen kann.
     python3 startHTTPServer.py &
     ```
 
+    !!! warning "Prozesse beenden: nie `pkill` oder `killall`"
+        Nie `pkill`/`killall` benutzen – die Mininet-Knoten teilen sich die
+        Prozessliste mit eurem Desktop; `pkill` kann euren ganzen Desktop
+        beenden und euch abmelden. Beendet Prozesse mit ++ctrl+c++ oder
+        `kill <PID>`. Den Server oben beendet ihr mit `kill <PID>` (die PID
+        zeigt `jobs -l`). Beendet ihn nach Teil 1, wenn
+        beim Neustart `Address already in use` erscheint, und wartet notfalls
+        etwa eine Minute.
+
 3. Sprecht von `h2` aus HTTP manuell per Netcat, statt einen Browser zu
     benutzen:
 
@@ -80,7 +89,12 @@ schiefgehen kann.
     sind vollständig sichtbar, genau wie ein Browser sie normalerweise
     verborgen im Hintergrund verarbeitet.*
 
-4. Alternativ mit `telnet`, falls installiert, identisch:
+    Die Statuszeile lautet `HTTP/1.0 200 OK`: Der einfache Python-Server
+    antwortet in HTTP/1.0 und schließt danach die Verbindung. Eure Anfrage
+    war trotzdem gültiges HTTP/1.1.
+
+4. Alternativ mit `telnet`, falls installiert (optional, `netcat` genügt),
+    identisch:
 
     ```bash
     telnet h1 80
@@ -94,7 +108,9 @@ schiefgehen kann.
 6. Wiederholt den Versuch gegen den HTTPS-Server (`python3
     startHTTPsServer.py` auf `h1`, siehe Aufgabenblatt 01) mit reinem
     Netcat/Telnet auf Port 443. Beobachtet, dass die Anfrage so **nicht**
-    funktioniert bzw. keine sinnvolle Antwort liefert.
+    funktioniert bzw. keine sinnvolle Antwort liefert. (Der Start fragt nach
+    der Passphrase `mininet`, siehe Teil 3. Beendet den Server danach mit
+    ++ctrl+c++.)
 
     !!! note "Warum das nicht funktioniert"
         Netcat und Telnet sprechen nur rohes TCP, keinen TLS-Handshake. HTTPS
@@ -119,8 +135,7 @@ externe Namen wie `api.openweathermap.org` auf. `h2` hat keine Route nach
 draußen. Startet `topo01` wie in Teil 1 und arbeitet im Terminal von `h1`.
 
 !!! note "Voraussetzungen"
-    - `netcat` oder `telnet` müssen installiert sein (sind es auf dem
-      Kurs-Image bereits).
+    - `netcat` ist installiert; `telnet` ist optional.
     - Ein API-Schlüssel für OpenWeatherMap. Für die Veranstaltung nutzt bitte
       den bereitgestellten Schlüssel: `a4a906b6169e02b17c9ef0022802b89b`
       (bei Bedarf könnt ihr auch kostenlos einen eigenen unter
@@ -159,13 +174,16 @@ draußen. Startet `topo01` wie in Teil 1 und arbeitet im Terminal von `h1`.
     Host: api.openweathermap.org
     ```
 
-4. Mit dem `Accept`-Header (bzw. dem Query-Parameter `mode`) lässt sich das
-    Antwortformat beeinflussen. Vergleicht JSON- und XML-Antwort:
+4. Bei dieser API wählt der Query-Parameter `mode` das Antwortformat
+    (`mode=xml`); ohne `mode` kommt JSON. Vergleicht JSON- und XML-Antwort:
 
     ```text
     GET /data/2.5/weather?q=CITY_NAME&appid=YOUR_API_KEY&mode=xml HTTP/1.1
     Host: api.openweathermap.org
     ```
+
+    Probiert zusätzlich eine Anfrage mit der Zeile `Accept: application/xml`
+    und vergleicht, ob sich etwas ändert.
 
 5. Zeichnet den gesamten Vorgang mit Wireshark mit (Filter z. B. auf
     `tcp.port == 80` oder die aufgelöste IP der API) und vergleicht die
@@ -175,8 +193,8 @@ draußen. Startet `topo01` wie in Teil 1 und arbeitet im Terminal von `h1`.
     [openweathermap.org/current](https://openweathermap.org/current)).
 
 !!! example "Vertiefung (optional): Wenn die API nein sagt"
-    Bisher habt ihr nur den Erfolgsfall gesehen – und `jq` zeigt ohnehin nur
-    den Rumpf der Antwort. Wiederholt eure Abfrage mit `curl -i`, damit
+    Bisher habt ihr nur den Erfolgsfall gesehen – ein Programm, das nur den
+    Rumpf ausgibt, zeigt ohnehin keine Statuszeile. Wiederholt eure Abfrage mit `curl -i`, damit
     Statuszeile und Kopfzeilen sichtbar werden.
 
     Provoziert dann Fehler und schaut euch jeweils **beides** an, Status und
@@ -221,6 +239,10 @@ Startet auf `h1` denselben HTTPS-Server, den ihr schon aus
 ```bash
 h1$ python3 startHTTPsServer.py
 ```
+
+Der HTTPS-Server läuft im Vordergrund. Beendet ihn mit ++ctrl+c++, bevor ihr
+Teil 4 startet: Er und `startHTTP3Server.sh` brauchen beide TCP-Port 443,
+sonst bricht nginx mit `Address already in use` ab.
 
 !!! warning "PEM-Passphrase erforderlich"
     Der Server fragt beim Start interaktiv nach einer Passphrase für
@@ -297,8 +319,19 @@ h2$ curl -k --http1.1 -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}\n' htt
 h2$ curl -k --http2   -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}\n' https://10.0.1.2/
 ```
 
-Zeichnet parallel auf `h2` den TCP-Verkehr mit (`sudo tcpdump -i h2-eth0 -w
-/tmp/http12.pcap tcp port 443`) und vergleicht: HTTP/2 überträgt in einer
+Zeichnet parallel auf `h2` den TCP-Verkehr mit: Startet den Mitschnitt mit
+`&`, führt die beiden `curl`-Befehle aus, wartet kurz (`sleep 1`), beendet
+den Mitschnitt (`jobs -l` zeigt die PID, dann `kill <PID>`) und seht ihn euch an:
+
+```bash
+h2$ sudo tcpdump -i h2-eth0 -w /tmp/http12.pcap tcp port 443 &
+# die beiden curl-Befehle von oben ausfuehren
+h2$ sleep 1; jobs -l                # PID von tcpdump ablesen
+h2$ kill <PID>
+h2$ tcpdump -r /tmp/http12.pcap -n | head
+```
+
+Beide Abrufe laufen über TCP, Port 443. Vergleicht: HTTP/2 überträgt in einer
 einzigen TCP-Verbindung binär gerahmte, gemultiplexte Ströme, während
 HTTP/1.1 pro Anfrage seriell arbeitet. Beide sind – anders als HTTP/3 in
 Teil 5 – **TCP**.
@@ -316,6 +349,7 @@ Teil 5 – **TCP**.
     - MDN, „Evolution of HTTP": <https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Evolution_of_HTTP>
 
 --8<-- "issue-feedback.md"
+
 ### Teil 5 – HTTP/3 von Hand beobachten: QUIC ist UDP (`topo01`)
 
 Jetzt der eigentliche QUIC-Teil. HTTP/3 ist HTTP über QUIC (RFC 9114), und
@@ -332,8 +366,8 @@ h2$ sudo tcpdump -i h2-eth0 -w /tmp/quic.pcap udp port 443 &
 h2$ curl -k --http3-only -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}, Status %{response_code}\n' https://10.0.1.2/
 ```
 
-`--http3-only` erzwingt HTTP/3 (kein Rückfall auf TCP). Beendet danach den
-Mitschnitt (`sudo pkill tcpdump`) und schaut hinein:
+`--http3-only` erzwingt HTTP/3 (kein Rückfall auf TCP). Wartet kurz
+(`sleep 1`), beendet danach den Mitschnitt (`jobs -l` zeigt die PID, dann `kill <PID>`) und schaut hinein:
 
 ```bash
 h2$ tcpdump -r /tmp/quic.pcap -n | head
@@ -369,7 +403,7 @@ keine Nutzdaten geflossen sind:
 h2$ tcpdump -r /tmp/quic.pcap -n -v | head -20
 ```
 
-Zählt die Paketgrößen der ersten Datagramme vom Client (`10.0.x.x > 10.0.1.2`)
+Zählt die Paketgrößen der ersten Datagramme vom Client (`10.0.6.2 > 10.0.1.2`)
 und vergleicht sie mit den ersten Antworten des Servers.
 
 **Aufgabe:** Die QUIC-Spezifikation (RFC 9000, Abschnitt 14.1) verlangt, dass
@@ -488,9 +522,13 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
    harmlosen, rein internen Cookie-Mitschnitt statt eines externen Aufrufs:
 
     ```bash
-    h2$ curl -s 'http://10.0.1.2:8080/gaestebuch?name=Angreifer&text=<script>fetch("/sammler?c="+document.cookie)</script>'
+    h2$ curl -s 'http://10.0.1.2:8080/gaestebuch?name=Angreifer&text=<script>fetch("/sammler?c="%2Bdocument.cookie)</script>'
     h2$ curl -s 'http://10.0.1.2:8080/gaestebuch'
     ```
+
+    Das `+` für die Verkettung steht hier als `%2B`: Der Server liest ein
+    rohes `+` in der URL als Leerzeichen, das gespeicherte Skript wäre dann
+    syntaktisch ungültig.
 
     Der zweite Aufruf zeigt, dass der Eintrag jetzt **dauerhaft** in der
     Seite steht – anders als bei der reflektierten Lücke aus Schritt 2, die
@@ -509,7 +547,8 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     innerhalb von `topo01`, es wird nichts exfiltriert. Wer einen grafischen
     Browser zur Hand hat, kann die Payload-URL aus Schritt 3 stattdessen
     wirklich öffnen (`h2 firefox-esr http://10.0.1.2:8080/gaestebuch &` im
-    Mininet-CLI) und beobachten, dass `alert(1)` bzw. der `fetch`-Aufruf ohne
+    Mininet-CLI; öffnet zuerst `http://10.0.1.2:8080/`, damit das Demo-Cookie
+    gesetzt ist) und beobachten, dass `alert(1)` bzw. der `fetch`-Aufruf ohne
     weiteres Zutun feuert.
 
 5. Schneidet die Strecke zwischen `h1` und `h2` mit, während ihr Schritt 2–4
@@ -518,7 +557,7 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     ```bash
     h2$ sudo tcpdump -i h2-eth0 -w /tmp/teil8-xss.pcap -U &
     # Schritte 2-4 wiederholen
-    h2$ sudo pkill tcpdump
+    h2$ sleep 1; jobs -l; kill <PID>
     h2$ tcpdump -r /tmp/teil8-xss.pcap -A | grep -E 'script|sammler'
     ```
 
@@ -544,6 +583,7 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     (Timeout/"Network unreachable"), während der erste funktioniert.
 
 --8<-- "issue-feedback.md"
+
 ## Potenzielle Herausforderungen
 
 - **QUIC/HTTP-3 (Teile 4–7) läuft ausschließlich lokal.** Ein Aufruf gegen

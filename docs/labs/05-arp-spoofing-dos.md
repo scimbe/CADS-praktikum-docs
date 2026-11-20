@@ -59,7 +59,7 @@
     - `<vorgetäuschte-ip>` – die Adresse, die scheinbar zur MAC-Adresse des
       Angreifers gehört (hier meist das Gateway).
 
-    Echte Ausgabe (Angreifer `h2`, `arpspoof -i h2-eth0 -t 10.0.20.11 10.0.20.1`):
+    Echte Ausgabe aus Teil B (`topo02`, Angreifer `h2`, `arpspoof -i h2-eth0 -t 10.0.20.11 10.0.20.1`):
 
     ```
     0:0:0:0:0:3 0:0:0:0:0:4 0806 42: arp reply 10.0.20.1 is-at 0:0:0:0:0:3
@@ -71,19 +71,44 @@
     zu `0:0:0:0:0:3` (tatsächlich die MAC von `h2`). Diese eine Zeile
     wiederholt sich, solange `arpspoof` läuft.
 
-    **Typische Fehlermeldung:** `arpspoof -i lo …` bricht mit einem
-    Python-Traceback ab – auf der Loopback-Schnittstelle gibt es kein ARP.
+    **Typische Fehlermeldung:** `arpspoof -i lo …` bricht mit einer
+    Fehlermeldung ab – auf der Loopback-Schnittstelle gibt es kein ARP.
     Immer eine echte Schnittstelle wie `h2-eth0` angeben.
 
-Nutzt die aus [Lab 03](03-routing-rip-bgp.md) bekannte Zwei-Netz-Topologie
-(`10.0.0.0/24` mit h1/h2, `20.0.0.0/24` mit h3/h4, verbunden über einen
-Router) mit funktionierenden Routen zwischen beiden Netzen.
+Nutzt die aus [Lab 03, Teil 1](03-routing-rip-bgp.md) bekannte
+Zwei-Netz-Topologie `topoP03` (`10.0.0.0/24` mit h1/h2, `20.0.0.0/24` mit
+h3/h4, verbunden über den Router `r1`) mit funktionierenden Routen zwischen
+beiden Netzen. Die Knoten starten dort **ohne IP-Adressen**, ihr müsst
+Adressen und Routen wie in Blatt 03 selbst vergeben:
+
+```bash
+cd ~/rn-practice/topoP03
+./start-topoP03.sh
+```
+
+| Knoten | Schnittstelle | Adresse | Route |
+|--------|---------------|---------|-------|
+| `h1` | `h1-eth0` | `10.0.0.1/24` | `20.0.0.0/24` via `10.0.0.254` |
+| `h2` | `h2-eth0` | `10.0.0.2/24` | `20.0.0.0/24` via `10.0.0.254` |
+| `r1` | `r1-eth0` / `r1-eth1` | `10.0.0.254/24` / `20.0.0.254/24` | – |
+| `h3` | `h3-eth0` | `20.0.0.1/24` | `10.0.0.0/24` via `20.0.0.254` |
+| `h4` | `h4-eth0` | `20.0.0.2/24` | `10.0.0.0/24` via `20.0.0.254` |
+
+Prüft mit `ping -c 2 20.0.0.1` von `h1` aus, dass die Verbindung funktioniert,
+bevor ihr weitermacht. Die genauen Befehle zum Vergeben der Adressen stehen
+in Blatt 03, Teil 1.
 
 **Aufgabe:** Führt von h4 einen Ping auf h1 aus. Leitet diesen Request
 mittels ARP-Spoofing (`arpspoof`) auf h3 um, sodass h3 die Anfragen abfängt.
 Überprüft euren Erfolg in Wireshark. Lasst h3 den abgefangenen Request —
 irreführenderweise — selbst mit einer Antwort beantworten, sodass h4 einen
 scheinbar erfolgreichen Ping von h1 sieht, obwohl h3 geantwortet hat.
+(Hinweis zu den Adressen: `h4` liegt im Netz `20.0.0.0/24` und schickt Pakete
+für `h1` an sein Gateway `r1` (`20.0.0.254`). Zum Umleiten muss `h3` deshalb
+gegenüber `h4` (`20.0.0.2`) so tun, als wäre es `r1` (`20.0.0.254`).)
+(Der Teil „h3 antwortet selbst“ ist eine **Vertiefung (optional)**: Das
+Image bringt dafür kein fertiges Werkzeug mit. Der Kern der Aufgabe ist das
+Umleiten per `arpspoof` und der Nachweis in Wireshark.)
 
 ### Teil B — ARP-Spoofing mit HTTP-Content-Swap (`topo02`)
 
@@ -113,6 +138,18 @@ cd ~/rn-practice/topo02
 ./start-topo02.sh
 ```
 
+Nach dem Start öffnen sich die Terminals `r1`, `h0`, `h1`, `h2` und `h3`.
+Die Rollen und Adressen:
+
+| Knoten | Rolle | Adresse |
+|--------|-------|---------|
+| `h0` | Flood-Angreifer (Teil E/F) | `10.0.10.10` |
+| `h1` | Webserver | `10.0.10.11` |
+| `r1` | Router | `10.0.10.1` / `10.0.1.1` |
+| `r2` | Gateway des Opfers | `10.0.20.1` (MAC `00:00:00:00:00:06`) |
+| `h2` | ARP-Angreifer | `10.0.20.10` (MAC `00:00:00:00:00:03`) |
+| `h3` | Opfer | `10.0.20.11` |
+
 1. **Legitimen Server prüfen:** Der echte Webserver (liefert `index.html`,
     mit deaktiviertem Caching) läuft bereits automatisch auf `h1`, sobald
     `./start-topo02.sh` durchgelaufen ist. Prüft das:
@@ -125,17 +162,18 @@ cd ~/rn-practice/topo02
     `OSError: [Errno 98] Address already in use`, weil der Port bereits
     belegt ist — der Server läuft also schon.
 
-2. **Normalzustand prüfen:** Vom Opfer-Host aus den Server per Browser/`curl`
+2. **Normalzustand prüfen:** Vom Opfer `h3` aus den Server per Browser/`curl`
     aufrufen und den unveränderten Inhalt (`index.html`) bestätigen.
 
     ![Zwei Terminalfenster "Node: h2" und "Node: h3": h3 fuehrt curl -s http://10.0.10.11/ aus und erhaelt die echte Antwort "Wichtige Informationen von 10.0.10.11 (Node h1)"](../assets/screenshots/05-arp-spoofing-dos/topo02-before-attack.png)
     *Normalzustand vor dem Angriff: `h3` (Opfer) ruft den echten Webserver auf
     `h1` (`10.0.10.11`) auf und erhält den unveränderten Original-Inhalt.*
 
-3. **Angriff starten:** Auf dem Angreifer-Host das Angriffsskript starten:
+3. **Angriff starten:** Im Terminal des Angreifers `h2` das Angriffsskript
+    starten (es braucht die Schnittstelle `h2-eth0` und läuft nur in `h2`):
 
     ```bash
-    $ ./startARP-AttackerOnNodeH2.sh
+    h2$ ./startARP-AttackerOnNodeH2.sh
     ```
 
     ![Terminalfenster "Node: h2": Ausgabe des laufenden arpspoof-Prozesses mit wiederholten Zeilen "arp reply 10.0.20.1 is-at 0:0:0:0:0:3"](../assets/screenshots/05-arp-spoofing-dos/arpspoof-live.png)
@@ -159,8 +197,9 @@ cd ~/rn-practice/topo02
       die die Gateway-Adresse `10.0.20.1` auf die MAC-Adresse des Angreifers
       umleiten (klassisches Gateway-Impersonation-MITM).
 
-4. **Angriff verifizieren:** Opfer-Host den Server erneut aufrufen (ggf.
-    vorher lokalen ARP-Cache mit `clear-cache.sh` leeren, siehe unten) und
+4. **Angriff verifizieren:** Auf `h3` den Server erneut aufrufen (den
+    ARP-Cache nur dann mit `clear-cache.sh` leeren, wenn ihr danach die
+    Wartezeit aus Schritt 5 einhaltet) und
     beobachten, dass nun `attack.html` statt `index.html` ausgeliefert wird —
     der sichtbare Beweis für den erfolgreichen Content-Swap. Bestätigt in
     Wireshark, dass die ARP-Replies für die Gateway-Adresse von der
@@ -174,10 +213,11 @@ cd ~/rn-practice/topo02
     Angreifer gelandet ist.*
 
 5. **ARP-Cache zurücksetzen:** Für wiederholbare Demonstrationen den
-    Neighbor-Cache aller Hosts leeren:
+    Neighbor-Cache des Knotens leeren, in dem ihr das Skript ausführt (hier
+    im Terminal von `h3`; andere Knoten sind nicht betroffen):
 
     ```bash
-    $ ./clear-cache.sh   # entspricht: ip -s -s neigh flush all
+    h3$ ./clear-cache.sh   # entspricht: ip -s -s neigh flush all
     ```
 
     !!! warning "Nach dem Leeren zuerst einen Aufruf, dann warten"
@@ -195,6 +235,15 @@ cd ~/rn-practice/topo02
 6. **Angriff beenden:** Mit `Strg+C` auf dem Angreifer-Terminal — das Skript
     entfernt daraufhin den IP-Alias und beendet den gefälschten Webserver
     automatisch (siehe `trap`-Behandlung im Skript).
+
+    !!! warning "Prozesse beenden: nie `pkill` oder `killall`"
+        Nie `pkill`/`killall` benutzen – die Mininet-Knoten teilen sich die
+        Prozessliste mit eurem Desktop; `pkill` kann euren ganzen Desktop
+        beenden und euch abmelden. Beendet Prozesse mit ++ctrl+c++ im
+        eigenen Fenster oder mit `kill <PID>`. Läuft ein Programm mit `&` im
+        Hintergrund, wirkt ++ctrl+c++ nicht auf es: Holt es mit `fg` in den
+        Vordergrund und drückt dann ++ctrl+c++, oder beendet es mit
+        `kill <PID>` (die PID zeigt `jobs -l`).
 
 !!! example "Vertiefung (optional): Ein fester ARP-Eintrag als Gegenmaßnahme"
     ARP glaubt jeder Antwort, auch einer unaufgeforderten – daher funktioniert
@@ -285,9 +334,15 @@ annehmen kann (Denial-of-Service). Nutzt weiterhin die aus Teil B laufende
     h1$ pgrep -f startHTTPD.py || python3 startHTTPD.py
     ```
 
-2. **Normalverhalten prüfen:** Öffnet auf `h3` Firefox und ruft `http://10.0.10.11`
-    auf, um den Dienst zu testen. Schließt Firefox danach wieder, damit sich
-    der Effekt des Angriffs im nächsten Schritt klarer beobachten lässt.
+2. **Normalverhalten prüfen:** Öffnet im Terminal von `h3` Firefox und ruft
+    `http://10.0.10.11` auf, um den Dienst zu testen:
+
+    ```bash
+    h3$ firefox-esr http://10.0.10.11 &
+    ```
+
+    Schließt Firefox danach wieder, damit sich der Effekt des Angriffs im
+    nächsten Schritt klarer beobachten lässt.
 
 3. **SYN-Flood starten:** Als Angreifer agiert `h0` gegen den HTTP-Server
     auf `h1` (`10.0.10.11`):
@@ -300,12 +355,15 @@ annehmen kann (Denial-of-Service). Nutzt weiterhin die aus Teil B laufende
     echte Beispielausgabe.
 
 4. **Wirkung beobachten:** Öffnet erneut Firefox auf `h3` und versucht,
-    `http://10.0.10.11` erneut aufzurufen. Startet zusätzlich auf `h1` einen
-    xterm mit Wireshark und beobachtet die Quelladressen der eingehenden
+    `http://10.0.10.11` erneut aufzurufen. Öffnet zusätzlich in der
+    Mininet-Konsole ein weiteres Terminal für `h1` (`mininet> xterm h1`,
+    siehe [Lab 01](01-netzwerkgrundlagen-tools.md)), startet dort
+    `wireshark &` und beobachtet die Quelladressen der eingehenden
     SYN-Pakete – das ist IP-Spoofing sichtbar im Mitschnitt. Rechnet damit,
     dass Wireshark unter der Last des Angriffs nicht mehr flüssig läuft.
 
-5. **Angriff beenden** (`Strg+C`) und die Erholung des Ziels bestätigen
+5. **Angriff beenden** (`Strg+C` im Terminal von `h0`; der Flood belastet
+    sonst die CPU des ganzen Desktops) und die Erholung des Ziels bestätigen
     (`http://10.0.10.11` erneut in Firefox aufrufen).
 
 **Aufgabe:** Erklärt, warum `--rand-source` den Angriff wirksamer macht als
@@ -356,8 +414,9 @@ erkennen**, ohne vorher zu wissen, dass er stattfindet – so, wie es eine
 reale Administratorin an ihrem Rechner tun müsste, ohne Wireshark-Mitschnitt
 des Angreifers zur Hand zu haben.
 
-Startet `topo02` (falls nicht mehr aktiv) und sorgt zunächst dafür, dass
-`h3` eine "saubere" Basis hat, mit der ihr später vergleichen könnt:
+Startet `topo02` nur, wenn das Fenster mit `mininet>` nicht mehr offen ist –
+sonst zerstört der Start die noch laufende Topologie. Sorgt zunächst dafür,
+dass `h3` eine "saubere" Basis hat, mit der ihr später vergleichen könnt:
 
 ```bash
 cd ~/rn-practice/topo02
@@ -380,6 +439,8 @@ cd ~/rn-practice/topo02
     ```bash
     h2$ ./startARP-AttackerOnNodeH2.sh
     ```
+
+    (Beendet den Angriff am Ende mit ++ctrl+c++ im Terminal von `h2`.)
 
 3. **Selbst erkennen, ohne Wireshark.** Prüft auf `h3` erneut denselben
     Nachbarschafts-Eintrag:
@@ -436,7 +497,8 @@ Prinzip (Änderung einer IP-zu-MAC-Zuordnung erkennen) automatisieren.
       halboffene Verbindungen, wie viele legitime Anfragen scheitern –
       vor und nach dem Schalten einer Gegenmaßnahme.
     - **Vorwissen** – Teil C (SYN-Flood mit `hping3`), `ss` kennt ihr bereits
-      aus [Lab 04](04-tcp-udp-congestion.md); hier nutzt ihr den Filter
+      aus [Lab 01](01-netzwerkgrundlagen-tools.md) und
+      [Lab 04](04-tcp-udp-congestion.md); hier nutzt ihr den Filter
       `state syn-recv`.
 
 Teil C hat den SYN-Flood *gestartet* und über den Browser beobachtet. Das ist
@@ -457,8 +519,8 @@ Gegenmaßnahme des Linux-Kernels ein: **SYN-Cookies**.
 **Ziel:** Zeigen, dass ein SYN-Flood eine legitime Verbindung verhindert, und
 dass SYN-Cookies sie zurückholen.
 
-**Vorbedingung:** `topo02` läuft, der HTTP-Server auf `h1` (`10.0.10.11`) ist
-gestartet (`python3 startHTTPD.py`). Angreifer ist `h0`, ein unbeteiligter
+**Vorbedingung:** `topo02` läuft, der HTTP-Server auf `h1` (`10.0.10.11`)
+läuft bereits (prüft mit `h1$ pgrep -f startHTTPD.py`). Angreifer ist `h0`, ein unbeteiligter
 legitimer Client ist `h3`.
 
 !!! warning "`sysctl -w` allein schlägt hier fehl"
@@ -488,26 +550,44 @@ h1$ unshare -m sh -c 'mount -o remount,rw /proc/sys && sysctl -w net.ipv4.tcp_sy
 h0$ hping3 -S -p 80 --flood --rand-source 10.0.10.11 &
 h1$ ss -tan state syn-recv | grep -c :80      # halboffene Verbindungen
 h3$ curl -s -o /dev/null -m 3 -w '%{http_code}\n' http://10.0.10.11/   # legitim?
-# 3. SYN-Cookies AN, erneut fluten und legitim testen:
+# 3. SYN-Cookies AN; der Flood aus Schritt 2 laeuft weiter. Legitim testen:
 h1$ unshare -m sh -c 'mount -o remount,rw /proc/sys && sysctl -w net.ipv4.tcp_syncookies=1'
 h3$ curl -s -o /dev/null -m 3 -w '%{http_code}\n' http://10.0.10.11/
 ```
 
-Beendet den Flood mit ++ctrl+c++ auf `h0`.
+Beendet den Flood danach mit `h0$ jobs -l` und `h0$ kill <PID>` (oder holt
+ihn mit `fg` zurück und drückt ++ctrl+c++).
 
-**Erwartete Ausgabe:** Im Normalzustand `200`. Bei `syncookies=0` unter Flood:
-eine `SYN-RECV`-Zahl in Höhe des Server-Backlogs und ein legitimer Abruf, der
-mit `000` (keine Verbindung) scheitert. Bei `syncookies=1` unter demselben
-Flood: wieder `200`.
+Zusätzlich zählt der Kernel verworfene SYN mit. Lest den Zähler auf `h1` vor
+dem Flood (vor dem `hping3`-Aufruf) und nach dem Flood ab. Notiert den Wert
+vorher und nachher; die Differenz zählt:
+
+```bash
+h1$ nstat -az TcpExtListenDrops
+```
+
+**Erwartete Ausgabe:** Im Normalzustand `200`. Unter Flood mit `syncookies=0`
+steht in `ss … syn-recv` nur eine kleine Zahl halboffener Verbindungen (der
+Server-Backlog ist begrenzt) und der Zähler `TcpExtListenDrops` wächst stark
+an.
+
+!!! warning "Das Ergebnis von `curl` hängt vom Kernel ab"
+    Ob der legitime `curl` unter Flood tatsächlich mit `000` scheitert, hängt
+    vom Kernel des Hosts ab. Es kommt vor, dass `curl` trotz laufendem Flood
+    und `syncookies=0` weiter `200` liefert, obwohl `ss` volle halboffene
+    Slots und `TcpExtListenDrops` verworfene SYN zeigen. Der Angriff wirkt
+    dann trotzdem (SYN werden verworfen), der Unterschied ist nur nicht am
+    `curl`-Code ablesbar. Verlasst euch deshalb auf die Zähler (`ss`,
+    `TcpExtListenDrops`) und wiederholt den `curl` mehrmals, statt nur einen
+    einzelnen Abruf zu werten. Notiert, was ihr tatsächlich seht.
 
 !!! info "Was ihr seht"
     Der legitime `curl` von `h3` liefert vor dem Angriff `200`. Unter Flood mit
     `net.ipv4.tcp_syncookies=0` zählt `ss … syn-recv` nur wenige halboffene
-    Verbindungen (so viele wie der kleine Listen-Backlog des Python-Servers),
-    und der legitime `curl` liefert `000` – der Angriff greift. Mit
-    `net.ipv4.tcp_syncookies=1` liefert derselbe `curl` bei weiterlaufendem
-    Flood wieder `200`, obwohl `ss` dieselbe Zahl halboffener Verbindungen
-    zeigt. Das ist der Kern: SYN-Cookies halten für die Flut keinen Zustand vor,
+    Verbindungen (so viele wie der kleine Listen-Backlog des Python-Servers)
+    und `TcpExtListenDrops` steigt. Je nach Kernel scheitert der legitime
+    `curl` dabei mit `000` oder liefert trotzdem `200` (siehe Kasten oben).
+    Das Prinzip der SYN-Cookies: Sie halten für die Flut keinen Zustand vor,
     sondern kodieren ihn in die Sequenznummer – der Backlog läuft gar nicht
     erst voll.
 
@@ -550,7 +630,7 @@ sein kann.
     sind nur SYN-Pakete auf Port 80.
 
 **Ziel:** Eine SYN-Ratenbegrenzung bauen, unter Flood messen und feststellen,
-dass die legitime Verbindung weiterhin scheitert – und begründen, warum.
+dass sie den Angriff nicht entschärft – und begründen, warum.
 
 **Vorbedingung:** wie Teil E; `syncookies` zunächst wieder auf `0` setzen, damit
 ihr die Wirkung der Firewall-Regel isoliert seht.
@@ -563,17 +643,25 @@ h1$ nft add table ip fw
 h1$ nft add chain ip fw input '{ type filter hook input priority 0; }'
 h1$ nft add rule ip fw input tcp dport 80 tcp flags syn limit rate 20/second burst 20 packets accept
 h1$ nft add rule ip fw input tcp dport 80 tcp flags syn drop
+h1$ nstat -az TcpExtListenDrops   # Wert vorher notieren
 h0$ hping3 -S -p 80 --flood --rand-source 10.0.10.11 &
 h3$ curl -s -o /dev/null -m 3 -w '%{http_code}\n' http://10.0.10.11/
+h1$ nstat -az TcpExtListenDrops   # Wert nachher; die Differenz zaehlt
 h1$ nft flush ruleset          # aufraeumen
+h0$ jobs -l                    # PID des hping3 ablesen
+h0$ kill <PID>                 # Flood beenden
+h1$ unshare -m sh -c 'mount -o remount,rw /proc/sys && sysctl -w net.ipv4.tcp_syncookies=1'   # Ausgangszustand
 ```
 
-**Erwartete Ausgabe:** Der legitime `curl` scheitert **weiterhin** (`000`),
-obwohl die Firewall-Regel aktiv ist.
+**Erwartete Ausgabe:** Die Firewall-Regel ändert nichts Entscheidendes: Der
+legitime `curl` verhält sich wie ohne Regel (je nach Kernel `000` oder `200`,
+siehe Hinweis in Teil E). Vergleicht auch den Zähler `TcpExtListenDrops` mit
+dem aus Teil E und haltet fest, ob die Regel etwas daran ändert.
 
 !!! info "Was ihr seht"
-    Der legitime `curl` von `h3` bleibt unter Flood auch mit der
-    `nft`-SYN-Ratenbegrenzung bei `000` – genau wie ohne Regel. Der Grund: Die
+    Der legitime `curl` von `h3` verhält sich unter Flood auch mit der
+    `nft`-SYN-Ratenbegrenzung genau wie ohne Regel (zur kernelabhängigen
+    Ausgabe siehe Teil E). Der Grund: Die
     Ratenbegrenzung verwirft SYN-Pakete ohne Ansehen der Quelle. Während der
     Flut ist das 20/s-Budget von den Angreifer-SYN aufgebraucht, bevor das eine
     legitime SYN von `h3` an die Reihe kommt – die Regel trifft Freund und Feind
@@ -624,7 +712,15 @@ h3$ ip neigh replace 10.0.20.1 lladdr <echte-MAC> dev h3-eth0 nud permanent
 # 2. Angriff starten und Eintrag erneut prüfen:
 h2$ ./startARP-AttackerOnNodeH2.sh &
 h3$ ip neigh show 10.0.20.1                      # unveraendert?
+# 3. Angriff beenden (das Skript raeumt Alias und gefaelschten Webserver auf):
+h2$ jobs -l                  # PID des Skripts ablesen
+h2$ kill -INT <PID>
 ```
+
+Läuft das Skript im Vordergrund, genügt ++ctrl+c++ in `h2`. Mit `&` im
+Hintergrund hat ++ctrl+c++ keine Wirkung, deshalb `kill -INT <PID>`. Beendet den
+Angriff immer, sonst bleibt die Vergiftung für alle folgenden Versuche
+bestehen.
 
 **Erwartete Ausgabe:** Nach dem `permanent`-Eintrag bleibt die MAC-Adresse für
 `10.0.20.1` trotz laufendem `arpspoof` unverändert die **echte** MAC des
@@ -670,17 +766,16 @@ Gateways – anders als in Teil D, wo sie auf die MAC des Angreifers umsprang.
 Die bisherigen Teile haben den Angriff *live* beobachtet. Ein Mitschnitt ist
 etwas anderes: ein **dauerhaftes Artefakt**, das man auch nach dem Angriff noch
 auswerten, zählen und vorlegen kann – die Grundlage jeder Incident-Analyse. In
-diesem Teil zeichnet ihr die gefälschten ARP-Replies auf und wertet sie ohne
-`tshark` (das fehlt hier) allein mit `tcpdump` und den `pcap`-Werkzeugen aus.
+diesem Teil zeichnet ihr die gefälschten ARP-Replies auf und wertet sie auch
+ohne grafische Oberfläche mit `tcpdump` und den `pcap`-Werkzeugen aus.
 
-!!! info "Werkzeug: `capinfos` und `editcap` – die pcap-Werkzeuge ohne tshark"
+!!! info "Werkzeug: `capinfos` und `editcap` – die pcap-Werkzeuge für die Kommandozeile"
     Wireshark bringt eine ganze Kommandozeilen-Familie mit, die **auch ohne die
-    grafische Oberfläche und ohne `tshark`** funktioniert: `capinfos` fasst eine
+    grafische Oberfläche** funktioniert: `capinfos` fasst eine
     Datei zusammen (Paketzahl, Dauer), `editcap` schneidet einen Bereich heraus,
-    `mergecap` fügt Dateien zusammen. **Typische Fehldeutung:** anzunehmen, ohne
-    `tshark` sei eine `pcap`-Datei auf der Kommandozeile nicht auswertbar. Für
-    Zählen, Zuschneiden und Zusammenführen genügen diese Werkzeuge – und sie
-    sind vorhanden, `tshark` nicht.
+    `mergecap` fügt Dateien zusammen. **Typische Fehldeutung:** anzunehmen, eine
+    `pcap`-Datei sei ohne Wireshark-Oberfläche nicht auswertbar. Für Zählen,
+    Zuschneiden und Zusammenführen genügen diese Werkzeuge.
 
 **Ziel:** Die gefälschten ARP-Replies eines laufenden Angriffs mitschneiden, ihre
 Zahl bestimmen und einen Ausschnitt als Beweis-Artefakt sichern.
@@ -693,8 +788,9 @@ Zahl bestimmen und einen Ausschnitt als Beweis-Artefakt sichern.
 h3$ mkdir -p ~/rn-practice/pcaps
 h3$ tcpdump -i h3-eth0 -n arp -w ~/rn-practice/pcaps/05-teilh-arpspoof.pcap &
 h2$ ./startARP-AttackerOnNodeH2.sh &
-# einige Sekunden laufen lassen, dann auf h3:
-h3$ pkill tcpdump
+# einige Sekunden laufen lassen, dann beenden (Angriff zuerst):
+h2$ jobs -l; kill -INT <PID>                          # PID des Skripts; es raeumt Alias/Webserver auf
+h3$ jobs -l; kill <PID>                               # PID von tcpdump; beendet und schreibt die Datei fertig
 h3$ P=~/rn-practice/pcaps/05-teilh-arpspoof.pcap
 h3$ capinfos -c "$P"                                  # wie viele Pakete?
 h3$ tcpdump -r "$P" -n | grep -c is-at                # wie viele gefaelschte Replies?
