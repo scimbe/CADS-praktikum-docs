@@ -16,8 +16,9 @@
   bedienen (`show ip route`, `configure terminal`, Protokoll-Module).
 - Administrative Distanz als Auswahlkriterium zwischen konkurrierenden
   Routing-Quellen verstehen und gezielt verändern.
-- IPv4- und IPv6-Routing als getrennte, parallele Strukturen einordnen
-  (separate Tabellen, weil nicht direkt kompatible Adressfamilien).
+- IPv6-Link-Local-Adressen (`fe80::…%Schnittstelle`) anwenden und verstehen,
+  warum IPv6 neben IPv4 eine eigene, getrennte Adressfamilie mit eigener
+  Tabelle ist.
 - RP-Filtering als Schutzmechanismus gegen IP-Spoofing verstehen und
   kontrolliert (für Diagnosezwecke) deaktivieren können.
 - Die Zeitkonstanten und den Protokoll-Overhead eines Routing-Protokolls aus
@@ -38,7 +39,13 @@ Rautenzeichen sagt euch, **wo**:
 | `r1$`, `h1$`, … | in dem Terminalfenster, das `mininet> xterm r1` (bzw. `h1`) geöffnet hat; es gehört zu diesem einen Knoten | `r1$ ip route` |
 | `r1#` | in `vtysh`, der Konsole der Routing-Software auf `r1` | `r1# show ip route` |
 
-Nur der Text **nach** dem Präfix wird getippt, das Präfix selbst nicht.
+Nur der Text **nach** dem Präfix wird getippt, das Präfix selbst nicht. Auf dem
+Bildschirm sieht es anders aus: In jedem Knoten-Fenster (Titel `Node: r1`)
+steht `root@<Zahlen-Buchstaben>:~/rn-practice/topo03#`. Das ist die
+**Linux-Shell** des Knotens (`r1$` im Blatt), obwohl die Zeile mit `#` endet.
+Erst nach `vtysh` ändert sich die Eingabezeile; ihr verlasst `vtysh` mit
+`exit`. Der Prompt von `vtysh` zeigt ebenfalls die Container-Kennung statt
+`r1`.
 
 ## Aufgaben
 
@@ -80,7 +87,17 @@ einem Netz ins andere weitergeben.
     - `mininet> h2 ip addr` stellt den Knotennamen vor einen Befehl: Er läuft
       dann einmalig in `h2`, ohne ein Fenster zu öffnen.
 
-    Mit `exit` an der Mininet-Konsole beendet ihr die Emulation.
+    Mit `exit` (gleichbedeutend: `quit`) an der Mininet-Konsole beendet ihr
+    die Emulation. Nur in `topo03` (Teil 2) hat `exit` zwei Stufen, siehe dort.
+    Beendet `topoP03` immer mit `exit`, bevor ihr `topo03` startet: Das
+    Startskript räumt alles auf, was es findet, auch das laufende Netz.
+
+!!! warning "Prozesse nie mit `pkill` oder `killall` beenden"
+    Nie `pkill`/`killall` benutzen – die Mininet-Knoten teilen sich die
+    Prozessliste mit eurem Desktop; `pkill nc` beendet euren ganzen Desktop
+    und meldet euch ab. Beendet Prozesse mit ++ctrl+c++ oder `kill <PID>`
+    (die PID zeigt `ps` bzw. bei Hintergrundjobs `jobs -l`; `kill %1` beendet
+    den Job Nummer 1).
 
 !!! info "Werkzeug: `ip` – Adressen und Routen anzeigen und setzen"
     `ip` ist das Standardwerkzeug von Linux für die Netzwerkeinstellungen. Es
@@ -240,8 +257,9 @@ Ziel.*
 
 !!! question "Nachgedacht: Warum scheitert der Ping, wenn nur eine Richtung stimmt?"
     Löscht auf `h3` die Rückroute (`h3$ ip route del 10.0.0.0/24`) und pingt
-    erneut von `h1` aus. Startet vorher in einem zweiten Fenster auf `h3`
-    `tcpdump -n -i h3-eth0 icmp` (siehe Werkzeug-Kasten unten). Kommen die
+    erneut von `h1` aus. Öffnet dazu ein zweites Fenster für `h3` (`mininet> xterm h3`):
+    In einem Fenster läuft vorher `tcpdump -n -i h3-eth0 icmp` (siehe
+    Werkzeug-Kasten unten), im anderen löscht ihr die Route. Kommen die
     Anfragen bei `h3` an? Setzt die Route danach wieder
     (`h3$ ip route add 10.0.0.0/24 via 20.0.0.254`).
 
@@ -276,7 +294,10 @@ Ziel.*
         Ergebnis: Der Ping schlägt fehl (`100% packet loss`), obwohl `tcpdump` auf `h3`
         die Anfragen `echo request` sehr wohl zeigt. Es fehlen nur die
         Antworten: `h3` hat keine Route zurück in das Netz `10.0.0.0/24` und
-        kann deshalb nicht antworten. Ein fehlgeschlagener Ping heißt also nicht
+        kann deshalb nicht antworten. (Genau genommen verwirft Linux hier unter
+        Umständen schon die Anfrage selbst, weil die Absenderadresse laut
+        Routing-Tabelle nicht erreichbar ist – davon handelt in Teil 2 der
+        Abschnitt „RP-Filtering“.) Ein fehlgeschlagener Ping heißt also nicht
         „das Paket kam nicht an", sondern „ich habe keine Antwort gesehen".
         Routing ist **je Richtung** zu betrachten, nicht je Verbindung.
 
@@ -344,8 +365,9 @@ Beide Protokolle unterscheiden sich grundlegend darin, wie sie eine Route
 Policies ab.
 
 !!! info "Hintergrund: RIP kann nur bis 15 zählen – und das ist Absicht"
-    RIPs Metrik ist die Zahl der Zwischenstationen, und bei **16** gilt ein
-    Ziel als unerreichbar. Das wirkt wie eine willkürliche Grenze, löst aber
+    RIPs Metrik ist die Zahl der Teilstrecken (Hops) bis zum Ziel, ein direkt
+    angeschlossenes Netz zählt 1, und bei **16** gilt ein Ziel als
+    unerreichbar. Das wirkt wie eine willkürliche Grenze, löst aber
     ein echtes Problem. In einem Distance-Vector-Verfahren erzählt jeder
     Router seinen Nachbarn nur, *wie weit* ein Ziel entfernt ist – nicht,
     *worüber* der Weg führt. Fällt eine Verbindung aus, können sich zwei
@@ -354,7 +376,7 @@ Policies ab.
     *Count-to-Infinity*-Problem würde ohne Obergrenze niemals enden.
 
     RIP erklärt darum einfach 16 zu „unendlich". Der Preis: in Netzen mit
-    mehr als 15 Zwischenstationen ist RIP nicht einsetzbar. Genau diese
+    Pfaden von mehr als 15 Hops ist RIP nicht einsetzbar. Genau diese
     Abwägung – Einfachheit gegen Reichweite – ist einer der Gründe, warum
     später Link-State-Verfahren wie OSPF entstanden sind.
 
@@ -394,11 +416,16 @@ Nach etwa 30 Sekunden meldet sich die Mininet-Konsole. Die Topologie läuft in
 **zwei Stufen**, und das Skript sagt euch jeweils, in welcher ihr seid:
 
 - **Stufe 1:** Das Netz steht, aber die Routing-Dienste (RIP und BGP) sind noch
-  aus. Ihr seht die Zeile `STUFE 1 von 2`.
-- Ein einmaliges `exit` an der Mininet-Konsole beendet **nicht** die Emulation,
-  sondern startet RIP und BGP auf allen vier Routern.
-- **Stufe 2:** RIP und BGP laufen (`STUFE 2 von 2`). Erst ein *weiteres*
-  `exit` beendet die Emulation.
+  aus (Zeile `STUFE 1 von 2`). Hier könnt ihr schon Terminals öffnen. Ein
+  **erstes** `exit` (oder `quit`) beendet nicht die Emulation, sondern startet
+  RIP und BGP auf allen vier Routern.
+- **Stufe 2:** RIP und BGP laufen (Zeile `STUFE 2 von 2`). Erst ein **zweites**
+  `exit` beendet die Emulation und schließt alle Knoten-Fenster.
+
+**Neustart:** Beendet `topo03` mit `exit` (in Stufe 2), wartet, bis die normale
+Eingabezeile des Terminals zurück ist, und startet mit `./start-topo03.sh`
+neu. Beendet auch `topoP03` aus Teil 1 vorher mit `exit`: Das Startskript
+räumt alles auf, was es findet, auch ein noch laufendes Netz.
 
 ![Terminalfenster mit dem Start von topo03: oben die Mininet-Meldungen über Hosts r1 bis r4, Switches sw1 bis sw4 und Links, darunter die Zeile "STUFE 1 von 2: Routing-Dienste sind noch AUS. Tippt 'exit', um RIP und BGP zu starten." und der Prompt "mininet>"](../assets/screenshots/03-routing-rip-bgp/topo03-stufe1-start.png)
 *`topo03` nach dem Start: die Mininet-Konsole in Stufe 1. Die Routing-Dienste
@@ -408,9 +435,10 @@ laufen noch nicht.*
 
 !!! info "Werkzeug: `ip -br addr` und IPv6-Link-Local-Adressen"
     Das Werkzeug kennt ihr aus Teil 1. Hier kommt `-6` dazu: `ip -br -6 addr`
-    zeigt nur die IPv6-Adressen. Jede Schnittstelle bekommt vom Kernel von
+    zeigt nur die IPv6-Adressen. Jede Schnittstelle bekommt von
     selbst eine Adresse `fe80::…` (*link-local*), die nur im direkten Segment
-    gilt, auch wenn ihr IPv6 nie eingerichtet habt.
+    gilt, auch wenn ihr IPv6 nie eingerichtet habt (die zusätzliche Adresse an
+    `lo` legt das Übungsskript an; ignoriert sie).
 
 Öffnet ein Terminal auf `r1` und seht euch die Adressen an:
 
@@ -459,11 +487,16 @@ eigene Schnittstelle (`193.1.1.0/26`). Das Stub-Netz `192.168.1.0/24` kennt `r2`
 noch nicht, ohne Routing-Protokoll kann es sie nicht erfahren.
 
 **Selbst:** Wiederholt den Test mit IPv6. Link-Local-Adressen brauchen die
-Angabe, über welche Schnittstelle sie erreichbar sind. Lest die
-Link-Local-Adresse von `r1-eth1` mit `ip -br -6 addr` ab und setzt sie ein:
+Angabe, über welche Schnittstelle sie erreichbar sind.
+
+1. Wechselt in das Fenster von `r1` und tippt `ip -br -6 addr`. Merkt euch die
+   Adresse in der Zeile `r1-eth1` (ohne `/64`), zum Beispiel
+   `fe80::c087:6eff:febb:3337`.
+2. Tippt im Fenster von `r2` den Ping mit **eurer** Adresse; die spitzen
+   Klammern der Vorlage gehören nicht in den Befehl:
 
 ```bash
-r2$ ping6 -c 1 fe80::<rest-der-adresse>%r2-eth0
+r2$ ping -6 -c 1 fe80::c087:6eff:febb:3337%r2-eth0
 ```
 
 Der Zusatz `%r2-eth0` sagt: „diese Adresse liegt an meiner Schnittstelle
@@ -473,6 +506,11 @@ Der Zusatz `%r2-eth0` sagt: „diese Adresse liegt an meiner Schnittstelle
 PING fe80::b438:9ff:fe1f:9c3%r2-eth0 (fe80::b438:9ff:fe1f:9c3%r2-eth0) 56 data bytes
 64 bytes from fe80::b438:9ff:fe1f:9c3%r2-eth0: icmp_seq=1 ttl=64 time=1.33 ms
 ```
+
+(Die Adresse in dieser Beispielausgabe weicht von der im Befehl oben ab: Jeder
+Start vergibt andere `fe80::…`-Adressen.) Ein Blick auf `r1$ ip -6 route` zeigt
+für `fe80::/64` einen Eintrag je Schnittstelle: IPv6 führt eine eigene Tabelle
+neben `ip route`.
 
 !!! question "Nachgedacht: Warum braucht IPv6 hier ein `%r2-eth0`?"
     `r2` hat zwei Schnittstellen, und `fe80::…`-Adressen sind nur im jeweiligen
@@ -499,7 +537,12 @@ Die vorkonfigurierten FRR-Router (`r1`–`r4`, nachlesbar unter
 
 `r4` besitzt keine `bgpd.conf` – er nimmt ausschließlich am RIP-Verbund
 teil, nicht am BGP-Verbund zwischen `r1`/`r2`/`r3` (AS 65001/65002/65003).
-`r1` lernt `192.168.3.0/24` deshalb aus zwei Quellen: per BGP und per RIP.
+`r1` lernt `192.168.3.0/24` aus zwei Quellen: `r3` kündigt es per BGP an und
+(über `redistribute connected`) auch per RIP.
+
+Öffnet ihr die Konfigurationsdateien, lasst die Dateien `*.ref` und die
+Kommentare am Dateianfang außer Acht; sie stammen aus einem Test. Wichtig sind
+nur die Zeilen `router rip`, `network …`, `router bgp …` und `neighbor …`.
 Welche davon gewinnt und was `r4` beiträgt, untersucht ihr im weiteren
 Verlauf.
 
@@ -545,8 +588,9 @@ r1$ wireshark -i r1-eth1 -k &
 mininet> exit
 ```
 
-Gebt in Wireshark den Anzeigefilter `rip or bgp` ein (Wireshark akzeptiert auch `rip || bgp`). Nach wenigen Sekunden beginnt ein
-reger Paketaustausch, in dem RIP und BGP versuchen, Konvergenz zu erreichen:
+Gebt in Wireshark den Anzeigefilter `rip or bgp` ein. (Das Bild unten zeigt
+`rip || bgp`; beide Schreibweisen sind gleichbedeutend.) Nach wenigen Sekunden
+beginnt ein reger Paketaustausch, in dem RIP und BGP versuchen, Konvergenz zu erreichen:
 
 ![Wireshark mit dem Mitschnitt von r1-eth1 und dem Anzeigefilter "rip || bgp": RIPv2-Request und -Response-Nachrichten an 224.0.0.9 von 193.1.1.1, 193.1.1.2 und 193.1.1.4, darunter BGP-Nachrichten zwischen 193.1.1.1 und 193.1.1.2: OPEN Message, KEEPALIVE Message und UPDATE Message](../assets/screenshots/03-routing-rip-bgp/topo03-wireshark-rip-bgp.png)
 *Mitschnitt auf `r1-eth1` direkt nach dem Start von RIP und BGP. Oben die
@@ -570,8 +614,21 @@ Gegensatz zu Link-State-Protokollen wie OSPF, die Topologie-Informationen nur
 bei Änderungen verschicken und dazwischen nur kleine Hello-Pakete senden.
 Wie groß dieser Abstand wirklich ist, messt ihr in Teil 4.
 
-Beendet Wireshark mit dem Schließen des Fensters. Nach etwa zehn Sekunden
-haben alle Router ihre Tabellen gefüllt.
+Schließt Wireshark mit dem Schließen des Fensters. Fragt Wireshark, ob ihr den
+Mitschnitt speichern wollt (Dialog „Stop and Save“ bzw. „Quit without
+Saving“), antwortet mit **Quit without Saving**. Wartet danach bis zu etwa
+einer Minute: So lange kann es dauern, bis alle RIP-Routen eingetragen sind
+(BGP-Routen stehen meist nach wenigen Sekunden). Mit `r1$ ip route` seht ihr
+den Stand.
+
+!!! info "Hinweis: Zeilen `FD Limit set … stupidly large` in der Konsole"
+    Auf manchen Desktops schreibt der BGP-Dienst bei fast jedem Befehl, der
+    `vtysh` oder `bgpd` berührt, mehrere Zeilen wie `BGP: … FD Limit set:
+    1048576 is stupidly large. Is this what you intended? …` in die
+    Mininet-Konsole. Sie sind harmlos, können aber die erwartete Ausgabe
+    verdecken. Die eigentliche Ausgabe steht direkt darüber oder darunter;
+    überlest die Meldung. Am wenigsten stört sie, wenn ihr Befehle im
+    Knoten-Fenster (`mininet> xterm r1`) tippt statt mit `mininet> r1 …`.
 
 #### Zwei Tabellen: Kernel und Routing-Software
 
@@ -590,7 +647,8 @@ r1$ ip route
 ```
 
 Neu sind `192.168.3.0/24` und `193.1.2.0/24`, beide über `193.1.1.2` (also `r2`),
-`proto bgp` verrät, welches Protokoll sie gelernt hat. Verfolgt den Pfad:
+`proto bgp` verrät, welches Protokoll sie gelernt hat. `nhid 12` ist eine
+interne Nummer des Kernels für den nächsten Router; ihr könnt sie ignorieren. Verfolgt den Pfad:
 
 ```bash
 r1$ traceroute -n 192.168.3.1
@@ -619,7 +677,8 @@ nächsten Schritt braucht ihr ein zweites Werkzeug.
 
     | Aufruf | Bedeutung |
     |---|---|
-    | `vtysh` | interaktive Konsole; Prompt `r1#` (zeigt eigentlich den Rechnernamen) |
+    | `vtysh` | interaktive Konsole; Prompt `r1#` (zeigt eigentlich die Container-Kennung statt `r1`) |
+    | `exit` | `vtysh` verlassen und zurück in die Linux-Shell des Knotens |
     | `vtysh -c "show ip route"` | genau einen Befehl ausführen und zurück in die Linux-Shell |
     | `show ip route 192.168.3.0/24` | nur die Einträge zu einem Präfix |
     | `?` | an jeder Stelle: zeigt die möglichen Fortsetzungen |
@@ -754,18 +813,21 @@ RIP-Eintrag das Wort `best`.
     Weg?
 
     ??? success druck-zu "Lösung"
-        In `show ip rip` stehen ausschließlich Routen, die von `193.1.1.2`
-        (`r2`) gelernt wurden, keine von `r4`, obwohl `r1` und `r4` am selben
-        Switch-Segment hängen. `r4` bietet `192.168.3.0/24` zwar ebenfalls an,
-        aber mit derselben Metrik; RIP behält bei gleicher Metrik die zuerst
-        gelernte Route. `r1` hat für `192.168.3.0/24` also nur einen Nexthop:
-        `r2`. Er ist ihm zweimal bekannt, einmal per BGP, einmal per RIP,
-        beide über `193.1.1.2`.
+        In `show ip rip` steht bei euch als Nexthop fast immer `193.1.1.2`
+        (`r2`); je nach Start kann es auch `193.1.1.4` (`r4`) sein, denn `r1`
+        und `r4` hängen am selben Switch-Segment. `r4` bietet
+        `192.168.3.0/24` ebenfalls an, aber mit derselben Metrik. RIP speichert
+        je Ziel nur **eine** Quelle: bei gleicher Metrik die zuerst gelernte.
+        Lest in der Spalte **From** nach, welcher Fall bei euch gilt. `r1` hat
+        für `192.168.3.0/24` also nur einen RIP-Nexthop (hier `r2`); bekannt
+        ist ihm das Ziel zweimal, einmal per BGP, einmal per RIP.
 
         Die geänderte Distanz bewirkt deshalb keinen anderen Weg, sondern eine
         andere Quelle in der Tabelle: aus `bgp` wird `rip`, weil RIPs Distanz
         von 120 nun unter dem auf 200 gesetzten BGP-Wert liegt. Die Pakete
-        nehmen denselben Weg wie vorher. Eine veränderte Routing-Tabelle heißt
+        nehmen denselben Weg wie vorher (Voraussetzung: der RIP-Nexthop ist
+        derselbe Router wie der BGP-Nexthop; das habt ihr in der Spalte
+        **From** geprüft). Eine veränderte Routing-Tabelle heißt
         also nicht automatisch veränderter Datenfluss. `r4` wird dennoch
         gebraucht – aus der Sicht von `r2`, und davon handelt Teil 3.
 
@@ -891,14 +953,20 @@ r1$ ip route del 192.168.3.1/32
     r1$ ping -c 4 192.168.3.1
     ```
 
-    Erklärt, warum sich für `r1` nichts ändert. Der Hinweis zu `show ip rip`
-    oben enthält alles, was ihr dazu braucht. Schaltet das Interface danach
-    wieder ein (`r4$ ifconfig r4-eth1 up`).
+    Erklärt, warum sich für `r1` nichts ändert. Schaut dazu mit
+    `r1$ vtysh -c "show ip rip"` in die Spalte **From**: Von welchem Router
+    hat `r1` die Route zu `192.168.3.0/24`? Berührt der abgeschaltete Link
+    `r4-eth1` diesen Router? Schaltet das Interface danach wieder ein
+    (`r4$ ifconfig r4-eth1 up`).
 
     ??? success druck-zu "Lösung"
         Für `r1` ändert sich nichts: derselbe Routen-Eintrag, kein
-        Paketverlust (`4 received`), keine erhöhte Laufzeit. `r1` benutzt `r2`
-        als einzigen Nexthop; `r4` war für `r1` nie im Spiel. Bei einer
+        Paketverlust (`4 received`), keine erhöhte Laufzeit. `r1` hat die Route
+        zu `192.168.3.0/24` laut Spalte **From** von `r2` (selten von `r4`);
+        BGP (Distanz 20) liefert sie ohnehin über `r2`. Der Ausfall von
+        `r4-eth1` trifft `r2` nicht – beim RIP-Nexthop `r4` verschwindet
+        höchstens der RIP-Eintrag, die Pings laufen weiter. `r1` merkt also
+        nichts. Bei einer
         Störungsmeldung ist „wen trifft dieser Ausfall überhaupt?" oft die
         ergiebigere Frage als „ist etwas ausgefallen?". Einen Ausfall, der
         tatsächlich eine Rekonvergenz erzwingt, untersucht ihr in Teil 3.
@@ -915,8 +983,8 @@ r1$ ip route del 192.168.3.1/32
 
     ??? success druck-zu "Lösung"
         Beobachtung: `show ip rip` auf `r1` zeigt die bereits gelernten RIP-Routen nach
-        dem Abschalten zunächst weiter, dann mit Metrik `16` (= unerreichbar),
-        und nach ablaufendem RIP-Timeout (180 s) sind sie weg. Die Routen über
+        dem Abschalten zunächst weiter, nach 180 s (RIP-Timeout) mit Metrik
+        `16` (= unerreichbar) und nach weiteren 120 s (Garbage Collection) ganz weg. Die Routen über
         BGP bleiben die ganze Zeit; `ping 192.168.3.1` gelingt weiter. Auch
         mit `distance bgp 200 200 200` auf allen Routern fällt nichts
         auseinander: Die administrative Distanz entscheidet nur zwischen
@@ -940,19 +1008,21 @@ r1$ ip route del 192.168.3.1/32
     **Vorwissen:** Teil 2 (`vtysh`, `show ip route`, RIP und BGP nebeneinander).
 
 Teil 2 hat gezeigt, dass `r1` für `192.168.3.0/24`, solange `r2-eth1`
-funktioniert, nur `r2` als Nexthop kennt – `r4` spielt aus Sicht von `r1`
-in diesem Zustand keine Rolle. `r4` bildet aber eine **Backup-Route**, weil
-er sowohl am gemeinsamen Switch-Segment von `r1` und `r2`
-(`193.1.1.0/26`, `sw2`) als auch am Segment von `r3` (`193.1.2.0/24`,
-`sw3`) sitzt; er ist für `r1` und `r2` direkt per RIP erreichbar. Solange
+funktioniert, in der Regel nur `r2` als Nexthop kennt – `r4` spielt aus Sicht
+von `r1` in diesem Zustand keine Rolle. `r4` bildet aber eine
+**Backup-Route**, weil er sowohl am gemeinsamen Switch-Segment von `r1` und
+`r2` (`193.1.1.0/26`, `sw2`) als auch am Segment von `r3` (`193.1.2.0/24`,
+`sw3`) sitzt; `r1` und `r2` sind seine direkten RIP-Nachbarn. Solange
 `r2` direkt mit `r3` verbunden ist, bleibt der Pfad über `r2` die bessere
-(kürzere) Route für `r2` und `r4` bleibt ungenutzt – bis genau diese
+(kürzere) Route, und `r4` bleibt ungenutzt – bis genau diese
 direkte Verbindung ausfällt. Dann ändert sich der Weg nicht nur bei `r2`,
 sondern auch bei `r1`.
 
 In diesem Teil legt ihr diese direkte Verbindung lahm und messt, wie
 schnell RIP auf den Ersatzpfad über `r4` umschaltet. Startet dafür `topo03`
-neu und wechselt mit `exit` in Stufe 2; wartet etwa zehn Sekunden.
+neu (Beenden und Neustart wie in Teil 2 beschrieben: zweimal `exit`, dann
+`./start-topo03.sh`), wechselt mit **einem** `exit` in Stufe 2 und wartet etwa
+eine Minute, bis BGP und RIP stehen.
 
 **Vorgemacht.** Stellt auf `r2` den funktionierenden Zustand fest:
 
@@ -980,8 +1050,8 @@ Verbindung zu `r3`. (In den ersten Sekunden nach dem Start steht dort nur der
 RIP-Eintrag: BGP baut seine Sitzungen erst nach RIP auf.)
 
 **Gemeinsam.** Startet auf `r1` einen dauerhaften Ping auf `192.168.3.1` in
-einem eigenen Terminal, damit ihr die Auswirkung auf die Ende-zu-Ende-
-Konnektivität mitverfolgen könnt:
+einem eigenen Terminal, damit ihr die Auswirkung auf die
+Ende-zu-Ende-Konnektivität mitverfolgen könnt:
 
 ```bash
 mininet> xterm r1
@@ -1026,10 +1096,16 @@ Ersatzroute über `193.1.1.4` (`r4`).*
 
 **Selbst.**
 
-1. Schaltet `r2-eth1` wieder ein (`r2$ ifconfig r2-eth1 up`) und wiederholt die
-   Messung zwei- bis dreimal. Bei der Wiederholung genügt die Messschleife auf
-   `r2`; den Ping braucht ihr dazu nicht. Notiert jedes Mal die Zeit. Bei uns
-   kamen fünf Messungen auf 5 bis 25 Sekunden.
+1. Schaltet `r2-eth1` wieder ein (`r2$ ifconfig r2-eth1 up`) und wartet, bis
+   `r2$ vtysh -c "show ip route 192.168.3.0/24"` wieder den direkten
+   Weg über `193.1.2.2` zeigt (für die Messung genügt die RIP-Zeile;
+   die BGP-Zeile mit `best` kann bis zu drei Minuten dauern). Erst dann startet
+   ihr die Messschleife erneut: Zeigt `r2` direkt nach dem Einschalten noch
+   `193.1.1.4`, endet die Schleife sofort mit „0 Sekunden“ und die Messung ist
+   wertlos. Wiederholt die Messung zwei- bis dreimal. Bei der Wiederholung
+   genügt die Messschleife auf `r2`; den Ping braucht ihr dazu nicht. Notiert
+   jedes Mal die Zeit. Bei uns kamen Messungen zwischen 5 und 37 Sekunden; mehr als
+   etwa 40 Sekunden sind unwahrscheinlich.
 2. Vergleicht eure Zeiten mit RIPs periodischem Update-Intervall von 30
    Sekunden.
 3. Notiert, nach wie vielen Sekunden der Ping auf `r1` wieder Antworten
@@ -1049,13 +1125,14 @@ Ersatzroute über `193.1.1.4` (`r4`).*
 
     ??? success druck-zu "Lösung"
         **Auf `r2`:** `r2` meldet den Ausfall sofort weiter (triggered update
-        mit Metrik 16, dazu der Rückzug der BGP-Route an `r1`). `r1` verliert
-        seine Route zu `192.168.3.0/24` deshalb innerhalb weniger Sekunden. Die
+        mit Metrik 16, dazu der Rückzug der BGP-Route an `r1`). `r1`
+        verwirft die BGP-Route über `r2` deshalb innerhalb weniger Sekunden
+        und schaltet auf die RIP-Route über `r4` um. Die
         Ersatzroute über `r4` erscheint auf `r2` dagegen erst mit dem nächsten
         periodischen Update von `r4`: `r4`s eigene Route ist vom Ausfall nicht
         betroffen, er hat also keinen Anlass für ein triggered update. Je
         nachdem, wo im 30-Sekunden-Zyklus von `r4` der Ausfall liegt, dauert das
-        wenige Sekunden bis gut 30 Sekunden; die Messwerte streuen deshalb
+        etwa 5 bis 40 Sekunden (30 Sekunden mit zufälliger Streuung); die Messwerte streuen deshalb
         zwischen den Wiederholungen.
 
         **Auf `r1`:** `r1` ist selbst RIP-Nachbar von `r4` und übernimmt die
@@ -1068,9 +1145,9 @@ Ersatzroute über `193.1.1.4` (`r4`).*
         Ausfall von `r2-eth1` also nicht direkt. Er behält seine BGP-Route zu
         `193.1.1.0/26` über `193.1.2.1` (`r2`), bis die BGP-Sitzung zu `r2`
         nach Ablauf der Hold Time (180 s ohne Nachricht von `r2`) abgebaut
-        wird. Erst dann übernimmt `r3` die RIP-Route über `r4`, die er die
-        ganze Zeit kannte, die aber wegen der höheren administrativen Distanz
-        nicht gewählt war. Die direkten Nachbarschaften bleiben die ganze Zeit
+        wird. Bis dahin verdrängt die BGP-Route (Distanz 20) jede RIP-Route
+        (Distanz 120), auch die über `r4`, die `r3` in dieser Zeit lernt. Erst
+        nach dem Abbau gilt die RIP-Route. Die direkten Nachbarschaften bleiben die ganze Zeit
         intakt – `r4` erreicht `r2` und `r3` durchgehend ohne Verlust.
 
         **Der Merksatz dahinter:** Konvergenz ist kein Zeitpunkt, sondern ein
@@ -1088,7 +1165,8 @@ r2$ vtysh -c "show ip route 192.168.3.0/24"
 Die Route wechselt innerhalb von ein bis zwei Sekunden auf den direkten Pfad
 über `193.1.2.2` zurück (`Known via "rip", … metric 2`). Die BGP-Sitzung
 zwischen `r2` und `r3` braucht danach noch länger, bis sie wieder steht; in
-`show ip bgp summary` steht sie bis dahin auf `Idle`. Beendet den Ping auf
+`show ip bgp summary` steht dort bis dahin nicht eine Zahl, sondern `Idle`,
+`Active` oder `Connect`. Beendet den Ping auf
 `r1` mit ++ctrl+c++.
 
 --8<-- "issue-feedback.md"
@@ -1125,8 +1203,11 @@ wie sie konfiguriert sind.
 
 #### Schritt 1 – Erst rechnen, dann aufzeichnen
 
-Füllt diese Tabelle **bevor** ihr etwas startet. Alles, was ihr dafür braucht,
-steht in Teil 2 und 3 dieses Blattes.
+Füllt diese Tabelle **bevor** ihr etwas startet. Alles, was ihr für die ersten beiden
+Zeilen braucht, steht in Teil 2 und 3 dieses Blattes. Bei den übrigen Zeilen
+**schätzt** ihr; das Raten ist gewollt, ihr vergleicht danach in Schritt 4.
+Tipp zur vierten Zeile: Überlegt, welches der beiden Protokolle Verbindungen
+aufbaut.
 
 | Frage | Eure Vorhersage |
 |---|---|
@@ -1196,7 +1277,8 @@ einem einzigen Abstand wäre jede Aussage über die Streuung erfunden. Beendet
 r1$ ls -l ~/rn-practice/pcaps/03-teil4-protokollspuren.pcap
 ```
 
-Die Dateigröße liegt bei etwa 7 bis 8 Kilobyte.
+Die Dateigröße liegt bei etwa 7 bis 8 Kilobyte. Eure Werte weichen um einige
+Prozent von den Beispielwerten unten ab; die Größenordnung zählt.
 
 #### Schritt 3 – Die Zahlen aus der Datei holen
 
@@ -1237,6 +1319,11 @@ Byte je Minute = Data size / Capture duration * 60
 ```
 
 Für die ganze Datei: 6130 / 141,3 · 60 ≈ 2.600 Byte je Minute.
+
+Das ist **nicht** nur Routing: Die Datei enthält auch ARP und
+IPv6-Nachbarschaftspakete. Prüft das mit
+`tcpdump -r "$P" -n not udp port 520 and not tcp port 179 | head`. Die
+Aufteilung nach Protokoll kommt gleich.
 
 **Dann je Protokoll.** Dieselbe Rechnung wird erst aussagekräftig, wenn ihr RIP
 und BGP getrennt betrachtet. `tcpdump` kann eine Datei lesen (`-r`) und
@@ -1305,10 +1392,13 @@ r1$ tcpdump -tt -n -r "$P" 'tcp port 179 and src 193.1.1.2 and greater 80' \
 60.0 s
 ```
 
-Die ersten drei Abstände (0,0 s, 1,1 s und 0,1 s) stammen aus dem Verbindungs-
-aufbau direkt nach dem Start der Dienste; bei RIP sind es die ersten ein bis
+Die ersten drei Abstände (0,0 s, 1,1 s und 0,1 s) stammen aus dem
+Verbindungsaufbau direkt nach dem Start der Dienste; bei RIP sind es die ersten ein bis
 zwei Sekunden. Für die Zeitkonstanten zählen die Abstände danach: BGP sendet
-alle 60 Sekunden ein Lebenszeichen (`Keepalive`).
+alle 60 Sekunden ein Lebenszeichen (`Keepalive`). Für den **Ruhezustand**
+zählen nur die Pakete nach dem Verbindungsaufbau, etwa ab zehn Sekunden nach
+dem ersten `OPEN`: ein `Keepalive` je Sprecher und Minute (Rahmen 85 Byte),
+dazu je eine reine Bestätigung (66 Byte).
 
 #### Schritt 4 – Auswerten
 
@@ -1322,11 +1412,11 @@ gemessenen Wert und begründet jede Abweichung.
        passieren würde, wenn alle Router eines Segments ihre Tabelle *exakt*
        gleichzeitig senden würden – und warum die Schwankung damit kein
        Schönheitsfehler, sondern eine Notwendigkeit ist.
-    2. **BGP sendet seltener, kostet aber mehr.** Rechnet beide
-       Byte-je-Minute-Werte aus und stellt sie nebeneinander. Begründet das
-       Ergebnis damit, dass RIP auf UDP aufsetzt und BGP auf TCP – und dass zu
-       jeder TCP-Nachricht eine Bestätigung gehört, die in eurer gefilterten
-       Datei mitzählt.
+    2. **Zwei Werte für BGP.** Rechnet BGP zweimal: über die ganze Datei und
+       nur über die Keepalives nach dem Verbindungsaufbau (`greater 80`, nur
+       Abstände von etwa 60 s, je Keepalive 85 Byte plus eine 66-Byte-
+       Bestätigung). Warum unterscheiden sich die beiden Werte so stark, und
+       welcher davon ist der Ruhezustand?
     3. **Der Preis des Ruhezustands.** Rechnet euren RIP-Wert auf eine Woche
        hoch und stellt ihn der Nutzlast eines einzigen Bildes im Browser
        gegenüber. Formuliert in einem Satz, warum dieser Aufwand trotzdem
@@ -1340,15 +1430,19 @@ gemessenen Wert und begründet jede Abweichung.
         |---|---|
         | Pakete gesamt | etwa 80 |
         | RIP (UDP/520) | 14 Pakete, 1.104 Byte, über 139 s |
-        | BGP (TCP/179) | 28 Pakete, 2.554 Byte, über 120 s |
+        | BGP (TCP/179) | 28 Pakete, 2.554 Byte, über 120 s (inkl. Verbindungsaufbau) |
         | Abstände der RIP-Updates eines Sprechers | zwischen etwa 24 und 37 s |
         | Abstand der BGP-Keepalives | 60 s |
 
-        Daraus ergeben sich für RIP rund 480 Byte je Minute (1104 / 139,2 · 60),
-        für BGP rund 1.280 Byte je Minute (2554 / 120 · 60) – BGP kostet auf
-        diesem Segment also mehr als das Doppelte von RIP, obwohl es deutlich
-        seltener sendet: Jede Nachricht trägt einen TCP-Kopf und wird einzeln
-        bestätigt. RIP sprechen auf dem Segment `r1`, `r2` und `r4`; `r1` hört
+        Daraus ergeben sich über die ganze Aufzeichnung für RIP rund 480 Byte
+        je Minute (1104 / 139,2 · 60). Für BGP gilt 2554 / 120 · 60 ≈ 1.280 Byte
+        je Minute, aber diese Zahl ist **nicht** der Ruhezustand: Sie enthält
+        den einmaligen Verbindungsaufbau (TCP-Handshake, `Open`, `Keepalive`,
+        `Update`, rund 2.000 Byte). Im Ruhezustand schickt jeder BGP-Nachbar
+        nur alle 60 Sekunden einen `Keepalive` (85 Byte Rahmen), dazu je eine
+        66-Byte-Bestätigung: zusammen etwa 300 Byte je Minute – weniger als
+        RIP, weil RIP die ganze Tabelle alle 30 Sekunden neu sendet, BGP aber
+        nach dem Aufbau nur noch Lebenszeichen. RIP sprechen auf dem Segment `r1`, `r2` und `r4`; `r1` hört
         periodische Updates von `r2` und `r4` und sendet selbst nur eine
         Anfrage beim Start. Die RIP-Nachrichten sind 24 Byte (Anfrage, Antwort
         mit einer Route) bzw. 44 Byte (Antwort mit zwei Routen) groß, die
@@ -1549,7 +1643,7 @@ kam von einem Router in einem anderen AS (eBGP).
 
 **Selbst:** Vergleicht den AS-Pfad zu `192.168.3.0/24` mit dem zu
 `193.1.2.0/24` (`show ip bgp 193.1.2.0/24`) und notiert, warum der zweite Pfad
-kürzer ist.
+kürzer ist. Tipp: In welchem AS liegt das Netz `193.1.2.0/24`?
 
 !!! question "Nachgedacht: Was verhindert Schleifen in BGP?"
     RIP schützt sich vor Count-to-Infinity mit der Grenze 16. Wie erkennt BGP
@@ -1559,8 +1653,7 @@ kürzer ist.
         Der AS-Pfad zeigt jedes durchlaufene AS. **RFC 4271, Abschnitt 9.1.2**
         schreibt vor, dass ein Router eine Route verwirft, deren AS-Pfad seine
         eigene AS-Nummer schon enthält – eine Schleife ist damit sofort
-        erkennbar. (Der Pfad zu `193.1.2.0/24` ist nur `65002` lang, weil dieses
-        Netz direkt im AS von `r2` liegt.)
+        erkennbar.
 
 !!! quote "Hintergrund: das Zwei-Servietten-Protokoll"
     BGP wurde **1989** von Kirk Lougheed (Cisco) und Yakov Rekhter (IBM) bei
@@ -1732,10 +1825,11 @@ dem Wireshark-Mitschnitt aus Teil 2.
     kommt der Unterschied von 20 Byte?
 
     ??? success druck-zu "Lösung"
-        Eine RIP-*Anfrage* fragt „schick mir deine Tabelle" und ist minimal
-        (24 Byte). Eine *Antwort* trägt je Route einen 20-Byte-Eintrag – deshalb
-        wächst ihre Länge mit der Zahl der Routen (im Mitschnitt: 24 Byte für
-        eine Route, 44 Byte für zwei). Das RIP-Nachrichtenformat mit genau
+        Jede RIP-Nachricht hat 4 Byte Kopf und je Eintrag 20 Byte. Die
+        *Anfrage* („schick mir deine Tabelle") trägt genau einen Eintrag (Wert
+        „ganze Tabelle"): 4 + 20 = 24 Byte. Die *Antwort* trägt einen Eintrag je
+        Route – deshalb wächst ihre Länge mit der Zahl der Routen (im
+        Mitschnitt: 24 Byte für eine Route, 44 Byte für zwei). Das RIP-Nachrichtenformat mit genau
         diesen Feldern steht in RFC 2453, Abschnitt 3.6.
 
 --8<-- "issue-feedback.md"
@@ -1752,6 +1846,9 @@ zwei Quellen für dasselbe Ziel entscheidet – und dass eine veränderte
 Tabelle nicht automatisch einen veränderten Weg bedeutet. Teil 3 hat
 gezeigt, dass Konvergenz kein Zeitpunkt ist, sondern ein Verlauf, den
 verschiedene Knoten zu verschiedenen Zeiten erreichen.
+
+In den Teilen 4 bis 8 habt ihr die Spur selbst vermessen, die drei Tabellen
+verglichen, AS-Pfad und Metrik gelesen und die Nachrichtentypen erkannt.
 
 Damit habt ihr vier Werkzeuge in der Hand, mit denen in echten Netzen
 gearbeitet wird: `ip route` für den Kernel, `vtysh` für die

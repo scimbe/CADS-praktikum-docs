@@ -29,7 +29,10 @@ Die Aufgaben laufen in zwei Mininet-Topologien. In `topoP04` (Teile A, C, F)
 liegt zwischen zwei Hosts ein Link mit Verlust, in `topo02` (Teile B, D, E, G
 bis J) ein verlustfreier Link mit 10 Mbit/s zwischen zwei Routern.
 
-Ein Präfix vor einem Befehl zeigt, in welchem Fenster ihr ihn tippt:
+Ein Präfix vor einem Befehl zeigt, in welchem Fenster ihr ihn tippt. **Das
+Präfix selbst tippt ihr nicht mit**; euer Prompt sieht anders aus (zum Beispiel
+`root@…:~/rn-practice/topo02#`). Kopiert ihr einen Befehl aus dem Blatt, löscht
+das Präfix.
 
 | Präfix | Fenster |
 |---|---|
@@ -37,11 +40,33 @@ Ein Präfix vor einem Befehl zeigt, in welchem Fenster ihr ihn tippt:
 | `r1$` | das Terminal des Routers `r1` (Fenstertitel „Node: r1“) |
 | `mininet>` | das Fenster, in dem ihr das Start-Skript gestartet habt |
 | `$` | ein normales Terminal des Desktops |
+| `ssh$` | die SSH-Sitzung, die ihr in einem Knoten-Terminal geöffnet habt |
 
 Ein zusätzliches Terminal für einen Knoten öffnet ihr im Mininet-Fenster mit
-`mininet> xterm h2`. Verlust ist zufällig: Eure Zahlen weichen von den
+`mininet> xterm h2`. Die Knoten-Fenster liegen nach dem Start oft übereinander:
+Schaut vor jedem Befehl auf den Fenstertitel („Node: h0“ usw.), sonst läuft er
+im falschen Knoten. Verlust ist zufällig: eure Zahlen weichen von den
 Beispielwerten ab. Zu jeder Messung nennt das Blatt deshalb die Spannweite, die
 ihr erwarten könnt.
+
+!!! warning "Prozesse nie mit `pkill` oder `killall` beenden"
+    Nie `pkill`/`killall` benutzen – die Mininet-Knoten teilen sich die
+    Prozessliste mit eurem Desktop; `pkill nc` beendet euren ganzen Desktop
+    und meldet euch ab. Beendet Prozesse mit ++ctrl+c++ oder `kill <PID>` (die
+    PID zeigt `jobs -l` bzw. `ps`; ein Hintergrundjob lässt sich mit
+    `kill %1` beenden).
+
+!!! info "Ein Server belegt sein Terminal"
+    Ein Server (`iperf -s`, `iperf3 -s`, `nc -l`, `sshd -D`) belegt sein
+    Terminal, bis ihr ++ctrl+c++ drückt. Meldet ein Server `Address already in
+    use` (bei `iperf3`: `unable to start listener for connections`), läuft er
+    schon: Lasst ihn laufen oder beendet ihn mit ++ctrl+c++ und startet ihn neu.
+    Mehrere Server gleichzeitig gehen nur in verschiedenen Terminals. Ebenso
+    ist ein Dauer-`ping` erst dann beendet, wenn ihr ++ctrl+c++ drückt.
+
+!!! tip "Es läuft immer nur eine Topologie"
+    Zum Wechseln beendet ihr die laufende Topologie mit `mininet> exit`, bevor
+    ihr die nächste startet. Das Blatt erinnert euch an jedem Wechsel.
 
 ## Aufgaben
 
@@ -91,14 +116,12 @@ Verbindung in jeder Richtung.
 !!! info "Werkzeug: `ping`"
     `ping` schickt ICMP-Echo-Anfragen an einen Rechner und misst, ob und wie
     schnell die Antwort zurückkommt (Schicht 3, Vermittlungsschicht). Ihr
-    kennt es aus Blatt 01. Hier braucht ihr vier Optionen:
+    kennt es aus Blatt 01. Hier braucht ihr zwei Optionen:
 
     | Aufruf | Bedeutung |
     |---|---|
     | `ping -c 20 <ziel>` | genau 20 Anfragen senden, dann Zusammenfassung ausgeben |
     | `ping -D <ziel>` | jeder Antwortzeile einen Unix-Zeitstempel voranstellen |
-    | `ping -i 0.3 <ziel>` | alle 0,3 s statt jede Sekunde senden |
-    | `ping -W 1 <ziel>` | höchstens 1 s auf eine Antwort warten |
 
     Eine Ausgabe aus diesem Blatt, Zeile für Zeile gelesen:
 
@@ -114,7 +137,7 @@ Verbindung in jeder Richtung.
     - `time=0.495 ms`: Umlaufzeit (Round-Trip-Time) dieser einen Anfrage.
     - `50% packet loss`: Anteil der Anfragen ohne Antwort.
     - `rtt min/avg/max/mdev`: kleinste, mittlere, größte Umlaufzeit und die
-      mittlere Abweichung (die Streuung, auch **Jitter** genannt).
+      Standardabweichung (ein Maß für die Streuung, auch **Jitter** genannt).
 
     Typische Fehlermeldung: `Destination Host Unreachable` heißt, dass für
     das Ziel keine Adresse aufgelöst oder keine Route gefunden wurde. Das ist
@@ -129,7 +152,7 @@ h1$ ping -c 20 10.0.0.2
 ![Terminalfenster "Node: h1": ping -c 20 10.0.0.2 mit sichtbaren Lücken in der icmp_seq-Folge, einzelne Sequenznummern fehlen, und einer Abschlussstatistik, die von 20 gesendeten Paketen 10 empfangen und 50 Prozent Verlust ausweist](../assets/screenshots/04-tcp-udp-congestion/ping-loss-topoP04.png)
 *Ping über die verlustbehaftete Verbindung. In diesem Lauf fehlen die
 Nummern 1 bis 3, 6, 11 bis 15 und 17: 50 % Verlust. In anderen Läufen liegt
-der Wert zwischen etwa 25 % und 50 %.*
+der Wert meist zwischen 15 % und 55 %, im Mittel über viele Läufe bei 34 %.*
 
 Mit `-D` seht ihr die Lücken zusätzlich an den Zeitstempeln:
 
@@ -146,11 +169,14 @@ lässt 90 % der Pakete durch. Beide Hälften der Reise müssen gelingen:
 Erfolgsrate = 0,9 · 0,9 · 0,9 · 0,9 = 0,656      Verlust = 1 − 0,656 ≈ 34 %
 ```
 
-Bei nur 20 Anfragen schwankt der Zufall stark, deshalb reicht die Spannweite
-von 25 bis 50 % in Einzelläufen.
+Bei nur 20 Anfragen schwankt der Zufall stark (typisch ±10 Prozentpunkte um
+34 %), deshalb liegen einzelne Läufe zwischen etwa 15 und 55 %. Je mehr
+Anfragen, desto näher liegt der Wert an 34 %: Probiert
+`ping -c 100 -i 0.2 10.0.0.2`.
 
 **Selbst.** Wiederholt den Lauf dreimal und notiert die Verlustrate. Liegen
-eure Werte in der Spannweite?
+eure Werte in der Spannweite? Bildet den Mittelwert über eure Läufe und
+vergleicht ihn mit 34 %.
 
 !!! question "Nachgedacht: Was würde sich ändern, wenn nur ein Link 10 % Verlust hätte?"
     Überlegt vorab, welcher Verlust bei `ping` dann zu erwarten wäre.
@@ -223,7 +249,7 @@ Nutzlast + 28 Byte Kopf ≤ MTU 536). Es muss zwei Teilstrecken überstehen:
 `1 − 0,9² = 19 %`. Ein 1470-Byte-Datagramm passt nicht und wird in **drei
 Fragmente** zerlegt. Jedes Fragment muss zwei Teilstrecken überstehen, und nur
 wenn alle drei ankommen, ist das Datagramm vollständig:
-`1 − 0,81³ ≈ 47 %`. Erwartet bei 2 Mbit/s: 45 bis 50 % mit dem
+`1 − 0,81³ ≈ 47 %`. Erwartet bei 2 Mbit/s: etwa 43 bis 51 % mit dem
 Standard, 18 bis 21 % mit `-l 500`. UDP bemerkt den Verlust nicht und gleicht
 ihn nicht aus.
 
@@ -235,7 +261,8 @@ ihn nicht aus.
     verwirft der Kernel alle weiteren Fragmente, bis die alten nach 30 Sekunden
     verfallen. Bei 2 Mbit/s tritt das nicht auf.
 
-**Vorgemacht, TCP.** Dieselbe Strecke mit TCP:
+**Vorgemacht, TCP.** Dieselbe Strecke mit TCP. Beendet vorher den laufenden
+UDP-Server auf `h1` mit ++ctrl+c++:
 
 ```bash
 h1$ iperf -s
@@ -276,7 +303,11 @@ TCP: Wie wirkt sich dieselbe Fehlerrate von 10 % auf beide Protokolle aus?
 
 Da die MTU auf 536 Byte begrenzt ist, wird jedes IP-Paket, das größer als
 diese Grenze ist, in **Fragmente** zerlegt. Im Verzeichnis `topoP04` liegen
-zwei Textdateien (632 und 1638 Byte), die ihr als UDP-Nachricht schickt.
+zwei Textdateien, `MehrAls500ByteText.txt` (632 Byte) und
+`MehrAls1500ByteText.txt` (1638 Byte); die Namen nennen nur eine
+Größenordnung, nicht die Bytezahl. Die Knoten-Terminals öffnen sich im
+Verzeichnis `~/rn-practice/topoP04`, `ls` zeigt beide Dateien. Ihr schickt sie
+als UDP-Nachricht.
 
 !!! info "Werkzeug: `nc` (netcat)"
     `nc` schickt Text von der Tastatur oder aus einer Datei an eine
@@ -293,7 +324,7 @@ zwei Textdateien (632 und 1638 Byte), die ihr als UDP-Nachricht schickt.
     Empfangener Text erscheint im Server-Terminal, zum Beispiel der Anfang
     der Datei: `Lorem ipsum dolor sit amet, consectetur …`. Mit Strg+C beendet
     ihr `nc`. Ein UDP-`nc` nimmt nach der ersten Nachricht nur noch Daten vom
-    selben Absender an, startet es also für jeden neuen Versuch neu.
+    selben Absender an. Startet es also für jeden neuen Versuch neu.
 
 !!! info "Werkzeug: Wireshark im Mininet-Knoten"
     Wireshark zeichnet Pakete auf einer Schnittstelle auf und zeigt sie
@@ -309,8 +340,9 @@ zwei Textdateien (632 und 1638 Byte), die ihr als UDP-Nachricht schickt.
     Schichten des gewählten Pakets auf. Im Prompt erscheinen Zeilen wie
     `Capture Start …`, das ist normal.
 
-**Vorgemacht.** Wir starten Wireshark und den Empfänger auf `h1`, dann sendet
-`h2` den längeren Text:
+**Vorgemacht.** Beendet zuerst den noch laufenden Server auf `h1` (++ctrl+c++).
+Wir starten Wireshark und den Empfänger auf `h1`, dann sendet `h2` den
+längeren Text:
 
 ```bash
 h1$ wireshark -i h1-eth0 -k &
@@ -318,7 +350,15 @@ h1$ nc -lu 5000
 h2$ nc -u 10.0.0.1 5000 < MehrAls1500ByteText.txt
 ```
 
-Beendet `nc` mit Strg+C und wiederholt das Senden einige Male. Der Text
+Jeder Versuch besteht aus drei Schritten:
+
+1. Auf `h1` den Empfänger neu starten (`h1$ nc -lu 5000`).
+2. Auf `h2` senden (`h2$ nc -u 10.0.0.1 5000 < MehrAls1500ByteText.txt`).
+3. Nach etwa 2 Sekunden auf beiden Seiten ++ctrl+c++ drücken.
+
+Erscheint der Text auf `h1`, ist der Versuch geglückt, sonst nicht. Ohne den
+Neustart auf `h1` nimmt der Empfänger nach dem ersten Erfolg nichts mehr an,
+obwohl Wireshark alle Fragmente zeigt. Wiederholt das Senden einige Male. Der Text
 (1638 Byte) wird in vier Fragmente zerlegt. Im Mitschnitt zeigt
 Wireshark sie als `Fragmented IP protocol`:
 
@@ -346,8 +386,10 @@ Fragment übersteht die Strecke mit `0,9² = 81 %`. Der Text kommt also mit
 `0,81² ≈ 66 %` (zwei Fragmente) bzw. `0,81⁴ ≈ 43 %` (vier Fragmente) an. Meist
 braucht ihr einige Versuche, bis der Text im `nc`-Fenster erscheint.
 
-**Selbst.** Sendet beide Dateien jeweils fünfmal und zählt, wie oft der Text
-ankommt. Wiederholt das Experiment dann mit TCP:
+**Selbst.** Sendet beide Dateien (`MehrAls500ByteText.txt` und
+`MehrAls1500ByteText.txt`) jeweils fünfmal, jedes Mal mit Neustart des
+Empfängers, und zählt, wie oft der Text ankommt. Wiederholt das Experiment dann
+mit TCP (beendet vorher den UDP-`nc` auf `h1` mit ++ctrl+c++):
 
 ```bash
 h1$ nc -l 5000
@@ -425,8 +467,12 @@ h0 (10.0.10.10) --+                        +-- h2 (10.0.20.10)
 h1 (10.0.10.11) --+                        +-- h3 (10.0.20.11)
 ```
 
-Nur die Verbindung zwischen `r1` und `r2` ist auf 10 Mbit/s begrenzt. Beendet
-die Topologie aus Teil A mit `mininet> exit` und startet diese:
+Nur die Verbindung zwischen `r1` und `r2` ist auf 10 Mbit/s begrenzt.
+**Zuerst die laufende Topologie beenden:** Tippt im Mininet-Fenster von
+`topoP04` (Teil A) `mininet> exit` und wartet, bis alle „Node: …“-Fenster
+verschwunden sind. Erst dann startet ihr diese Topologie; zwei Topologien
+gleichzeitig vertragen sich nicht, das Startskript räumt alles auf, was es
+findet, auch die noch laufende.
 
 ```bash
 $ cd ~/rn-practice/topo02
@@ -438,7 +484,9 @@ Terminal für einen Knoten öffnet ihr mit `mininet> xterm h0`.
 
 **Vorgemacht, Schritt 1: Erwartungswert bilden, dann Durchsatz messen.** Die
 Verbindung erlaubt nominell 10 Mbit/s. In 30 Sekunden sollten sich also
-`10 Mbit/s · 30 s / 8 = 37,5 MByte` übertragen lassen. Messung:
+`10 Mbit/s · 30 s = 300 Mbit` übertragen lassen, das sind 37,5 Megabyte
+(10⁶ Byte) oder 35,8 MiB. `iperf` zählt „MBytes“ zu je 1 048 576 Byte (also
+MiB). Rechnet deshalb immer erst in Bit. Messung:
 
 ```bash
 h2$ iperf -i 10 -s
@@ -456,8 +504,11 @@ Ausgabe des Clients (`h0`):
 [  1] 0.0000-32.5046 sec  37.0 MBytes  9.56 Mbits/sec
 ```
 
-Gesamt 37,0 MByte statt 37,5 MByte, 9,56 Mbit/s über 32,5 Sekunden. Das passt zum
-Erwartungswert. Das erste Intervall zeigt mit 12,4 Mbit/s mehr als die
+Umgerechnet: 37,0 MBytes · 8,389 Mbit/MByte ≈ 310 Mbit, geteilt durch die
+tatsächliche Dauer von 32,5 Sekunden ergibt 9,56 Mbit/s. Das passt zum
+Erwartungswert, denn in der Praxis kommen nur etwa 9,5 Mbit/s als Nutzdaten an
+(Köpfe: 1448 von 1514 Byte, 95,6 %). Die Zeile läuft bis 32,5 Sekunden, weil der
+Client wartet, bis alle Daten bestätigt sind (wie in Teil A). Das erste Intervall zeigt mit 12,4 Mbit/s mehr als die
 Link-Kapazität: Der Client zählt auch das, was noch in Sende- und
 Router-Puffern wartet. Auf der Server-Seite (`h2`) liegt der Wert bei
 9,1 bis 9,6 Mbit/s je Zehn-Sekunden-Intervall.
@@ -470,13 +521,22 @@ h0$ iperf -M 536 -l 1 -t 10 -i 5 -c 10.0.20.10
 ```
 
 Bildet vorher eine These, wie sich die kleinere Segmentgröße auf den Durchsatz
-auswirken sollte, und gleicht sie mit dem Ergebnis ab.
+auswirken sollte, und gleicht sie mit dem Ergebnis ab. Messt zum Vergleich auch
+nur mit `-M 536`, ohne `-l 1`:
+
+```bash
+h0$ iperf -M 536 -t 10 -i 5 -c 10.0.20.10
+```
 
 ??? success "Erwartung und Lösung"
-    Gemessen: etwa 4,4 Mbit/s (4,4 bis 4,5), also etwa halb so viel wie vorher. Jedes
-    Segment trägt nur 536 statt 1448 Byte Nutzlast, aber den gleichen Kopf
-    (rund 52 Byte). Dazu kommen dreimal so viele Pakete pro Sekunde, und
-    `-l 1` zwingt `iperf`, jedes Byte einzeln an den Kernel zu übergeben.
+    Gemessen mit `-M 536 -l 1`: etwa 4,4 Mbit/s (4,4 bis 4,5), also etwa halb
+    so viel wie vorher. Zwei Ursachen wirken zusammen. Die kleinere
+    Segmentgröße allein kostet nur wenig: Jedes Segment trägt nur 536 statt
+    1448 Byte Nutzlast, aber den gleichen Kopf (rund 52 Byte), rechnerisch
+    liefert die Leitung dann noch etwa 8,9 Mbit/s Nutzdaten (536 von 602 Byte
+    auf der Leitung), also nur rund 7 % weniger. Den Einbruch auf die Hälfte
+    verursacht fast vollständig `-l 1`: `iperf` übergibt jedes Byte einzeln an
+    den Kernel, und der Sender schafft nicht genug Systemaufrufe je Sekunde.
     Der genaue Wert hängt von der Rechnerleistung ab.
 
 **Schritt 2: Latenz und der Effekt einer konkurrierenden Übertragung.**
@@ -497,7 +557,8 @@ Verbindungen):
 h0$ iperf -t 30 -i 10 -c 10.0.20.10
 ```
 
-Prüft eure Annahme an der laufenden `ping`-Ausgabe auf `h1`.
+Prüft eure Annahme an der laufenden `ping`-Ausgabe auf `h1`. Der `ping` läuft,
+bis ihr ihn mit ++ctrl+c++ beendet; lasst ihn für Schritt 3 laufen.
 
 ??? success "Erwartung und Lösung"
     Ohne Last: 0,3 bis 0,4 ms (die erste Antwort kann einige Millisekunden
@@ -507,8 +568,9 @@ Prüft eure Annahme an der laufenden `ping`-Ausgabe auf `h1`.
     Telefonkonferenz wäre in dieser Zeit unmöglich. Den Effekt untersucht
     Teil I genauer.
 
-**Schritt 3: TCP gegen UDP im direkten Vergleich.** Lasst auf `h2` den
-TCP-Server weiterlaufen und startet auf `h3` einen UDP-Server:
+**Schritt 3: TCP gegen UDP im direkten Vergleich.** Der `iperf`-Server auf `h2`
+darf weiterlaufen. Startet auf `h3` einen UDP-Server (in einem Terminal, in dem
+noch nichts läuft):
 
 ```bash
 h3$ iperf -u -i 10 -s
@@ -535,15 +597,25 @@ das Sendevolumen des Clients mit dem, was beim Server ankommt. Vereinzelte
     | Rate | Ankunft am Server | Verlust | Ping-RTT auf `h1` |
     |---|---|---|---|
     | `8.6M` | 9,02 Mbit/s | 0 % | 0,3 bis 1,6 ms |
-    | `9.8M` | 9,72 Mbit/s | 0 % (kurzzeitig) | bis 540 ms, im Mittel 260 ms |
+    | `9.8M` | höchstens 9,72 Mbit/s | zunächst 0 %, später einige Prozent | wächst über die Laufzeit von unter 1 ms bis auf deutlich über 500 ms |
     | `100M` | 9,72 Mbit/s | rund 90 % | bis 1,2 s, etwa 2 von 3 Pings gehen verloren |
 
     Der Link kann nie mehr als etwa 9,7 Mbit/s ausliefern. Der Überschuss geht
-    verloren oder staut sich in der Warteschlange.
+    verloren oder staut sich in der Warteschlange. Bei `9.8M` beträgt der
+    Überschuss nur 0,56 Mbit/s und füllt die Warteschlange langsam (rechnerisch
+    erst nach etwa 20 Sekunden voll); erst danach gehen Datagramme verloren.
+    Eure Werte hängen davon ab, in welchem Intervall ihr schaut.
 
 **Schritt 4: Pfadunterbrechung während einer laufenden TCP-Übertragung.**
-Startet erneut eine TCP-Messung `h0` → `h2` (mit `-t 40 -i 5`) und beobachtet
-parallel `h1$ ping 10.0.20.10`. Deaktiviert dann nach etwa 10 Sekunden für
+Beendet zuerst den `ping` auf `h1` mit ++ctrl+c++. Startet erneut eine
+TCP-Messung `h0` → `h2` und beobachtet parallel `h1$ ping 10.0.20.10`:
+
+```bash
+h0$ iperf -t 40 -i 5 -c 10.0.20.10
+h1$ ping 10.0.20.10
+```
+
+Deaktiviert dann nach etwa 10 Sekunden für
 20 bis 30 Sekunden das Interface `r1-eth0` des Routers `r1` (Richtung `s1`, also
 zu `h0` und `h1`) und aktiviert es danach wieder:
 
@@ -560,13 +632,12 @@ verhalten.
 ??? success "Erwartung und Lösung"
     Die Übertragung **bricht nicht ab**. Der Client zeigt während der
     Unterbrechung `0.000 Bytes`, der Server ebenfalls. Der `ping` bekommt
-    keine Antworten (nach der Wiederherstellung erscheinen kurz
-    `Destination Host Unreachable`-Zeilen vom eigenen Host). Nach `ifconfig
-    … up` fließen die Daten erst nach einigen Sekunden wieder, denn TCP wartet
+    keine Antworten. Nach einigen Sekunden meldet `ping` unter Umständen
+    `Destination Host Unreachable` von eurem eigenen Host: Er findet das
+    Gateway nicht mehr (ARP). Nach `ifconfig … up` kommen wieder Antworten, und
+    die Daten fließen erst nach einigen Sekunden wieder, denn TCP wartet
     auf seinen Retransmission-Timer, und der verdoppelt sich bei jedem
-    Fehlversuch. Im Beispiellauf (Unterbrechung von Sekunde 10 bis 35) lief
-    der Transfer ab Sekunde 35 bis 40 mit 2,9 Mbit/s weiter. Auf dem Server
-    kamen die ersten Daten erst nach Sekunde 40 an.
+    Fehlversuch.
 
 **Schritt 5: Dieselbe Unterbrechung mit einer Anwendung (SSH) statt einem
 rohen Iperf-Strom.**
@@ -586,7 +657,8 @@ rohen Iperf-Strom.**
     Server euren öffentlichen Schlüssel nicht in `authorized_keys` des
     Nutzers gefunden hat oder die Rechte der Dateien nicht stimmen.
 
-Startet auf `h2` den SSH-Server:
+Beendet zuerst den `iperf`-Server auf `h2` mit ++ctrl+c++ (das Terminal von
+`h2` ist sonst noch belegt). Startet dann auf `h2` den SSH-Server:
 
 ```bash
 h2$ /usr/sbin/sshd -D -o StrictModes=no
@@ -606,18 +678,22 @@ h0$ chmod 600 ~/.ssh/authorized_keys
 h0$ chown -R cads ~/.ssh
 ```
 
+(Euer Knoten-Terminal ist `root`; der Nutzer `cads` muss die Datei
+`authorized_keys` lesen dürfen, deshalb das `chown`.)
+
 Verbindet euch dann von `h0` aus (die Rückfrage zum Host-Schlüssel mit `yes`
 beantworten) und prüft, auf welchem Knoten ihr gelandet seid:
 
 ```bash
 h0$ ssh -i ~/.ssh/rn-practice-key cads@10.0.20.10
-$ /sbin/ifconfig   # Interface h2-eth0 sichtbar?
+ssh$ /sbin/ifconfig   # Interface h2-eth0 sichtbar?
 ```
 
 Bildet eine Erwartung, wie sich die SSH-Sitzung bei derselben Pfadunterbrechung
 verhalten sollte. Unterbrecht dann erneut `r1-eth0` wie in Schritt 4 und gebt in der
 SSH-Sitzung währenddessen `date` ein. Stellt den Pfad danach wieder her. Beendet
-die Sitzung anschließend mit `exit`.
+die Sitzung anschließend mit `exit` (das beendet nur die SSH-Sitzung; `sshd -D`
+belegt das Terminal von `h2` weiter, beendet ihn dort mit ++ctrl+c++).
 
 ??? success "Erwartung und Lösung"
     Die Sitzung **bleibt bestehen**. Während der Unterbrechung erscheint eure
@@ -628,9 +704,11 @@ die Sitzung anschließend mit `exit`.
     Sekunden bis Minuten aus. Erst nach sehr vielen erfolglosen
     Neuübertragungen (Standard: rund 15 Minuten) bricht sie ab.
 
-**Schritt 6: Fairness zwischen zwei gleichzeitigen Verbindungen.** Startet
-Iperf-TCP-Server auf `h2` und `h3` (`&`, damit ihr das Terminal weiterverwenden
-könnt):
+**Schritt 6: Fairness zwischen zwei gleichzeitigen Verbindungen.** Beendet
+zuerst in `h2` und `h3` alle noch laufenden Server (++ctrl+c++; auch `sshd` auf
+`h2` und den UDP-Server auf `h3`). Startet dann Iperf-TCP-Server auf `h2` und
+`h3` (`&`, damit ihr das Terminal weiterverwenden könnt). Einen solchen
+Hintergrundjob beendet ihr später mit `kill %1` (`jobs` zeigt die Nummer):
 
 ```bash
 h2$ iperf -i 10 -s
@@ -646,8 +724,9 @@ h1$ iperf -t 80 -i 10 -c 10.0.20.11
 ```
 
 Wiederholt den Versuch mit einem TCP-Strom (`h0` → `h2`) neben einem
-*unlimitierten* UDP-Strom mit 100 Mbit/s (`h1` → `h3`, ohne dass dafür ein
-eigener UDP-Server läuft):
+*unlimitierten* UDP-Strom mit etwa 105 Mbit/s (`-b 100M`, `h1` → `h3`, ohne
+dass dafür ein eigener UDP-Server läuft; der UDP-Server aus Schritt 3 muss
+also beendet sein):
 
 ```bash
 h0$ iperf -t 30 -i 10 -c 10.0.20.10
@@ -664,14 +743,18 @@ und wie gegenüber einem unkooperativen UDP-Strom, der keine Rücksicht auf
     30 Sekunden bei nur 0,1 bis 1,5 Mbit/s, weil der erste Strom die
     Warteschlange schon gefüllt hat. Danach pendeln beide stark schwankend
     zwischen etwa 2 und 7 Mbit/s. Über 80 Sekunden gemittelt erreichen sie
-    etwa 7,4 Mbit/s (`h0`) und 2,7 Mbit/s (`h1`). **Faire Aufteilung stellt
+    laut Client-Ausgabe etwa 7,4 Mbit/s (`h0`) und 2,7 Mbit/s (`h1`); lest die
+    Werte besser am Server ab (`h2`, `h3`), denn der Client zählt auch das, was
+    noch in Puffern steckt (Schritt 1), und die Summe liegt sonst über der
+    Linkrate. **Faire Aufteilung stellt
     sich erst über längere Zeit ein.**
 
     **TCP gegen UDP:** Der UDP-Strom nimmt keine Rücksicht. Der TCP-Strom
     erreicht nur noch 0 bis 2,4 Mbit/s je Intervall. Der UDP-Client meldet
-    ohne Server auf `h3` rund 105 Mbit/s gesendet und
-    `Read UDP fin failed: Connection refused`. Das ist erwartet, denn es
-    ist kein Server da, der antwortet, die Pakete belegen den Link trotzdem.
+    ohne Server auf `h3` rund 105 Mbit/s gesendet und am Ende eine
+    Fehlermeldung zur abgelehnten Verbindung (`Connection refused`). Das ist
+    erwartet, denn es ist kein Server da, der antwortet; die Pakete belegen den
+    Link trotzdem.
 
 **Schritt 7: Reno und Cubic mit iperf3.**
 
@@ -717,7 +800,18 @@ h0$ sysctl -A | grep tcp | grep congestion
 Die Ausgabe nennt `net.ipv4.tcp_congestion_control = cubic` (Standard) und
 `net.ipv4.tcp_available_congestion_control = reno cubic`.
 
-Beendet auf `h2` und `h3` vorher laufende `iperf`-Server mit Strg+C. Startet auf
+!!! note "Hinweis: Welche Algorithmen wählbar sind"
+    Welche Algorithmen ihr wählen könnt, bestimmt der Kernel des Servers, auf
+    dem euer Desktop läuft, nicht euer Container. In diesem Blatt vergleicht
+    ihr `reno` und `cubic`. `bbr` steht nicht in der Liste, lässt sich je nach
+    Standort aber trotzdem mit `-C bbr` wählen (auf manchen Desktops lief es
+    ohne Fehlermeldung, auf anderen kann der Aufruf fehlschlagen). Das gehört
+    nicht zur Aufgabe. Den Algorithmus einer Verbindung ändert ihr nur mit
+    `-C <name>` pro Verbindung (Teil J), nicht für das ganze System; ändert
+    nichts mit `sysctl -w`, in den Knoten ist `/proc/sys` schreibgeschützt.
+
+Beendet auf `h2` und `h3` vorher laufende `iperf`-Server mit ++ctrl+c++ (den
+Hintergrundjob auf `h3` mit `kill %1`). Startet auf
 `h2` und `h3` je einen Iperf3-Server und vergleicht zwei gleichzeitige
 Client-Verbindungen mit unterschiedlicher Congestion Control: einmal mit der
 Standardeinstellung (Cubic) von `h0` zu `h2`, einmal mit Reno von `h1` zu `h3`:
@@ -752,8 +846,8 @@ Verlustbehandlung, Rate-Limiting auf Anwendungsebene)?
         die Warteschlange, TCP sieht Verlust und Verzögerung, verkleinert sein
         Fenster und bekommt nur noch den Rest. Wer UDP einsetzt (Streaming,
         Spiele, Sprache), muss deshalb selbst Rücksicht einbauen, etwa mit
-        Ratenbegrenzung oder einer eigenen Überlastkontrolle (wie QUIC
-        sie hat, siehe Blatt 07).
+        Ratenbegrenzung oder einer eigenen Überlastkontrolle (QUIC, das ihr
+        in Blatt 07 als Protokoll kennenlernt, bringt eine mit).
 
 !!! example "Vertiefung (optional): TCP-Retransmission-Timeout und Backoff selbst vermessen"
     Schritt 4 hat gezeigt, dass eine laufende TCP-Übertragung eine
@@ -834,8 +928,15 @@ Verlustbehandlung, Rate-Limiting auf Anwendungsebene)?
 
 Teil A hat gezeigt, dass der verlustbehaftete Link aus `topoP04` (10 %
 Fehlerrate, 10 Mbit/s, MTU 536 Byte) TCP zu Retransmissions zwingt. In diesem
-Teil macht ihr sichtbar, *wie* TCP auf diesen Verlust reagiert. Startet die
-Topologie, falls sie nicht mehr läuft:
+Teil macht ihr sichtbar, *wie* TCP auf diesen Verlust reagiert. Wechselt jetzt von
+`topo02` (Teil B) zurück zu `topoP04`:
+
+!!! warning "Zuerst die laufende Topologie beenden"
+    Es läuft immer nur eine Topologie. Tippt im Mininet-Fenster der bisherigen
+    Topologie `mininet> exit` und wartet, bis alle „Node: …“-Fenster
+    verschwunden sind. Erst dann startet ihr die neue. Zwei Topologien
+    gleichzeitig vertragen sich nicht: Das Startskript räumt alles auf, was es
+    findet, auch die Topologie, die noch läuft.
 
 ```bash
 $ cd ~/rn-practice/topoP04
@@ -887,6 +988,15 @@ Durchsatz danach so stark ein?
 Verlustregel ein `cwnd` von mehreren hundert Segmenten. Notiert, wie sich der
 `cwnd`-Verlauf dort unterscheidet.
 
+!!! note "Nachrechnen: Warum wird `cwnd` so groß?"
+    Das Bandbreite-Verzögerungs-Produkt von `topo02` ist
+    `10 Mbit/s · 0,2 ms = 2 000 bit = 250 Byte`, weniger als ein Segment
+    (1448 Byte). Mehr als ein Segment gleichzeitig unterwegs zu haben bringt auf
+    dieser Strecke keinen Durchsatz; alles darüber steht nur in der
+    Warteschlange des Routers. Ein `cwnd` von 981 Segmenten (1,4 MByte) ist
+    deshalb kein Gewinn, sondern etwa 1,2 Sekunden Wartezeit
+    (`1,4 MByte · 8 / 10 Mbit/s`).
+
 --8<-- "issue-feedback.md"
 
 ### Teil D — Störungen selbst erzeugen: Verzögerung, Verlust und Bandbreite mit `tc` (`topo02`)
@@ -933,7 +1043,7 @@ Verlustregel ein `cwnd` von mehreren hundert Segmenten. Notiert, wie sich der
     - `seed …`: Startwert der Zufallszahlen für Verlust und Schwankung, für
       euch ohne Bedeutung.
 
-    Ohne Regel zeigt `tc qdisc show dev h0-eth0` `qdisc noqueue 0: root`.
+    Ohne Regel zeigt `tc qdisc show dev h0-eth0` `qdisc noqueue 0: root refcnt 2`.
 
     Typische Fehlermeldungen: `Error: Exclusivity flag on, cannot modify.`
     heißt, dass an der Schnittstelle schon eine Regel hängt. Entfernt sie mit
@@ -947,7 +1057,14 @@ Verlustregel ein `cwnd` von mehreren hundert Segmenten. Notiert, wie sich der
     Containers, sonst schneidet ihr euch von eurem eigenen Desktop ab. Entfernt
     jede Regel am Ende wieder mit `tc qdisc del dev <schnittstelle> root`.
 
-Startet die Topologie aus Teil B, falls sie nicht mehr läuft:
+Wechselt jetzt von `topoP04` (Teil C) zu `topo02`:
+
+!!! warning "Zuerst die laufende Topologie beenden"
+    Es läuft immer nur eine Topologie. Tippt im Mininet-Fenster der bisherigen
+    Topologie `mininet> exit` und wartet, bis alle „Node: …“-Fenster
+    verschwunden sind. Erst dann startet ihr die neue. Zwei Topologien
+    gleichzeitig vertragen sich nicht: Das Startskript räumt alles auf, was es
+    findet, auch die Topologie, die noch läuft.
 
 ```bash
 $ cd ~/rn-practice/topo02
@@ -1000,14 +1117,17 @@ Vergleicht `mdev` in der Zusammenfassung von `ping` mit dem Wert aus Aufgabe 1.
     weniger als eine unregelmäßige.
 
 **Aufgabe 3: Verlust, und was er mit TCP macht.** Entfernt die Verzögerung und
-legt stattdessen 5 % Paketverlust an. Messt dann mit `iperf` wie in Teil B und
-vergleicht mit einer Messung ohne Regel:
+legt stattdessen 5 % Paketverlust an. Messt zuerst ohne Regel (Erwartung etwa
+9,5 Mbit/s) und danach mit Regel, jeweils mit `iperf` wie in Teil B. Beendet
+vorher einen noch laufenden `iperf`-Server auf `h2` (++ctrl+c++), damit ihr ihn
+frisch starten könnt:
 
 ```bash
 h0$ tc qdisc del dev h0-eth0 root
-h0$ tc qdisc add dev h0-eth0 root netem loss 5%
 h2$ iperf -s
-h0$ iperf -c 10.0.20.10 -t 20
+h0$ iperf -c 10.0.20.10 -t 20            # ohne Regel
+h0$ tc qdisc add dev h0-eth0 root netem loss 5%
+h0$ iperf -c 10.0.20.10 -t 20            # mit 5 % Verlust
 ```
 
 **Bildet vor der Messung eine Erwartung:** Um wie viel bricht der Durchsatz bei
@@ -1023,8 +1143,9 @@ groß ist die RTT?).
     Richtungen, sodass auch Bestätigungen verloren gehen (Round-Trip-Verlust
     von etwa 34 %). Hier wirkt der Verlust nur in einer Richtung (ausgehende
     Daten von `h0`), und die Bestätigungen kommen sicher an. Die RTT beträgt
-    nur etwa 0,3 ms. TCP bemerkt einen Verlust deshalb nach Bruchteilen einer
-    Millisekunde und macht sofort weiter, ohne auf einen Timeout zu warten.
+    nur etwa 0,3 ms. TCP erkennt den Verlust an doppelten Bestätigungen (Fast Retransmit) und
+    wiederholt das Segment sofort, ohne auf den Timeout zu warten. Wegen der
+    kurzen RTT geht das so schnell, dass kaum Durchsatz verloren geht.
     Auf `topoP04` läuft dagegen immer wieder der Timeout ab, und der
     verdoppelt sich bei jedem Fehlversuch.
 
@@ -1053,7 +1174,8 @@ h0$ tc qdisc del dev h0-eth0 root
 h0$ tc qdisc show dev h0-eth0
 ```
 
-Die Ausgabe muss `qdisc noqueue 0: root` lauten.
+Die Ausgabe beginnt mit `qdisc noqueue 0: root` (dahinter steht meist noch
+`refcnt 2`).
 
 !!! info "Hintergrund: wofür netem gedacht ist"
     `netem` ist Teil des Linux-Kernels und dient dazu, Protokollimplementierungen
@@ -1104,7 +1226,8 @@ zwischen den beiden Routern angelegt wird:
 $ grep -n "TCLink" ~/rn-practice/topo02/topo02.py
 ```
 
-Ausgabe: Die Zeile mit `cls=TCLink, bw=10, delay='0.1ms'` legt die Verbindung an. Nur diese Verbindung
+Ihr seht drei Treffer; die Zeile mit `bw=10, delay='0.1ms'` legt die
+Verbindung an. Nur diese Verbindung
 (zwischen `r1` und `r2`) trägt eine Begrenzung. Alle anderen Verbindungen
 sind unbegrenzt.
 
@@ -1141,7 +1264,9 @@ ist.
 #### Schritt 2: Drei Konfigurationen messen
 
 Für jede der drei Konfigurationen messt ihr **zwei** Größen: die Laufzeit mit
-`ping` und den Durchsatz mit `iperf3`. Startet im Terminal von `h2` den Server:
+`ping` und den Durchsatz mit `iperf3`. Beendet in `h2` einen noch laufenden `iperf`-Server (++ctrl+c++) und startet
+dort den Server (meldet er `Address already in use`, läuft schon einer: lasst
+ihn laufen):
 
 ```bash
 h2$ iperf3 -s
@@ -1209,9 +1334,10 @@ Abweichung in Prozent = (Ist - Soll) / Soll * 100
 | 2 – `rate 2mbit delay 10ms` | 2 Mbit/s | ? | ? | ? | ? | ? |
 | 3 – `rate 5mbit delay 50ms` | 5 Mbit/s | ? | ? | ? | ? | ? |
 
-Die Spalte „Soll RTT“ ist bewusst leer: Ihr müsst sie selbst herleiten. Der
-Hinweis steckt in Teil D, Aufgabe 1 – eine `netem`-Regel wirkt nur auf den
-ausgehenden Verkehr **einer** Schnittstelle.
+Die Spalte „Soll RTT“ müsst ihr selbst herleiten. Der Hinweis steckt in
+Teil D, Aufgabe 1 – eine `netem`-Regel wirkt nur auf den ausgehenden Verkehr
+**einer** Schnittstelle. Die Grundverzögerung des Routerlinks (zweimal 0,1 ms)
+liegt außerdem immer auf dem Weg.
 
 Sichert die fertige Tabelle als Datei (in einem normalen Terminal des Desktops,
 nicht im Knoten-Terminal):
@@ -1221,16 +1347,19 @@ $ mkdir -p ~/rn-practice/snapshots
 $ mousepad ~/rn-practice/snapshots/04-teile-sollist.txt &
 ```
 
+Das Fenster ist leer: Schreibt eure Tabelle hinein und speichert mit
+++ctrl+s++. Ohne Speichern bleibt die Datei leer.
+
 ??? success "Beispielwerte aus einem Lauf"
     | Konfiguration | Soll Rate | Ist Rate (receiver) | Abw. % | Soll RTT | Ist RTT (Mittel) | Abw. % |
     |---|---|---|---|---|---|---|
-    | 1 | 10 Mbit/s | 9,51 Mbit/s | −4,9 % | 0,2 ms | 0,61 ms | +200 % |
-    | 2 | 2 Mbit/s | 1,85 Mbit/s | −7,5 % | 10 ms | 13,7 ms | +37 % |
-    | 3 | 5 Mbit/s | 4,62 Mbit/s | −7,6 % | 50 ms | 50,5 ms | +1 % |
+    | 1 | 10 Mbit/s | 9,51 Mbit/s | −4,9 % | 0,2 ms | 0,61 ms | +205 % |
+    | 2 | 2 Mbit/s | 1,85 Mbit/s | −7,5 % | 10,2 ms | 10,7 ms (Mittel ab der 2. Antwort; die erste Antwort braucht wegen ARP länger) | +5 % |
+    | 3 | 5 Mbit/s | 4,62 Mbit/s | −7,6 % | 50,2 ms | 50,5 ms | +1 % |
 
     Das Soll der RTT bei Konfiguration 1 ist `2 · 0,1 ms` (eine Richtung je
-    Router-Schnittstelle), bei 2 und 3 nur der `netem`-Wert, weil die Regel
-    nur auf dem Hinweg wirkt. Die große prozentuale Abweichung bei
+    Router-Schnittstelle), bei 2 und 3 der `netem`-Wert auf dem Hinweg plus
+    dieselben 0,2 ms Grundverzögerung des Routerlinks (10,2 bzw. 50,2 ms). Die große prozentuale Abweichung bei
     Konfiguration 1 entsteht, weil die Verarbeitung in Kernel und Switches
     einige Zehntel Millisekunden kostet, die bei 0,2 ms Soll stark ins
     Gewicht fallen. Die Werte schwanken von Lauf zu Lauf um einige Prozent.
@@ -1257,12 +1386,14 @@ $ mousepad ~/rn-practice/snapshots/04-teile-sollist.txt &
        Sender in seinen Sendepuffer geschrieben hat. Das kann über dem Soll
        liegen (13,0 Mbit/s bei 10 Mbit/s Soll), weil Puffer die Differenz
        aufnehmen.
-    3. Die absolute Abweichung beträgt in den Beispielwerten +0,4 ms, +3,7 ms
-       und +0,5 ms. Sie hängt kaum vom Soll ab: Verarbeitung in Kernel und
-       Switch kostet immer einige Zehntel Millisekunden, und bei Konfiguration 2
-       zieht die erste Antwort (Adressauflösung per ARP) den Mittelwert nach
-       oben. Dieselbe kleine absolute Abweichung ist bei einem Soll von
-       0,2 ms ein großer Anteil (+200 %), bei 50 ms ein kleiner (+1 %).
+    3. Die absolute Abweichung beträgt in den Beispielwerten +0,4 ms, +0,5 ms
+       und +0,3 ms. Sie hängt kaum vom Soll ab: Verarbeitung in Kernel und
+       Switch kostet immer einige Zehntel Millisekunden; bei `rate 2mbit` kommt
+       dazu, dass das Senden eines 98-Byte-Pakets selbst 0,4 ms dauert, und die
+       erste Antwort (Adressauflösung per ARP) kann den Mittelwert nach oben
+       ziehen (lasst sie notfalls weg: `ping -c 11` und ab `icmp_seq=2` lesen).
+       Dieselbe kleine absolute Abweichung ist bei einem Soll von 0,2 ms ein
+       großer Anteil (+205 %), bei 50 ms ein kleiner (+1 %).
 
 !!! question "Nachgedacht: Was hätte euch eine Einzelmessung verschwiegen?"
     Ihr habt drei Konfigurationen gemessen, nicht eine. Überlegt, welche der
@@ -1289,7 +1420,7 @@ $ mousepad ~/rn-practice/snapshots/04-teile-sollist.txt &
     Werkzeug erzeugt auch gezielt gebaute Pakete (TCP-Flags, ICMP,
     ARP) für Sicherheitstests.
 
-    **Vorwissen:** Verlustrechnung aus Teil A, `topoP04` läuft.
+    **Vorwissen:** Verlustrechnung aus Teil A.
 
 !!! info "Werkzeug: `nping`"
     `nping` (Teil der Nmap-Sammlung) ist ein Paketgenerator und -zähler
@@ -1321,6 +1452,20 @@ $ mousepad ~/rn-practice/snapshots/04-teile-sollist.txt &
     ging. Ein fehlendes `RCVD` sagt nur „keine Antwort gesehen“, nicht „auf
     dem Hinweg verloren“.
 
+Für diesen Teil wechselt ihr von `topo02` (Teil E) zu `topoP04`:
+
+!!! warning "Zuerst die laufende Topologie beenden"
+    Es läuft immer nur eine Topologie. Tippt im Mininet-Fenster der bisherigen
+    Topologie `mininet> exit` und wartet, bis alle „Node: …“-Fenster
+    verschwunden sind. Erst dann startet ihr die neue. Zwei Topologien
+    gleichzeitig vertragen sich nicht: Das Startskript räumt alles auf, was es
+    findet, auch die Topologie, die noch läuft.
+
+```bash
+$ cd ~/rn-practice/topoP04
+$ ./start-topoP04.sh
+```
+
 **Vorgemacht.** Zählt auf `h2` 20 Sonden zu `h1` und lest die letzten drei
 Zeilen:
 
@@ -1333,8 +1478,8 @@ weil 20 Sonden eine kleine Stichprobe sind. Haltet sie gegen den
 Erwartungswert `1 − 0,9⁴ ≈ 34 %` aus Teil A.
 
 ??? success "Erwartung und Lösung"
-    Gemessen in vier Läufen: 25 %, 40 %, 25 % und 30 %. Die Spannweite um den
-    Erwartungswert 34 % liegt bei etwa 25 bis 40 %, deutlich über den 10 % einer
+    Gemessen in vier Läufen: 25 %, 40 %, 25 % und 30 %. Üblich sind 15 bis
+    55 %, Erwartungswert 34 %, deutlich über den 10 % einer
     *einzelnen* Teilstrecke, weil Anfrage und Antwort zusammen vier
     Teilstrecken queren.
 
@@ -1372,14 +1517,30 @@ verlustfreien `topo02`-Link. Die Beschreibung von `ss -ti` steht in Teil C.
     messt ihr mit `iperf3` in `topo02` und erzeugt Verlust dort gezielt mit
     `tc`. Auf `topoP04` bleibt es bei `iperf` (Version 2).
 
+Für diesen Teil wechselt ihr von `topoP04` (Teil F) zu `topo02`:
+
+!!! warning "Zuerst die laufende Topologie beenden"
+    Es läuft immer nur eine Topologie. Tippt im Mininet-Fenster der bisherigen
+    Topologie `mininet> exit` und wartet, bis alle „Node: …“-Fenster
+    verschwunden sind. Erst dann startet ihr die neue. Zwei Topologien
+    gleichzeitig vertragen sich nicht: Das Startskript räumt alles auf, was es
+    findet, auch die Topologie, die noch läuft.
+
+```bash
+$ cd ~/rn-practice/topo02
+$ ./start-topo02.sh
+```
+
 **Vorgemacht.** `topo02` läuft (`h0` = `10.0.10.10`, `h2` = `10.0.20.10`):
 
 ```bash
 h0$ tc qdisc add dev h0-eth0 root netem loss 8%
 h2$ iperf3 -s
 h0$ iperf3 -c 10.0.20.10 -t 8 &          # Transfer im Hintergrund
-h0$ ss -ti dst 10.0.20.10                # während der Transfer läuft, mehrfach
+h0$ sleep 2; ss -ti dst 10.0.20.10       # jetzt etwa alle 3 Sekunden wiederholen (Pfeil hoch, Enter)
 ```
+
+Die Ausgabe von `iperf3` läuft zwischen eure Eingaben; das ist normal.
 
 Echte Ausgabe der Messverbindung (zwei Abfragen im Abstand von etwa
 3 Sekunden, gekürzt):
@@ -1457,7 +1618,8 @@ von `iperf3` steht in Teil B, Schritt 7. Bei UDP bestimmt ihr die Rate mit
 `receiver`-Zeile, denn nur sie sagt, was tatsächlich ankam.
 
 **Vorgemacht.** `topo02` läuft. `h0` → `h2` über den 10-Mbit/s-Link, zuerst mit
-einer Rate unter der Kapazität:
+einer Rate unter der Kapazität. Läuft der `iperf3`-Server auf `h2` noch aus dem
+vorigen Teil, lasst ihn laufen (sonst `Address already in use`):
 
 ```bash
 h2$ iperf3 -s
@@ -1473,7 +1635,7 @@ Echte Ausgabe (die letzten Zeilen):
 ```
 
 - `Jitter`: beim `sender` steht `0.000 ms`. Den Jitter kann nur der Empfänger
-  messen, er hier 0,019 ms.
+  messen, er beträgt hier 0,019 ms.
 - `Lost/Total Datagrams`: `0/3454`, also nichts verloren.
 
 **Selbst.** Wiederholt die Messung mit einer Rate über der Link-Kapazität und
@@ -1546,8 +1708,9 @@ sie in einer zu großen Warteschlange stehen. Der Name dafür ist *Bufferbloat*.
 ```bash
 h0$ tc qdisc add dev h0-eth0 root netem rate 2mbit limit 1000   # kleine Rate, große Queue
 h0$ ping -c 3 10.0.20.10                                        # Leerlauf-RTT merken
-h2$ iperf3 -s
-h0$ iperf3 -c 10.0.20.10 -t 12 &                                # Leitung sättigen
+h2$ iperf3 -s                                                   # nur, wenn noch keiner läuft
+h0$ iperf3 -c 10.0.20.10 -t 20 &                                # Leitung sättigen
+h0$ sleep 5                                                     # warten, bis die Queue gefüllt ist
 h0$ ping -c 5 10.0.20.10                                        # RTT unter Last
 h0$ tc qdisc del dev h0-eth0 root                               # aufräumen
 ```
@@ -1559,7 +1722,8 @@ rtt min/avg/max/mdev = 0.702/0.717/0.728/0.011 ms        <- Leerlauf
 rtt min/avg/max/mdev = 2776.816/2944.185/3084.044/102.236 ms   <- unter Last, 0 % Verlust
 ```
 
-Die Leerlauf-RTT liegt unter einer Millisekunde. Unter Last steigt sie auf
+Der erste Wert unter Last kann kleiner sein, er steigt, während sich die Queue
+füllt; deshalb das `sleep 5`. Die Leerlauf-RTT liegt unter einer Millisekunde. Unter Last steigt sie auf
 **fast drei Sekunden**, ohne dass ein `ping`-Paket verloren geht. Die Pakete
 warten in der großen Queue.
 
@@ -1568,9 +1732,14 @@ hält die Warteschlange so kurz, dass ein Paket höchstens 400 ms wartet, mit
 `latency 50ms` nur 50 ms. Messt beide Fälle und zählt danach mit
 `tc -s qdisc show dev h0-eth0` die verworfenen Pakete (`dropped`):
 
+Wartet, bis die Ausgabe von `iperf3` beendet ist (20 s), sonst meldet der
+Server „server is busy“, und räumt die vorherige Regel vorher mit
+`tc qdisc del dev h0-eth0 root` ab.
+
 ```bash
 h0$ tc qdisc add dev h0-eth0 root tbf rate 2mbit burst 32kbit latency 50ms
-h0$ iperf3 -c 10.0.20.10 -t 12 &
+h0$ iperf3 -c 10.0.20.10 -t 20 &
+h0$ sleep 5
 h0$ ping -c 5 10.0.20.10
 h0$ tc -s qdisc show dev h0-eth0
 h0$ tc qdisc del dev h0-eth0 root
@@ -1588,7 +1757,7 @@ Wiederholt das mit `latency 400ms`.
     | `tbf … latency 50ms` | 19 / 28 / 40 ms | 31 | 1,83 Mbit/s |
 
     Je kürzer die Queue, desto kürzer die Wartezeit. Dafür verwirft sie Pakete,
-    sobald sie voll ist, und TCP wiederholt sie (`Retr` steigt von 5 auf 29).
+    sobald sie voll ist, und TCP wiederholt sie (in der `iperf3`-Ausgabe steigt `Retr` von 5 auf 29).
     Der Durchsatz bleibt praktisch gleich.
 
 !!! question "Nachgedacht: Warum hilft eine kleinere Queue, und was kostet sie?"
@@ -1611,7 +1780,8 @@ Wiederholt das mit `latency 400ms`.
     Algorithmus eine Eigenschaft der einzelnen Verbindung ist.
 
     **Wozu?** Server im Rechenzentrum und Smartphones nutzen
-    unterschiedliche Algorithmen (Cubic, BBR, Reno). Wer Durchsatzprobleme
+    unterschiedliche Algorithmen (Linux-Standard Cubic, Reno als Klassiker, BBR
+    in manchen Rechenzentren); hier vergleicht ihr Reno und Cubic. Wer Durchsatzprobleme
     auf einer Langstrecke untersucht, prüft zuerst, welcher Algorithmus auf
     der Verbindung läuft, denn auf Strecken mit hoher Latenz verhalten sie
     sich sehr verschieden.
@@ -1630,12 +1800,12 @@ h0$ sysctl -n net.ipv4.tcp_available_congestion_control
 ```
 
 Ausgabe: `reno cubic`. Dann die Messung mit Reno, mit `ss` während der
-Übertragung:
+Übertragung (läuft der Server auf `h2` schon, lasst ihn laufen):
 
 ```bash
 h2$ iperf3 -s
 h0$ iperf3 -C reno -c 10.0.20.10 -t 6 &
-h0$ ss -ti dst 10.0.20.10        # während der Transfer läuft
+h0$ sleep 2; ss -ti dst 10.0.20.10   # während der Transfer läuft
 ```
 
 Echte Ausgabe (gekürzt):
