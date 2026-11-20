@@ -14,7 +14,9 @@ herausfinden, an welcher Stelle der Kette es hakt.
 Dieses Blatt führt euch dabei Schritt für Schritt. Es beginnt mit einer
 **Werkzeugeinführung** (Mininet, `ip`, `ping`, `traceroute`, `tcpdump`,
 `ip neigh`), die ihr einmal durcharbeitet und später als Nachschlagewerk
-benutzt. Danach folgen die Teile 1 bis 11. Jeder Teil ist gleich aufgebaut:
+benutzt. Danach folgen die Teile 1 bis 11. Die meisten Teile sind so
+aufgebaut; die späteren Teile nennen stattdessen Ziel, Vorbedingung und
+Schritte:
 
 1. **Auf einen Blick** – Lernziel, Motivation, Vorwissen.
 2. **Vorgemacht** – ein Beispiel, das euch vorgerechnet oder vorgeführt wird,
@@ -40,18 +42,26 @@ Nach diesem Blatt könnt ihr
   sie im Mitschnitt **nachweisen**;
 - das Lernverhalten eines Switches (Lernen, Fluten, Altern, Überlaufen)
   **messen** und die Folgen für die Sicherheit **einordnen**;
+- IPv6-Nachbarn über Link-Local-Adressen und Neighbor Discovery finden
+  (Teil 8);
 - (Vertiefung, optional) die Auswirkungen einer kleinen MTU auf
   IPv4-Fragmentierung und Paketverlust **beobachten**.
 
 --8<-- "issue-feedback.md"
 
-!!! info "Schreibweise der Befehle (Prompts)"
-    `h1$` bedeutet: Befehl im Terminal des Knotens `h1` eingeben (in Mininet
-    über `mininet> xterm h1` geöffnet); entsprechend `r1$`, `h0$` usw. Ohne
-    Knotenpräfix (`$`) läuft der Befehl in einem normalen Terminal des
-    Desktops, `mininet>` steht für die Mininet-Kommandozeile. Der echte Prompt
-    sieht anders aus, z. B. `root@desktop-…:~/rn-practice/topoXX#` im
-    Knotenterminal; gemeint ist trotzdem derselbe Eingabeort.
+!!! info "Schreibweise der Befehle (Prompts) – und in welchem Fenster ihr tippt"
+    `h1$ ping -c 4 10.0.0.2` heißt: Tippt nur `ping -c 4 10.0.0.2` (ohne das
+    `h1$`) in das Fenster mit dem Titel **„Node: h1"**; entsprechend `r1$`,
+    `h0$` usw. für „Node: r1", „Node: h0". Diese Knotenfenster öffnen sich
+    beim Start der Topologie von selbst oder über `mininet> xterm h1`. Ihre
+    Eingabeaufforderung sieht in **allen** Knotenfenstern gleich aus
+    (`root@<zufälliger Name>:~/rn-practice/topoXX#`); nur der Fenstertitel
+    verrät den Knoten.
+
+    `mininet> …` tippt ihr in das Fenster, in dem ihr das Startskript
+    gestartet habt: Dort bleibt der Prompt `mininet>` stehen, solange das Netz
+    läuft. Zeilen mit `$` ohne Knotenpräfix gehören in ein normales Terminal
+    des Desktops (Prompt `cads@…$`). Der Prompt selbst gehört nie zum Befehl.
 
 ## Werkzeugeinführung: Mininet und die Netzwerkwerkzeuge
 
@@ -64,7 +74,7 @@ späteren Teilen verweisen wir nur noch darauf.
 
 !!! abstract "Auf einen Blick"
     **Lernziel:** Ihr könnt die Mininet-Topologie `topoP02` starten, mit einem
-    Terminal pro Knoten arbeiten und mit fünf Werkzeugen die Frage
+    Terminal pro Knoten arbeiten und mit den Werkzeugen dieses Abschnitts die Frage
     beantworten „Was ist hier eingestellt, und kommt etwas an?“.
 
     **Wozu?** Meldet morgens jemand „Die Abteilung Einkauf kommt nicht ins
@@ -131,14 +141,19 @@ späteren Teilen verweisen wir nur noch darauf.
     Befehl dahinter nicht.
 
 Startet die Referenztopologie dieses Blatts in einem Desktop-Terminal
-(Symbol `Terminal` auf dem Desktop) und probiert `nodes` und `net` aus:
+(Doppelklick auf das Symbol `Terminal` auf dem Desktop) und probiert `nodes`
+und `net` aus. Läuft noch eine andere Topologie (z. B. `topo01` aus Blatt 01),
+beendet sie vorher mit `exit` bzw. `quit` auf ihrer Mininet-Konsole:
 
 ```bash
 $ cd ~/rn-practice/topoP02
 $ ./start-topoP02.sh
 ```
 
-Nach einigen Sekunden erscheint der Prompt `mininet>`.
+Nach einigen Sekunden erscheint der Prompt `mininet>`. Meldet Mininet beim
+Start `*** Error setting resource limits. Mininet's performance may be
+affected.`, ist das harmlos: Der Übungs-Container darf die Systemgrenzen nicht
+anheben, die Topologie läuft trotzdem.
 
 ![Terminalfenster "Mininet" mit den Eingaben nodes und net; nodes nennt h1 h2 h3 h4 r1 r2 r3, net zeigt je Knoten seine Schnittstellen und die Gegenstelle, z. B. h1 h1-eth0:r1-eth0](../assets/screenshots/02-subnetting-arp/topoP02-nodes-net.png)
 *Die Mininet-Kommandozeile von `topoP02` nach dem Start: `nodes` und `net`.*
@@ -197,7 +212,7 @@ auch die Knotenterminals auf.
     | Teil der Ausgabe | Bedeutung |
     |---|---|
     | `h1-eth0` | Name der Schnittstelle: `h1` ist der Knoten, `eth0` die erste Schnittstelle. |
-    | `mtu 1500` | größte Paketnutzlast, die diese Schnittstelle in einem Rahmen sendet (mehr dazu in Teil 3). |
+    | `mtu 1500` | größte IP-Paketgröße (IP-Kopf eingeschlossen), die diese Schnittstelle in einem Rahmen sendet (mehr dazu in Teil 3). |
     | `state UP` / `UP,LOWER_UP` | Die Schnittstelle ist eingeschaltet und das „Kabel“ ist verbunden. |
     | `link/ether fe:a2:…` | die **MAC-Adresse** (Hardware-Adresse, Schicht 2). |
     | `inet 128.155.128.2/18` | die **IPv4-Adresse** (Schicht 3) und die **Präfixlänge**: Die ersten 18 Bit bezeichnen das Netz. |
@@ -323,9 +338,9 @@ Teil 1 findet ihr den Beleg dafür?
     |---|---|
     | `ping: connect: Network is unreachable` | Der sendende Knoten hat gar keine passende Route. |
     | `From 128.155.128.1 icmp_seq=1 Destination Net Unreachable` | Ein Router (hier `r1`) meldet: „Ich habe keine Route zu diesem Ziel.“ |
-    | `From 10.0.10.10 icmp_seq=1 Destination Host Unreachable` | Der Absender selbst (hier `h0` in Teil 5) meldet: Das Ziel liegt im eigenen Netz, antwortet aber auf ARP nicht. |
+    | `From 10.0.10.10 icmp_seq=1 Destination Host Unreachable` | Der Absender selbst (im Beispiel `h0` aus `topo02`) meldet: Das Ziel liegt im eigenen Netz, antwortet aber auf ARP nicht. |
     | `ping: sendmsg: Message too long` | Das Paket ist größer als die MTU und darf nicht fragmentiert werden (Teil 3). |
-    | `100% packet loss` ohne jede Meldung | Das Paket kam an, aber die Antwort findet keinen Rückweg – oder jemand verwirft sie. |
+    | `100% packet loss` ohne jede Meldung | Irgendwo auf Hin- oder Rückweg wird das Paket still verworfen (fehlende Rückroute, Firewall, Verlust). |
 
 ### `traceroute`: Welchen Weg nimmt das Paket?
 
@@ -430,7 +445,7 @@ Teil 1 findet ihr den Beleg dafür?
     | Eingabe | Wirkung |
     |---|---|
     | `ip neigh` | alle Einträge |
-    | `ip neigh show 10.0.10.1` | nur der Eintrag für diese Adresse |
+    | `ip neigh show 128.155.128.1` | nur der Eintrag für diese Adresse |
     | `ip neigh flush all` | Cache leeren – nützlich, wenn ihr eine ARP-Auflösung noch einmal von vorn beobachten wollt |
     | `arp -a` | die ältere Darstellung derselben Information |
 
@@ -567,17 +582,21 @@ Verbindung reicht das.
 Ein Überblick über die Topologie:
 
 ```text
- h1 --- r1 --- r2 --- r3 --- h3
-        (10.0.0.0/30)(10.0.1.0/30)  \
-        h2 an r2                      --- h4
+                  h2 (128.155.192.2/19)
+                  |
+ h1 --- r1 ------ r2 ------------ r3 --- h3 (128.155.224.2/20)
+    (/18)  10.0.0.0/30   10.0.1.0/30  |
+                                      +--- h4 (128.155.240.2/23)
 ```
 
-(`h2` hängt an `r2`, `h3` und `h4` an `r3`.) Prüft die Zuordnung am laufenden
+(`h2` hängt an `r2`, `h3` und `h4` an `r3`; `/18` ist das Netz zwischen `h1`
+und `r1`.) Prüft die Zuordnung am laufenden
 Netz mit `mininet> net`.
 
 #### Gemeinsam: Erreichbarkeit prüfen
 
-Startet in Mininet (falls noch nicht geschehen: `./start-topoP02.sh`) auf `h1`
+Startet in Mininet (falls noch nicht geschehen: `./start-topoP02.sh`; beendet
+vorher eine noch laufende andere Topologie mit `mininet> quit`) auf `h1`
 einen Ping zu `h3` und `h4`. Öffnet dafür mit `mininet> xterm h1` ein
 Terminal:
 
@@ -606,10 +625,10 @@ Paarungen zu testen (`h1`↔`h2`, `h1`↔`h3`, `h1`↔`h4`, `h2`↔`h3`, `h2`↔
     h4$ ping -c 2 128.155.224.2   # h3
     ```
 
-    Dass auch `h3` und `h4` das Verkaufsnetz erreichen, liegt an der Route
-    `128.155.192.0/19 via 10.0.1.1` auf `r3`: Sie sorgt dafür, dass `r3` für
-    das Netz von `h2` einen Weg kennt (der Rückweg der Antwort würde sonst
-    enden).
+    Dass auch `h3` und `h4` das Verkaufsnetz erreichen (und umgekehrt), liegt
+    an der Route `128.155.192.0/19 via 10.0.1.1` auf `r3`: Ohne sie wüsste
+    `r3` nicht, wohin es Pakete an `128.155.192.x` schicken soll – weder die
+    Anfragen von `h3`/`h4` noch die Antworten auf Pings von `h2`.
 
 Zum Abschluss lasst Mininet alle Paare auf einmal prüfen. Gebt in der
 Mininet-Kommandozeile ein (das dauert bis zu einer Minute und bleibt dabei
@@ -845,11 +864,15 @@ den jeweils nächsten Hop durchgeführt.
 
 !!! example "Vertiefung (optional): Routing-Schnappschüsse über mehrere Anläufe vergleichen"
     Euer `~/rn-practice`-Verzeichnis bleibt über Container-Neustarts hinweg
-    erhalten. Sichert die Ausgaben von `route -n`, `ip route` und `arp -a`
-    auf allen Routern und Hosts in eine eigene Datei, z. B.
-    `~/rn-practice/snapshots/02-lauf1.txt`. Beendet die Topologie
-    (`mininet> quit`), startet sie erneut und wiederholt den Mitschnitt in
-    einer zweiten Datei. Ein `diff` zwischen beiden Läufen zeigt, welche
+    erhalten. Beim `mininet> quit` schreibt das Startskript die
+    Routingtabellen aller Knoten nach
+    `~/rn-practice/snapshots/topoP02/endzustand.txt`. Die Datei wird beim
+    nächsten `quit` überschrieben; kopiert sie deshalb nach jedem Lauf, bevor
+    ihr neu startet, z. B. mit
+    `cp ~/rn-practice/snapshots/topoP02/endzustand.txt ~/rn-practice/snapshots/02-lauf1.txt`
+    (und danach `02-lauf2.txt`). Beendet die Topologie
+    (`mininet> quit`), startet sie erneut, beendet sie wieder und kopiert die
+    Datei in `02-lauf2.txt`. Ein `diff` zwischen beiden Läufen zeigt, welche
     Einträge bei jedem Start identisch bleiben (die vom Skript
     vorkonfigurierten Routen) und welche verschwunden sind, falls ihr
     zwischendurch manuell etwas verändert hattet – also was an einer
@@ -918,8 +941,8 @@ die ist normal), und `mininet> h1 ping -c 1 128.155.128.1` scheitert mit
     ```
 
     gelesen: `ifconfig` schreibt die Präfixlänge `/18` als Netzmaske
-    `255.255.192.0` (18 Einsen, dann Nullen) und berechnet die Broadcast-Adresse
-    selbst. Nach `route add default gw 128.155.128.1` zeigt `route -n` auf `h1`:
+    `255.255.192.0` (18 Einsen, dann Nullen); der Kernel setzt die
+    Broadcast-Adresse passend zur Maske. Nach `route add default gw 128.155.128.1` zeigt `route -n` auf `h1`:
 
     ```text
     Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
@@ -974,8 +997,23 @@ die noch fehlenden Adressen auf.*
 #### Gemeinsam: Die Strecke `r1`–`r2`
 
 Konfiguriert jetzt die Verbindung `r1-eth1` – `r2-eth1` (Transitnetz
-`10.0.0.0/30`) und das Netz von `h2`. Orientiert euch an Teil 1: Dort stehen
-alle Adressen. Die Adressen der Transitnetze: `r1-eth1` = `10.0.0.1/30`,
+`10.0.0.0/30`) und das Netz von `h2`. Die Netze stehen in Teil 1; hier alle
+Adressen auf einen Blick (Router jeweils `.1`, Hosts jeweils `.2`; in den
+Transitnetzen hat der linke Router `.1`). Die Hosts bekommen als
+Standard-Gateway die Adresse ihres Routers (`.1`):
+
+| Schnittstelle | Adresse | Schnittstelle | Adresse |
+|---|---|---|---|
+| `h1-eth0` | `128.155.128.2/18` | `r1-eth0` | `128.155.128.1/18` |
+| `h2-eth0` | `128.155.192.2/19` | `r1-eth1` | `10.0.0.1/30` |
+| `h3-eth0` | `128.155.224.2/20` | `r2-eth0` | `128.155.192.1/19` |
+| `h4-eth0` | `128.155.240.2/23` | `r2-eth1` | `10.0.0.2/30` |
+| | | `r2-eth2` | `10.0.1.1/30` |
+| | | `r3-eth0` | `10.0.1.2/30` |
+| | | `r3-eth1` | `128.155.224.1/20` |
+| | | `r3-eth2` | `128.155.240.1/23` |
+
+Die Adressen der Transitnetze: `r1-eth1` = `10.0.0.1/30`,
 `r2-eth1` = `10.0.0.2/30`.
 
 Das Netz von `h2` gehört dazu: `r2-eth0` = `128.155.192.1/19`, `h2-eth0` =
@@ -1017,7 +1055,9 @@ Wenn ein Ping nicht ankommt, geht ihr systematisch vor: Zuerst `ip route get
 #### Selbst: Das ganze Netz
 
 Konfiguriert nun alle Router und Hosts so, dass sich alle vier Hosts
-gegenseitig erreichen. Prüft mit Pings und mit `traceroute` von `h1` zu `h4`.
+gegenseitig erreichen. Die Adressen stehen in der Tabelle oben (Abschnitt
+„Gemeinsam: Die Strecke `r1`–`r2`"); die Routen leitet ihr aus der
+Routingtabelle in Teil 1 ab. Prüft mit Pings und mit `traceroute` von `h1` zu `h4`.
 Zum Schluss könnt ihr `mininet> pingall` eingeben: Es meldet wie in Teil 1
 `14% dropped (36/42 received)`. Solange noch Schnittstellen ohne Adresse
 sind, listet `pingall` stattdessen auf, welche noch fehlen (`pingall braucht
@@ -1175,17 +1215,21 @@ self.addLink(h1, s1, cls=TCLink, bw=10, mtu=536, loss=10)
 self.addLink(h2, s1, cls=TCLink, bw=10, mtu=536, loss=10)
 ```
 
+(Das Schlüsselwort `mtu` kennt `TCLink` nicht; `topoP04.py` setzt die MTU 536
+deshalb zusätzlich direkt an `h1-eth0` und `h2-eth0`.)
+
 Im Verzeichnis liegen außerdem zwei Textdateien zum Verschicken:
 `MehrAls500ByteText.txt` (632 Byte) und `MehrAls1500ByteText.txt`
 (1638 Byte).
 
 **Vorgemacht:** Die **MTU** (Maximum Transmission Unit) ist die größte
-Nutzlast, die ein Link in einem Paket transportiert. Ist ein IP-Paket größer,
-muss es **fragmentiert** werden: Der Absender teilt es in Stücke, die jeweils
-in die MTU passen; erst der Empfänger setzt sie wieder zusammen. Die Stücke
-tragen Offset und das Flag `MF` („More Fragments"). Bei MTU 536 passen pro
-Fragment 516 Byte IP-Nutzlast hinein, abgerundet auf ein Vielfaches von 8:
-512 Byte.
+IP-Paketgröße – IP-Kopf eingeschlossen –, die ein Link in einem Rahmen
+transportiert. Ist ein IP-Paket größer, muss es **fragmentiert** werden: Der
+Absender teilt es in Stücke, die jeweils in die MTU passen; erst der Empfänger
+setzt sie wieder zusammen. Die Stücke tragen Offset und das Flag `MF` („More
+Fragments"). Bei MTU 536 bleiben nach Abzug des 20 Byte langen IP-Kopfs
+516 Byte für die IP-Nutzlast; weil die Nutzlast eines Fragments (außer des
+letzten) ein Vielfaches von 8 Byte sein muss, sind es 512 Byte.
 
 **Gemeinsam:** Startet die Topologie und beobachtet mit `ping`, ab welcher
 Paketgröße Fragmentierung nötig wird:
@@ -1235,6 +1279,10 @@ h1$ tcpdump -n -v -c 4 -i h1-eth0 icmp
 mininet> h1 ping -c 1 -s 1000 10.0.0.2
 ```
 
+Wegen der 10 % Verlust kommen nicht immer alle vier Pakete. Steht nach etwa
+fünf Sekunden noch kein Prompt da, beendet den Mitschnitt mit `Strg+C` und
+schickt den Ping noch einmal.
+
 ![Zwei Terminalfenster: oben "Node: h1" mit tcpdump-Mitschnitt von vier Paketen, zwei Fragmente pro Echo-Anfrage und Echo-Antwort (offset 0 mit flags [+], offset 512 mit flags [none]); unten "Mininet" mit dem erfolgreichen Ping über 1008 Byte](../assets/screenshots/02-subnetting-arp/teil3-fragmente-tcpdump.png)
 *Ein Ping mit 1000 Byte Nutzlast über die Leitung mit MTU 536: Anfrage und
 Antwort bestehen je aus zwei Fragmenten.*
@@ -1272,6 +1320,13 @@ h2$ nc -u -l -k 5000 > /tmp/nc.out &
 h2$ tcpdump -n -v -i h2-eth0 udp
 h1$ nc -u -w1 10.0.0.2 5000 < MehrAls1500ByteText.txt
 ```
+
+!!! danger "Nie `pkill` oder `killall` benutzen"
+    Die Mininet-Knoten teilen sich die Prozessliste mit eurem Desktop.
+    `pkill nc` beendet euren ganzen Desktop und meldet euch ab. Beendet
+    Prozesse mit `Strg+C` oder `kill <PID>` (die PID steht in der Ausgabe von
+    `jobs -l` bzw. `ps`). Den Empfänger mit `&` beendet ihr also in `Node: h2`
+    mit `jobs -l` und `kill <PID>`.
 
 Bei der 1638-Byte-Datei zeigt der Mitschnitt auf `h2` je Sendung bis zu vier
 Fragmente der UDP-Nachricht (`offset 0`, `512`, `1024` mit `flags [+]`,
@@ -1361,8 +1416,10 @@ Interface auszuführen** – die **Broadcast-Adresse** für die Subnetze von `h1
 (Host-Anteil), und setzt diesen invertierten Anteil auf die Netzadresse auf
 – das Ergebnis ist die Broadcast-Adresse.
 
-Startet anschließend `topoP02` (falls nicht mehr aktiv) und prüft eure
-Rechnung gegen die vom Kernel vergebene Broadcast-Adresse:
+Startet anschließend `topoP02` (falls nicht mehr aktiv; beendet vorher eine
+andere laufende Topologie mit `mininet> quit`) und prüft eure Rechnung gegen
+die vom Kernel vergebene Broadcast-Adresse. Öffnet dafür mit `mininet> xterm h1`
+und `mininet> xterm h2` je ein Knotenfenster:
 
 ```bash
 cd ~/rn-practice/topoP02
@@ -1481,9 +1538,12 @@ dass seine Tabelle volllaufen kann.
     `ovs-appctl: ovs-vswitchd: server returned an error` heißt: Der
     Switchname ist falsch (`s1`, nicht `S1` oder `br0`).
 
-Startet die Topologie. `topo02` hat einen Switch mit **drei** angeschlossenen
-Geräten – das braucht ihr, um Fluten beobachten zu können: Es muss jemanden
-geben, der einen Rahmen empfängt, der nicht für ihn ist.
+Beendet zuerst eine noch laufende Topologie mit `mininet> quit` (das
+Startskript räumt sonst die laufende ab) und schließt übrig gebliebene
+`Node:`-Fenster. Startet dann die Topologie. Der Switch `s1` von `topo02` hat
+**drei** angeschlossene Geräte (`h0`, `h1`, `r1`) – das braucht ihr, um Fluten
+beobachten zu können: Es muss jemanden geben, der einen Rahmen empfängt, der
+nicht für ihn ist.
 
 ```bash
 $ cd ~/rn-practice/topo02
@@ -1543,9 +1603,9 @@ Beantwortet diese vier Fragen schriftlich, **bevor** ihr ein Kommando absetzt:
     Ein unbekanntes Ziel wird an alle Ports **außer dem Eingangsport**
     geflutet: von den drei Ports sehen es **zwei** (`h1` und `r1`; der Sender
     `h0` bekommt seinen eigenen Rahmen nicht zurück). Ein bekanntes Ziel geht
-    nur an **einen** Port, den des Ziels. Ein Eintrag verschwindet nach
-    höchstens etwa der Alterungszeit (hier 15 s, gemessen in Schritt 4 mit
-    Streuung). Beim `n+1`-ten Eintrag muss ein vorhandener weichen
+    nur an **einen** Port, den des Ziels. Ein Eintrag verschwindet
+    **frühestens** nach der Alterungszeit (hier 15 s); gemessen wurde in
+    Schritt 4 meist etwas später (15 bis 20 s). Beim `n+1`-ten Eintrag muss ein vorhandener weichen
     (*evicted*); die Tabelle bleibt bei `n`.
 
 #### Schritt 2 – Fluten an ein unbekanntes Ziel messen
@@ -1586,7 +1646,8 @@ h1$ tcpdump -i h1-eth0 -n icmp
 h0$ ping -c 5 10.0.20.10
 ```
 
-**Messwert:** Wie viele der fünf Echo-Anfragen sieht `h1` jetzt? Das Ergebnis
+**Messwert:** Wie viele `ICMP echo request`- und `ICMP echo reply`-Zeilen
+sieht `h1` jetzt insgesamt (von höchstens zehn)? Das Ergebnis
 schwankt von Lauf zu Lauf: Gemessen wurden 0, 1 und 2 Zeilen insgesamt (die
 erste Anfrage und/oder die erste Antwort), aber nie mehr. Das liegt daran, dass
 `h0` und `r1` kurz nach dem Leeren schon wieder etwas senden und der Switch
@@ -1615,7 +1676,7 @@ Verkehr**, wie lange der Eintrag überlebt:
 $ sudo ovs-vsctl set bridge s1 other-config:mac-aging-time=15
 $ sudo ovs-vsctl get bridge s1 other-config
 h0$ ping -c 2 10.0.20.10
-$ sudo watch -n 1 ovs-appctl fdb/show s1
+$ sudo watch -n 1 ovs-appctl fdb/show s1    # beenden mit Strg+C
 ```
 
 `get` bestätigt die Einstellung, in der Ausgabe steht `mac-aging-time="15"`.
@@ -1837,7 +1898,8 @@ weiterverwendet und erst bei Bedarf neu geprüft.
 **Ziel:** Eine ARP-Auflösung erzwingen, Anfrage und Antwort sehen und den
 Übergang der Cache-Zustände nachvollziehen.
 
-**Vorbedingung:** `topo02` läuft (`cd ~/rn-practice/topo02 && ./start-topo02.sh`).
+**Vorbedingung:** `topo02` läuft (`cd ~/rn-practice/topo02 && ./start-topo02.sh`;
+beendet vorher eine andere laufende Topologie mit `mininet> quit`).
 `h0` (`10.0.10.10`) und das Gateway `r1` (`10.0.10.1`) liegen am selben Segment.
 Das Terminal `Node: h0` ist seit dem Start offen.
 
@@ -1918,7 +1980,8 @@ zwei Einträge auf dasselbe Ziel passen, gewinnt der mit dem **längeren Präfix
 **Ziel:** Für eine Zieladresse, auf die zwei Routen passen, von Hand die
 gewinnende Route bestimmen und mit `ip route get` prüfen.
 
-**Vorbedingung:** `topoP02` läuft (`cd ~/rn-practice/topoP02 && ./start-topoP02.sh`).
+**Vorbedingung:** `topoP02` läuft (`cd ~/rn-practice/topoP02 && ./start-topoP02.sh`;
+beendet vorher eine andere laufende Topologie mit `mininet> quit`).
 Öffnet ein Terminal auf `r2` (`mininet> xterm r2`).
 
 **Vorgemacht:** Ein Paket an `128.155.200.1` (liegt im Verkaufsnetz). Auf `r2`
@@ -2083,7 +2146,8 @@ Antwort von `h0`.
     sondern als Teil von ICMPv6. Die `fe80::…`-Adresse leitet sich in dieser
     Umgebung erkennbar aus der MAC ab (`…00:ff:fe00:5` gehört zur MAC
     `00:00:00:00:00:05`) – das ist das EUI-64-Verfahren, an dem man Adresse
-    und Hardware einander zuordnen kann.
+    und Hardware einander zuordnen kann. Dabei wird ein Bit des ersten Bytes
+    umgedreht (`00` wird `02`), deshalb steht am Anfang `200`.
 
 ### Teil 9 – Die offene Frage aus Teil 5: Überlauf ja – und Flutung? (`topo02`)
 
@@ -2112,7 +2176,8 @@ Unbeteiligter (`h1`) den Unicast-Verkehr zwischen `h0` und dem Gateway `r1`
 mitsieht – und in welche Richtung.
 
 **Vorbedingung:** `topo02` läuft (`cd ~/rn-practice/topo02 &&
-./start-topo02.sh`). Ihr braucht **drei** Fenster:
+./start-topo02.sh`; beendet vorher eine andere laufende Topologie mit
+`mininet> quit`). Ihr braucht **drei** Fenster:
 
 | Fenster | Wie öffnen | Aufgabe |
 |---|---|---|
@@ -2304,7 +2369,7 @@ je Abteilung für beide Varianten und ein Satz, der den Unterschied benennt.
 
     **Differenz:** 65.528 − 29.176 = **36.352** nutzbare Adressen „verschenkt"
     die starre Aufteilung. Genau dafür gibt es variabel lange Präfixe (siehe
-    Teil 7).
+    Teil 1).
 
 ### Teil 11 – Subnetz-Zugehörigkeit selbst berechnen, bevor ihr sie prüft (`topo01`)
 
@@ -2343,7 +2408,7 @@ nötig ist:
 |---|---|---|---|
 | `h1` (`10.0.5.2/24` auf `h1-eth0`) | `10.0.6.2` (`h2`) | ? | ? |
 | `h1` (`10.0.5.2/24` auf `h1-eth0`) | `10.0.5.1` | ? | ? |
-| `h1` (`10.0.1.2/24` auf `h1-eth1`) | `1.1.1.1` | ? | ? |
+| `h1` (hat `h1-eth0` `10.0.5.2/24` und `h1-eth1` `10.0.1.2/24`) | `1.1.1.1` | ? | ? |
 | `h2` (`10.0.6.2/24` auf `h2-eth0`) | `10.0.1.1` | ? | ? |
 
 ??? success "Lösung"
@@ -2351,8 +2416,17 @@ nötig ist:
     `10.0.6.2` unterscheiden sich im dritten Oktett (5 ≠ 6): **anderes
     Subnetz**. `10.0.5.1` liegt im Netz `10.0.5.0/24` von `h1-eth0`:
     **dasselbe Subnetz**. `1.1.1.1` liegt außerhalb jedes lokalen `/24`:
-    **anderes Subnetz**, Weiterleitung über die Standardroute. `10.0.1.1`
-    liegt nicht in `10.0.6.0/24`: **anderes Subnetz** für `h2`.
+    **anderes Subnetz**, Weiterleitung über die Standardroute (`h1` hat zwei
+    Schnittstellen; `1.1.1.1` passt zu keinem der beiden `/24`, deshalb gilt
+    die Standardroute über `h1-eth0`). `10.0.1.1` liegt nicht in
+    `10.0.6.0/24`: **anderes Subnetz** für `h2`.
+
+**Vorbereitung:** Beendet eine noch laufende Topologie mit `mininet> quit`.
+Startet dann `topo01` in einem Desktop-Terminal mit `cd ~/rn-practice/topo01`
+und `./start-topo01.sh` (nicht mit `python3 topo01.py`). Es öffnen sich die
+Fenster `Node: h1` und `Node: h2`; Zeilen mit `h1$` gehören in `Node: h1`,
+Zeilen mit `h2$` in `Node: h2`. Für `r2$` tippt ihr in der Mininet-Kommandozeile
+`xterm r2`.
 
 Prüft anschließend jede Zeile eurer Tabelle mit dem Weiterleitungsentscheid
 des Kernels – `ip route get` beantwortet pro Ziel genau die Frage, die ihr
@@ -2419,12 +2493,10 @@ Subnetz- und Routing-Struktur ist.
   geöffnete Fenster hat den Fokus. `bash: h1: command not found` heißt: Ihr
   habt `h1 …` in ein Knoten-Fenster getippt – dort ohne Knotennamen
   eingeben, oder in die Mininet-Kommandozeile wechseln.
-- **Prozesse nie mit `pkill nc` o. Ä. beenden.** Mininet-Knoten teilen sich
-  die Prozessliste mit eurem Desktop; `pkill nc` trifft jeden Prozess,
-  dessen Name `nc` enthält, und kann eure Desktop-Sitzung beenden. Beendet
-  Programme mit Strg+C im jeweiligen Fenster, Hintergrundprozesse mit
-  `kill %1` im selben Fenster oder höchstens mit exaktem Namen
-  (`pkill -x nc`).
+- **Prozesse nie mit `pkill` oder `killall` beenden.** Mininet-Knoten teilen
+  sich die Prozessliste mit eurem Desktop; `pkill nc` beendet euren ganzen
+  Desktop und meldet euch ab. Beendet Programme mit `Strg+C` im jeweiligen
+  Fenster, Hintergrundprozesse mit `kill <PID>` (PID aus `jobs -l` bzw. `ps`).
 - **Übungsvariante starten:** `topoP02-self` startet ihr mit
   `sudo python3 topoP02-self.py` (im Verzeichnis `~/rn-practice/topoP02`).
 - **`topo02` öffnet seine Terminalfenster selbst** (`r1`, `h0`, `h1`, `h2`,

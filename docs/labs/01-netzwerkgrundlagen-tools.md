@@ -3,18 +3,19 @@
 [:material-file-pdf-box: Als PDF herunterladen](../../pdf/01-netzwerkgrundlagen-tools.pdf){ .md-button }
 
 ![Desktop direkt nach dem Login: am linken Rand die Symbole "Home", "File System", "Terminal", "Praktikumsaufgaben" und "Datenschutz-Hinweis.txt", oben rechts der Logout-Knopf, in der Mitte das CaDS-Logo, unten die Statusleiste](../assets/screenshots/01-netzwerkgrundlagen-tools/desktop-default.png)
-*Der Desktop nach dem Login. Das Terminal startet ihr über das Symbol "Terminal" am linken Rand, abmelden könnt ihr euch oben rechts.*
+*Der Desktop nach dem Login. Das Terminal startet ihr per Doppelklick auf das Symbol "Terminal" am linken Rand, abmelden könnt ihr euch oben rechts.*
 
 ## Lernziele
 
 - Das TCP/IP-Schichtenmodell nicht nur benennen, sondern in echtem, mit
   Wireshark aufgezeichnetem Verkehr wiedererkennen (Verbindungs-, Netzwerk-,
   Transport- und Anwendungsschicht).
-- Grundlegende Netzwerkwerkzeuge sicher anwenden: `ping`, `netcat`, `dig`,
-  `curl`, `whois`, `nmap`, `scp`, `netstat`.
+- Grundlegende Netzwerkwerkzeuge sicher anwenden: `ping`, `traceroute`,
+  `nslookup`, `netcat`, `dig`, `curl`, `whois`, `nmap`, `scp`, `tcpdump`,
+  `netstat`, `ss` und `socat`.
 - Den Unterschied zwischen numerischer IP-Adresse und Namensauflösung (DNS)
-  sowie zwischen Anwendungsprotokoll (HTTP) und Dienstprotokoll (DNS, DHCP)
-  einordnen können.
+  erklären und DNS (ein Hilfsdienst, der Namen in Adressen übersetzt) von
+  Anwendungsprotokollen wie HTTP unterscheiden, die Nutzdaten transportieren.
 - Verschlüsselte und unverschlüsselte Kommunikation im Wireshark-Mitschnitt
   unterscheiden (Klartext-Netcat/HTTP vs. SSH/SCP/HTTPS) und die Grenzen von
   Verschlüsselung benennen (Metadaten bleiben sichtbar, auch wenn der Inhalt
@@ -58,8 +59,11 @@ uns die kontrollierte, emulierte Topologie von `topo01` ansehen.
 
 #### Das Terminal öffnen
 
-Das Terminal auf diesem Desktop ist `xfce4-terminal`. Ihr startet es über
-das Symbol "Terminal" am linken Bildschirmrand.
+Das Terminal auf diesem Desktop ist `xfce4-terminal`. Ihr startet es per
+**Doppelklick** auf das Symbol "Terminal" am linken Bildschirmrand (ein Fenster
+mit schwarzem Hintergrund). Es öffnet sich im Ordner `~/rn-practice`; `~` heißt
+euer Home-Verzeichnis. Tippt hier Befehle ein und bestätigt jede Zeile mit
+Enter.
 
 !!! info "Werkzeug: `xfce4-terminal` und `xterm`"
     `xfce4-terminal` ist ein Terminalemulator mit Tabs, eigenen
@@ -70,6 +74,24 @@ das Symbol "Terminal" am linken Bildschirmrand.
 
 **Übung:** Öffnet ein Terminal über das Symbol und lasst es für die
 folgenden Schritte offen.
+
+!!! info "Wie die Befehle in diesem Blatt gekennzeichnet sind"
+    Auf diesem Desktop gibt es zwei Arten von Terminalfenstern. Ihr müsst sie
+    auseinanderhalten:
+
+    - **Normales Terminal** (Symbol „Terminal"): Die Eingabeaufforderung
+      beginnt mit `cads@…`. Befehle ohne Präfix, wie `wireshark &` in Teil 1,
+      tippt ihr hier.
+    - **Knotenfenster** der emulierten Topologie (ab Teil 2): Der Fenstertitel
+      lautet „Node: h1" bzw. „Node: h2", die Eingabeaufforderung
+      `root@…:~/rn-practice/topo01#`. Sie sieht in **allen** Knotenfenstern
+      gleich aus – achtet auf den **Fenstertitel**.
+
+    `h1$ ping -c 4 10.0.6.2` heißt: Tippt nur `ping -c 4 10.0.6.2` (ohne das
+    `h1$`) in das Fenster „Node: h1". Entsprechend steht `h2$` für „Node: h2".
+    `mininet> pingall` heißt: Tippt `pingall` in das Terminal, in dem ihr
+    `./start-topo01.sh` gestartet habt; dort bleibt der Prompt `mininet>`
+    stehen, solange das Netz läuft.
 
 --8<-- "issue-feedback.md"
 
@@ -141,7 +163,9 @@ folgenden Schritte offen.
     ![Wireshark Capture Options: Zeile „any" ausgewählt, Spalte „Link-layer Header" zeigt „Linux cooked v1" für any und „Ethernet" für eth0/lo, der Haken „Enable promiscuous mode on all interfaces" unten links ist abgewählt](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-interfaces-promiscuous.png)
     *Die Einstellung vor dem Start: „any" ausgewählt, Promiscuous-Modus abgewählt.*
 
-3. Klickt "Start". Die Aufzeichnung läuft jetzt auf `any`.
+3. Klickt "Start". Die Aufzeichnung läuft jetzt auf `any`. (Ohne die
+    Optionen geht es auch schneller: Ein **Doppelklick** auf die
+    Schnittstellenzeile im Startfenster beginnt sofort mit dem Mitschnitt.)
 
     !!! note "Die Paketliste füllt sich laufend"
         Ihr seht den gesamten Verkehr aller Schnittstellen, auch den des
@@ -214,11 +238,20 @@ folgenden Schritte offen.
         ```
 
         Die Zeile `nameserver …` nennt den Resolver, den `nslookup` benutzt.
-        Notiert die Adresse; im nächsten Schritt seht ihr in Wireshark, dass
+        Notiert die Adresse; gleich in Punkt 2 seht ihr in Wireshark, dass
         die DNS-Anfrage genau an sie geht.
 
 2. Wechselt zu Wireshark und tippt in die Anzeigefilter-Zeile oben `dns`,
     dann Enter, um die soeben erzeugte DNS-Abfrage wiederzufinden:
+
+    !!! note "Eure Anzeige kann abweichen"
+        Je nach Standort stehen bei `Source`/`Destination` andere Adressen
+        (z. B. der Docker-Resolver `127.0.0.11` oder der Cluster-DNS
+        `10.43.0.10`) statt der im Bild. Manchmal seht ihr auch deutlich
+        mehr DNS-Pakete, weil zusätzlich Suchdomänen abgefragt werden, und
+        `nslookup` meldet vorab Zeilen wie `Got recursion not available`.
+        Sucht dann die Zeile mit `A becke.net` oder filtert mit
+        `dns.qry.name == "becke.net"`.
 
     ![Wireshark mit Anzeigefilter „dns": Paketliste zeigt „Standard query ... A becke.net" und die Antwort „Standard query response ... A becke.net A 81.169.145.66" zwischen 172.17.0.11 und dem Resolver 141.22.192.100, darunter der Detailbaum mit Linux cooked capture, IPv4, UDP und DNS](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-dns-filter.png)
     *Die DNS-Anfrage (Protokollspalte „DNS") und ihre Antwort, direkt nach `nslookup becke.net`.
@@ -268,10 +301,13 @@ folgenden Schritte offen.
     (`200` = alles in Ordnung, `404` = Seite nicht gefunden). Darunter stehen
     Kopfzeilen: wann die Seite zuletzt geändert wurde, wie groß sie ist
     (422 Bytes), welchen Typ sie hat und welche Server-Software antwortet.
+    Eure Werte weichen ab (Serverversion, Zeiten).
 
     **Typische Fehlermeldung:** `curl: (6) Could not resolve host:
     gibtsnicht.invalid` – der Name ließ sich nicht in eine Adresse auflösen
     (also ein DNS-Problem, kein Webserver-Problem).
+
+Tippt im zweiten Terminal:
 
 ```bash
 curl https://becke.net
@@ -296,8 +332,10 @@ wählt "Follow → TCP Stream". Wireshark zeigt dann die gesamte Übertragung
 dieser einen Verbindung am Stück. Weil Schritt 3 die Seite über HTTPS abruft,
 seht ihr nach dem Beginn des TLS-Handshakes nur verschlüsselte, nicht lesbare
 Bytes; in Teil 2 folgt ihr auf demselben Weg einem unverschlüsselten Strom.
-Wireshark ersetzt dabei den Anzeigefilter durch `tcp.stream eq <Nummer>` –
-tragt für Schritt 5 wieder den Filter von oben ein.
+Dabei öffnet sich ein zusätzliches Fenster „Follow TCP Stream". Schließt es
+mit **Close** (oder **Back**). Im Hauptfenster steht jetzt der Filter
+`tcp.stream eq <Nummer>` anstelle eures Anzeigefilters – tragt für Schritt 5
+wieder den Filter von oben ein.
 
 --8<-- "issue-feedback.md"
 
@@ -358,7 +396,9 @@ einzelnen Zeilen auf. Ordnet die Schichten zu:
         Ethernet-artigen Schnittstelle. „Packet type: Sent by us" sagt
         zusätzlich, dass das Paket euer Rechner abgeschickt hat.
 
-Ihr dürft an dieser Stelle gerne alle Fenster schließen und danach wieder ein Terminal öffnen, um euch mehr Übersicht zu ermöglichen.
+Wenn der Bildschirm zu voll wird, könnt ihr das Terminalfenster mit
+`nslookup`/`curl` schließen. **Wireshark lasst ihr laufen**, ihr braucht es in
+Schritt 6.
 
 --8<-- "issue-feedback.md"
 
@@ -402,7 +442,11 @@ anderen Anzeigefilter (`icmp` statt der IP-Adresse von eben).
     rtt min/avg/max/mdev = 0.051/0.058/0.072/0.009 ms
     ```
 
-    `56(84) bytes` sind Nutzdaten und Gesamtgröße des Pakets. In jeder
+    `56(84) bytes`: 56 Byte Nutzdaten, 84 Byte als IP-Paket (20 Byte
+    IP-Kopf + 8 Byte ICMP-Kopf + 56 Byte Daten). Wireshark zeigt hier
+    100 Byte, weil bei der Schnittstelle `any` der 16 Byte lange „Linux
+    cooked"-Kopf mitgezählt wird (auf einer echten Ethernet-Schnittstelle
+    wären es 98). In jeder
     Antwortzeile ist `icmp_seq` die laufende Nummer, `ttl` die verbleibende
     Lebensdauer des Pakets (jeder Router auf dem Weg zählt sie um 1 herunter;
     64 ist der Startwert, hier also kein Router dazwischen) und `time` die
@@ -457,9 +501,14 @@ in einem der Pakete.
 !!! tip "Euer eigenes Notizbuch"
     Legt euch unter `~/rn-practice/notizbuch.md` eine eigene Datei an und
     tragt dort Befehle und Wireshark-Filter ein, die ihr euch merken wollt.
+    Im Image ist dafür der Editor `mousepad` vorhanden:
+    `mousepad ~/rn-practice/notizbuch.md &` im normalen Terminal.
 
 Schließt zum Abschluss dieses Teils Wireshark und das Terminal und öffnet für
-Teil 2 ein neues Terminal.
+Teil 2 ein neues Terminal. Beim Schließen fragt Wireshark, ob der Mitschnitt
+gespeichert werden soll: Wählt **„Continue without Saving"** (je nach
+Zustand der Aufzeichnung steht dort „Quit without Saving"); den Mitschnitt
+braucht ihr nicht.
 
 ### Teil 2 – Werkzeuge in der emulierten Topologie `topo01`
 
@@ -489,8 +538,9 @@ Aufgaben mit Internet- oder DNS-Zugriff führt ihr deshalb auf `h1` aus.
 Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 ── 10.0.4.0/24 ── r2 ── (10.0.6.2) h2
 ```
 
-1. **Netz starten.** Wechselt in das Topologie-Verzeichnis und startet die
-    Emulation:
+1. **Netz starten.** Läuft noch eine andere Topologie, beendet sie vorher
+    mit `exit` bzw. `quit` auf ihrer Mininet-Konsole. Wechselt dann in das
+    Topologie-Verzeichnis und startet die Emulation:
 
     ```bash
     cd ~/rn-practice/topo01
@@ -503,8 +553,17 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     einen DNS-Server weiterreicht, der aus diesem Netz erreichbar ist.
     Startet `topo01.py` nicht direkt, sondern immer über `start-topo01.sh`.
 
+    Das Terminal, in dem ihr das Skript gestartet habt, ist jetzt die
+    Mininet-Konsole (`mininet>`). Erscheint stattdessen eine Fehlermeldung und
+    kein `mininet>`, startet das Skript noch einmal; hilft das nicht, meldet
+    euch beim Betreuer. Die Meldung `*** Error setting resource limits` beim
+    Start ist harmlos.
+
     Nach dem Start öffnen sich zwei Terminalfenster, eines für `h1` und eines
-    für `h2`. In diesen Knoten-Terminals seid ihr `root`. Für die Router
+    für `h2` (Titel „Node: h1" und „Node: h2"). In diesen Knoten-Terminals
+    seid ihr `root`; die Eingabeaufforderung sieht in beiden gleich aus. Die
+    Fenster können übereinander liegen: Zieht sie am Titelbalken
+    auseinander. Für die Router
     `r1`/`r2` oder ein versehentlich geschlossenes Fenster öffnet ihr auf der
     Mininet-Konsole ein weiteres Terminal:
 
@@ -523,7 +582,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     ![Drei Terminalfenster nach dem Start von topo01: oben die Mininet-Konsole mit der Ausgabe von pingall (h1 -> h2 r1 X; h2 -> h1 r1 r2; r1 -> h1 h2 r2; r2 -> X h2 r1; 16% dropped (10/12 received)), unten links „Node: h1" und unten rechts „Node: h2" mit leerem Prompt](../assets/screenshots/01-netzwerkgrundlagen-tools/topo01-start-pingall.png)
     *Oben die Mininet-Konsole nach `pingall`, unten die Knoten-Terminals von `h1` und `h2`.*
 
-    Erwartet wird **`16% dropped (10/12 received)`**. Jede Zeile heißt „dieser
+    `pingall` braucht etwa eine Minute, weil die fehlgeschlagenen Pings auf
+    ihre Zeitüberschreitung warten. Erwartet wird
+    **`16% dropped (10/12 received)`**. Jede Zeile heißt „dieser
     Knoten hat diese Ziele erreicht"; das `X` markiert ein Ziel, das nicht
     geantwortet hat.
 
@@ -582,8 +643,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         **Typische Fehlermeldung:** `Device "h9" does not exist.` – es gibt
         keine Schnittstelle dieses Namens (Tippfehler?).
 
-2. **Konnektivität mit Ping prüfen.** Öffnet das Terminal für `h1` und führt
-    nacheinander aus (zu `ping` siehe Steckbrief in Teil 1, Schritt 6):
+2. **Konnektivität mit Ping prüfen.** Wechselt in das Fenster „Node: h1"
+    und führt dort nacheinander aus – ohne das Präfix `h1$`, siehe die Box
+    „Wie die Befehle in diesem Blatt gekennzeichnet sind" in Teil 1 (zu `ping`
+    siehe Box „Werkzeug: `ping`" in Teil 1, Schritt 6):
 
     ```bash
     h1$ ping -c 4 10.0.6.2        # Ping mit numerischer IPv4-Adresse (h2)
@@ -619,17 +682,25 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
           zurück (3 × 10 ms × 2).
         - `10.0.5.1` (der NAT-Übergang) antwortet mit `ttl=64` und unter
           0,1 ms: kein Router dazwischen, kein künstlicher Verzug.
-        - `1.1.1.1` und `one.one.one.one` liefern **100 % Paketverlust**
+        - `1.1.1.1` und `one.one.one.one` liefern an manchen Standorten
+          **100 % Paketverlust**, an anderen kommen Antworten durch (z. B.
+          `ttl=53`, rund 10 ms) – das hängt vom Standort eures Desktops ab
           (`ping` löst den Namen übrigens auf, die Adresse wird in der
           Kopfzeile genannt).
 
     !!! question "Nachgedacht: `h1` hat Internet, bekommt aber keine Ping-Antwort"
-        `h1` ist der einzige Knoten mit Weg ins Internet. Trotzdem liefern
-        `ping 1.1.1.1` und `ping one.one.one.one` auf `h1` 100 %
-        Paketverlust. Weist nach, woran das liegt:
+        `h1` ist der einzige Knoten mit Weg ins Internet. Ob ICMP-Pakete
+        ins Internet durchkommen, hängt vom Standort eures Desktops ab: Bei
+        vielen Desktops liefern `ping 1.1.1.1` und `ping one.one.one.one` auf
+        `h1` **100 % Paketverlust**, bei anderen kommen Antworten zurück.
+        Seht zuerst nach, welcher Fall bei euch vorliegt. Gibt es bei euch
+        keinen Verlust, ist ICMP an eurem Standort nicht gefiltert; die
+        folgenden Fragen sind dann ein Gedankenexperiment, und die Beobachtung
+        zeigt, dass solche Filter standortabhängig sind. Weist (bei 100 %
+        Verlust) nach, woran das liegt:
 
         ```bash
-        h1$ getent hosts one.one.one.one       # löst der Name auf?
+        h1$ getent hosts one.one.one.one       # löst der Name auf? (evtl. nur IPv6-Adressen)
         h1$ nc -z -w 3 1.1.1.1 443             # geht eine TCP-Verbindung durch?
         h1$ echo $?                            # 0 = Verbindung stand
         h1$ traceroute -n -m 6 1.1.1.1         # wo endet der Weg?
@@ -656,7 +727,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
             **Aufruf:** `traceroute -n -m 6 <ziel>` – `-n` zeigt Adressen
             statt Namen, `-m 6` bricht nach 6 Stationen ab.
 
-            **Beispielausgabe, Zeile für Zeile gelesen:**
+            **Beispielausgabe, Zeile für Zeile gelesen** (die Adressen ab
+            Hop 2 sind ein **Beispiel** und hängen vom Standort ab):
 
             ```text
             h1$ traceroute -n -m 6 1.1.1.1
@@ -670,9 +742,11 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
             ```
 
             Jede Zeile ist eine Station („Hop") mit drei Messungen. Hop 1 ist
-            der NAT-Übergang (`10.0.5.1`), Hop 2 das Gateway des Containers
-            (`172.17.0.1`), Hop 3 ein Router im Netz dahinter (hier
-            gekürzt). `* * *` heißt: keine Antwort innerhalb der Wartezeit.
+            der NAT-Übergang (`10.0.5.1`), Hop 2 das Gateway eures
+            Containers (im Beispiel `172.17.0.1`; auf anderen Desktops z. B.
+            `192.168.80.1` oder `10.42.0.1`), Hop 3 ein Router im Netz dahinter
+            (hier gekürzt). `* * *` heißt: keine Antwort innerhalb der
+            Wartezeit.
 
             **Typische Fehlermeldung:** Eine Reihe aus `* * *` bis zum Ende
             heißt nicht „kaputt", sondern: Diese Station antwortet nicht auf
@@ -685,7 +759,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
             2. Gefiltert wird ICMP, TCP auf Port 443 ist erlaubt: ein Filter
                auf der Netzwerkschicht, der nach dem Protokolltyp
                unterscheidet (ICMP gesperrt, TCP erlaubt).
-            3. Hop 1 (`10.0.5.1`) und Hop 2 (`172.17.0.1`) liegen in eurem
+            3. Hop 1 (`10.0.5.1`) und Hop 2 (das Gateway eures Containers, die
+               Adresse sieht bei euch evtl. anders aus) liegen in eurem
                Container bzw. an dessen Gateway, Hop 3 im Hostnetz; ab
                Hop 4 kommt nichts mehr. Der Filter sitzt also **weiter
                draußen**, nicht in eurem Container.
@@ -737,12 +812,16 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         Leitungen `h1`–`r1`–`r2`–`h2` ist in `topo01.py` mit 10 ms
         Verzögerung angelegt; prüft, ob die gemessene RTT dazu passt.
 
-3. **Ping mit Wireshark beobachten.** Öffnet auf `h2` Wireshark im
-    Hintergrund und wählt das Interface `h2-eth0` aus:
+3. **Ping mit Wireshark beobachten.** Startet auf `h2` (Fenster „Node: h2")
+    Wireshark im Hintergrund:
 
     ```bash
     h2$ wireshark &
     ```
+
+    Im Startfenster **doppelklickt ihr auf die Zeile `h2-eth0`**; damit
+    beginnt der Mitschnitt (alternativ: Zeile markieren und in der Symbolleiste
+    auf die Haifischflosse klicken).
 
     Wechselt zum Terminal von `h1` und sendet einen einzelnen Ping:
 
@@ -757,20 +836,27 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     (Netzwerkschicht) und das ICMP-Paket selbst. Die Anfragen tragen
     `ttl=62`, die Antworten `ttl=64`.*
 
-    Welche Protokolle erscheinen in der Spalte "Protocol"? Wiederholt den
-    Ping noch zwei weitere Male (`ping -c 1 h2`) – welche Pakettypen
-    wiederholen sich, welche nicht? Führt anschließend `ping -c 1 10.0.2.3`
-    aus (eine nicht existierende Adresse) und beobachtet den Unterschied.
-    Schließt danach das Wireshark-Fenster von `h2`, startet Wireshark
-    stattdessen auf `h1` (Interface `h1-eth0`, nicht vergessen: `wireshark &`
-    mit `&`, damit das Terminal weiter benutzbar bleibt) und wiederholt
-    `ping -c 1 10.0.2.3`. Vergleicht, was auf beiden Seiten sichtbar ist, und
-    formuliert eine These, warum sich die Beobachtung unterscheidet.
+    Welche Protokolle erscheinen in der Spalte "Protocol"? (Setzt dazu
+    zunächst keinen Filter.) Tippt danach in die Zeile „Apply a display
+    filter" `icmp` und Enter. Wiederholt den Ping noch zwei weitere Male
+    (`ping -c 1 h2`) – welche Pakettypen wiederholen sich, welche nicht?
+    Führt anschließend `ping -c 1 10.0.2.3` aus (eine nicht existierende
+    Adresse) und beobachtet den Unterschied. Schließt danach das
+    Wireshark-Fenster von `h2` (bei der Frage nach dem Speichern: „Continue
+    without Saving", ggf. „Quit without Saving"), startet Wireshark stattdessen
+    auf `h1` (`h1$ wireshark &` – mit `&`, damit das Terminal weiter benutzbar
+    bleibt –, Doppelklick auf `h1-eth0`) und wiederholt `ping -c 1 10.0.2.3`.
+    Vergleicht, was auf beiden Seiten sichtbar ist, und formuliert eine These,
+    warum sich die Beobachtung unterscheidet. Schließt danach auch dieses
+    Wireshark-Fenster.
 
     ??? success "Lösung"
-        Es erscheint nur ICMP: Echo-Request und Echo-Reply im Wechsel; jeder
-        weitere Ping wiederholt genau dieses Paar (nur die Sequenznummer
-        steigt). Auf `h2-eth0` sieht man bei `ping 10.0.2.3` **nichts**, auf
+        Ohne Filter erscheinen ICMP (Echo-Request und Echo-Reply im Wechsel;
+        jeder weitere Ping wiederholt genau dieses Paar, nur die
+        Sequenznummer steigt) und, vor allem beim ersten Ping, **ARP** („Wer
+        hat 10.0.6.2?" und die Antwort). ARP wiederholt sich nicht, solange der
+        Eintrag im Cache steht. Mit dem Filter `icmp` seht ihr nur die
+        ICMP-Pakete (im Bild 6 von 12). Auf `h2-eth0` sieht man bei `ping 10.0.2.3` **nichts**, auf
         `h1-eth0` dagegen Echo-Requests **ohne** Antwort. These: `10.0.2.3`
         liegt in keinem Netz, das `h1` kennt; `h1` schickt das Paket deshalb
         über die Standardroute in den Uplink (`h1-eth0`) statt Richtung `r1`.
@@ -807,8 +893,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         failed: Connection refused` – der Rechner ist erreichbar, aber auf dem
         Port lauscht niemand.
 
-    Startet auf `h2` (im Verzeichnis `~/rn-practice/topo01`) den vorbereiteten
-    UDP-Netcat-Server:
+    Startet zuerst auf `h2` Wireshark (`h2$ wireshark &`, Doppelklick auf
+    `h2-eth0`, Anzeigefilter `udp`) und *danach* den Server und den Client.
+    Startet auf `h2` (im Verzeichnis `~/rn-practice/topo01`) den
+    vorbereiteten UDP-Netcat-Server:
 
     ```bash
     h2$ ./startUDPServerNetcat.sh
@@ -828,7 +916,15 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Bytes") seht ihr die Nutzdaten hexadezimal und in ASCII – euer "hallo"
     sollte dort auftauchen. Prüft, wie viele Bytes die Nutzdaten tatsächlich
     belegen und warum (Stichwort ASCII-Kodierung, ein Zeichen = ein Byte).
-    Beendet beide Programme mit `Strg+C`.
+    Beendet beide Programme mit `Strg+C`. Wiederholt ihr den Versuch, startet
+    den Server vorher neu: Ein UDP-`netcat` bleibt an den ersten Absender
+    gebunden, ein zweiter Client wird sonst nicht mehr bedient.
+
+    !!! danger "Nie `pkill` oder `killall` benutzen"
+        Die Mininet-Knoten teilen sich die Prozessliste mit eurem Desktop.
+        `pkill nc` beendet euren ganzen Desktop und meldet euch ab. Beendet
+        Prozesse mit `Strg+C` oder `kill <PID>` (die PID steht in der Ausgabe
+        von `jobs -l` bzw. `ps`).
 
     ??? success "Lösung"
         Die Nutzdaten sind **6 Bytes** lang: `h a l l o` (fünf Zeichen, je ein
@@ -874,7 +970,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         `rd` = Rekursion gewünscht, `ra` = Server bietet Rekursion an.
         `QUESTION SECTION` wiederholt die Frage („A" = IPv4-Adresse).
         `ANSWER SECTION` enthält die Antworten: Name, Gültigkeit in Sekunden
-        (14400 = 4 Stunden), Klasse `IN`, Typ `A`, Adresse – hier gleich
+        (14400 = 4 Stunden; der Wert hängt vom Resolver ab, bei euch kann
+        z. B. 30 stehen), Klasse `IN`, Typ `A`, Adresse – hier gleich
         zwei Adressen. `SERVER` nennt, wer geantwortet hat.
 
         **Typische Fehlermeldung:** `;; communications error to
@@ -926,7 +1023,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     `query` wiederholt die angefragte Adresse, der Rest beschreibt Standort
     und Betreiber des Netzes.
 
-    Vergleicht das Ergebnis mit dem Aufruf derselben Abfrage im Browser unter
+    Vergleicht das Ergebnis mit dem Aufruf derselben Abfrage im Browser
+    **auf dem normalen Desktop** (Firefox über das Anwendungsmenü, nicht
+    `runSimpleBrowser.sh`; `h2` hat kein Internet) unter
     `https://ip-api.com/#<ermittelte-IP-Adresse>`. Welche Darstellung eignet
     sich für die automatische Weiterverarbeitung durch ein Programm, welche
     für einen Menschen?
@@ -966,10 +1065,12 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         `Creation Date` und `Registry Expiry Date` nennen Anlage- und
         Ablaufdatum. Weiter unten stehen Kontaktdaten des Inhabers.
 
-        **Typische Fehlermeldung:** `connect: Network is unreachable` heißt: Ihr
-        seid auf einem Knoten ohne Internet (z. B. `h2`). Hängt `whois`
-        dagegen und liefert dann einen Verbindungsfehler, ist TCP-Port 43 auf
-        dem Weg gesperrt; dann hilft RDAP (siehe unten).
+        **Typische Fehlermeldung:** `connect: Network is unreachable` heißt
+        auf `h2`: Der Knoten hat kein Internet. Hängt `whois` auf `h1` dagegen
+        etwa eine Minute und liefert dann einen Verbindungsfehler (z. B. auch
+        `Network is unreachable` beim IPv6-Versuch), ist TCP-Port 43 an
+        eurem Standort gesperrt; das ist auf manchen Desktops der Fall. Dann
+        hilft RDAP (siehe Vertiefung unten).
 
     Auf `h1`:
 
@@ -1020,8 +1121,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         **Aufruf:**
 
         - `nmap -sn <netz>` – nur „wer antwortet?" (Ping-Scan, keine Ports).
-        - `nmap -O <ziel>` – rät das Betriebssystem und zeigt offene Ports
+        - `nmap -O <ziel>` – rät zusätzlich zur Portliste das Betriebssystem
           (braucht Administratorrechte; in den Knoten-Terminals seid ihr `root`).
+        - `nmap -sV -p 22 <ziel>` – ermittelt die Version des Dienstes auf
+          Port 22 (Spalte `VERSION`).
 
         **Beispielausgabe von `nmap -sn 10.0.4.0/24`, Zeile für Zeile:**
 
@@ -1036,8 +1139,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         ```
 
         `/24` umfasst 256 Adressen; zwei davon antworten (`Host is up`),
-        mit der gemessenen Antwortzeit. Der Scan dauert rund 20 Sekunden,
-        weil 254 Adressen nicht antworten und nmap jeweils wartet.
+        mit der gemessenen Antwortzeit. Der Scan dauert zehn bis zwanzig
+        Sekunden, weil 254 Adressen nicht antworten und nmap jeweils wartet
+        (Dauer und Uhrzeit weichen bei euch ab).
 
         **Typische Meldung:** `Note: Host seems down` heißt: Das Ziel
         antwortet nicht auf die Erkundungs-Pakete (aus, oder gefiltert).
@@ -1056,7 +1160,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     ```
 
     Findet heraus, auf welchem Host der Dienst OpenSSH erreichbar ist, und
-    prüft mit `searchsploit`, ob es bekannte Schwachstellen gibt:
+    ermittelt mit `h2$ nmap -sV -p 22 <IP-des-Hosts>`, welche Version dort
+    läuft (Spalte `VERSION`). Prüft dann mit `searchsploit`, ob es bekannte
+    Schwachstellen gibt:
 
     ```bash
     h2$ searchsploit OpenSSH
@@ -1094,6 +1200,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         sich nicht festlegen kann. `searchsploit` listet viele alte Einträge
         – ein Treffer in der Liste heißt nicht, dass die hier installierte
         Version betroffen ist; dazu müsst ihr die Versionsnummer vergleichen.
+        `nmap -sV -p 22 10.0.4.2` zeigt sie in der Spalte `VERSION`, z. B.
+        `OpenSSH 10.0p2 Debian …`.
 
 9. **Sichere Übertragung mit SCP, und was trotz Verschlüsselung sichtbar
     bleibt.**
@@ -1144,7 +1252,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         `ssh: connect to host 10.0.1.2 port 22: Connection refused` – der
         Server läuft nicht (noch nicht gestartet oder mit `Strg+C` beendet).
 
-    Startet auf `h2` Wireshark (Interface `h2-eth0`):
+    Startet auf `h2` Wireshark (Doppelklick auf `h2-eth0`; für die
+    Auswertung später hilft der Anzeigefilter `ssh`):
 
     ```bash
     h2$ wireshark &
@@ -1162,7 +1271,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     ihr später jeden Anmeldeversuch.
 
     Ihr meldet euch als Nutzer `cads` an, dessen Passwort ihr nicht kennt.
-    Erzeugt deshalb auf `h2` ein eigenes Schlüsselpaar und tragt den
+    (`cads` ist der Benutzer, unter dem euer Desktop läuft; `whoami` in einem
+    normalen Terminal zeigt ihn.) Erzeugt deshalb auf `h2` ein eigenes
+    Schlüsselpaar und tragt den
     öffentlichen Teil als vertrauenswürdig ein:
 
     ```bash
@@ -1176,6 +1287,13 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         einem gemeinsamen Dateisystem: `~/.ssh` ist auf beiden Knoten
         dasselbe Verzeichnis. Der Schlüssel wird nicht übers Netz übertragen,
         nur die SSH-Verbindung danach, und die seht ihr im Mitschnitt.
+        Das Home-Verzeichnis von `cads` (`/config`) ist auch das
+        Home-Verzeichnis von `root` in den Knoten-Terminals; deshalb liest
+        der Server `~/.ssh/authorized_keys` aus demselben Ordner, in den ihr
+        den Schlüssel schreibt. Wiederholt ihr diese Aufgabe, löscht vorher
+        den alten Schlüssel (`rm -f ~/.ssh/rn-practice-key*`), sonst fragt
+        `ssh-keygen` nach dem Überschreiben. Der Fingerabdruck im Beispiel
+        oben ist nur ein Beispiel; euer Wert weicht ab.
 
     Kopiert anschließend von `h2` aus eine Datei von `h1`. Beim ersten
     Verbinden fragt `scp` nach dem Fingerabdruck von `h1`: antwortet mit `yes`.
@@ -1215,33 +1333,39 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     h2$ cat test30M.txt
     ```
 
-    Darin findet sich ein netcat-Aufruf. Führt ihn probeweise aus, um eine
-    (in dieser isolierten Übung harmlose) Reverse-Shell zu demonstrieren:
+    Darin findet sich ein netcat-Aufruf. Führt ihn probeweise aus. Er öffnet
+    auf `h2` eine **Bind-Shell** (in dieser isolierten Übung harmlos): Ein
+    Programm wartet auf Port 1234 und gibt jedem, der sich verbindet, eine
+    Shell. Bei einer *Reverse*-Shell wäre es umgekehrt: Das Opfer baut selbst
+    die Verbindung nach draußen zum Angreifer auf, was Firewalls oft eher
+    durchlassen.
 
     ```bash
     h2$ sh ./test30M.txt
     ```
 
     Nach der Ausführung ist die Datei gelöscht und scheinbar nichts
-    Wesentliches geschehen. Tatsächlich hat sich aber eine Reverse-Shell
-    geöffnet. Verbindet euch von `h1` aus auf die geöffnete Shell und prüft,
-    auf welchem Host ihr tatsächlich Befehle ausführt:
+    Wesentliches geschehen. Tatsächlich hat sich aber eine Bind-Shell
+    geöffnet. Prüft zuerst, dass der Wireshark-Mitschnitt auf `h2-eth0` noch
+    läuft (rotes Quadrat aktiv); falls nicht, startet ihn neu (Doppelklick auf
+    `h2-eth0`), *bevor* ihr euch verbindet. Verbindet euch dann von `h1` aus auf
+    die geöffnete Shell und prüft, auf welchem Host ihr tatsächlich Befehle
+    ausführt:
 
     ```bash
     h1$ netcat 10.0.6.2 1234
     ifconfig
     ```
 
-    !!! tip "Woran ihr eine erfolgreiche Reverse-Shell erkennt"
+    !!! tip "Woran ihr eine erfolgreiche Bind-Shell erkennt"
         Nach dem `netcat`-Aufruf erscheint kein Prompt wie `root@…:~#`,
         sondern ein einfaches `#` – das ist die Shell, die `test30M.txt` auf
         `h2` geöffnet hat, nicht eine neue Shell auf `h1`. Erst danach tippt
         ihr `ifconfig`.
 
     Erscheint ein Interface `h2-eth0`, habt ihr Zugriff auf `h2` – obwohl ihr
-    den Befehl von `h1` aus abgesetzt habt. Aktiviert die Wireshark-Aufnahme
-    auf `h2-eth0` erneut und schaut euch über die Reverse-Shell eine weitere
-    Datei an:
+    den Befehl von `h1` aus abgesetzt habt. Schaut euch über die Bind-Shell
+    eine weitere Datei an:
 
     ```bash
     cat key.pem
@@ -1252,14 +1376,14 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     dieser Kanal zu keinem Zeitpunkt verschlüsselt.
 
     ![Wireshark-Fenster „Follow TCP Stream" (tcp.stream eq 1) auf h2-eth0: im Klartext die eingetippten Befehle „ifconfig" und „cat key.pem" samt Ausgabe mit dem Interface h2-eth0 (inet 10.0.6.2) und dem Beginn des privaten Schlüssels „-----BEGIN ENCRYPTED PRIVATE KEY-----"](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-reverse-shell-klartext.png)
-    *Der Strom der Reverse-Shell im Klartext: Befehle und Antworten sind lesbar.*
+    *Der Strom der Bind-Shell im Klartext: Befehle und Antworten sind lesbar.*
 
-    Beendet die Reverse-Shell mit `exit` (endet `netcat` auf `h1` nicht von
+    Beendet die Bind-Shell mit `exit` (endet `netcat` auf `h1` nicht von
     selbst, hilft `Strg+C`). Danach lauscht auf `h2` nichts mehr auf Port 1234.
-    Prüft es auf `h2`:
+    Prüft es auf `h2` (das Werkzeug erklärt die Box darunter):
 
     ```bash
-    h2$ ss -tlnp
+    h2$ netstat -tulnp
     ```
 
     !!! info "Werkzeug: `netstat` und `ss`"
@@ -1270,7 +1394,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         **Aufruf:** `netstat -tulnp` – `t` TCP, `u` UDP, `l` nur
         Lauschende, `n` Zahlen statt Namen, `p` zugehöriges Programm.
 
-        **Beispielausgabe auf `h2` mit offener Reverse-Shell:**
+        **Beispielausgabe auf `h2`, solange die Shell noch offen ist:**
 
         ```text
         h2$ netstat -tulnp
@@ -1280,20 +1404,23 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         ```
 
         Ein Programm namens `nc` (Prozess 55593) lauscht auf allen Adressen
-        (`0.0.0.0`) auf Port 1234 – genau die Reverse-Shell. Ist nichts offen,
-        erscheint nur die Kopfzeile.
+        (`0.0.0.0`) auf Port 1234 – genau die Bind-Shell. Nach `exit` fehlt
+        diese Zeile; ist nichts offen, erscheint nur die Kopfzeile.
 
-    Prüft abschließend auf `h2`, welche Prozesse Netzwerkports geöffnet
-    halten, und beendet nicht erkannte Prozesse:
+    Steht dort trotz `exit` noch ein `nc` (Netcat) mit Port 1234, beendet ihn
+    mit `kill <PID>` (die PID ist die Zahl vor `/nc`):
 
     ```bash
-    h2$ netstat -tulnp
-    h2$ kill -9 <PID>
+    h2$ kill <PID>
     ```
+
+    Programme, die ihr nicht selbst gestartet habt (z. B. `dnsmasq` oder
+    `sshd`), lasst ihr in Ruhe. Zeigt `netstat` nach dem `exit` gar keine
+    Zeile mehr, gibt es nichts zu beenden.
 
     !!! question "Nachgedacht: Verschlüsselt oder nicht – wer sieht was?"
         Vergleicht den SSH-Mitschnitt mit dem Klartext-Strom der
-        Reverse-Shell. Was bleibt bei SSH trotz Verschlüsselung sichtbar? Wie
+        Bind-Shell. Was bleibt bei SSH trotz Verschlüsselung sichtbar? Wie
         bewertet ihr die Möglichkeit, verschlüsselte Kanäle aufzubauen, aus
         Sicht von Nutzer:in, Administrator:in und Sicherheitsbehörden?
 
@@ -1301,7 +1428,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
             Bei SSH bleiben **Metadaten** sichtbar: Absender- und
             Empfängeradresse, Ports, Zeitpunkte, Paketgrößen, die
             Verhandlungsphase und damit die verwendeten Verfahren; nur der
-            Inhalt ist unleserlich. Die Reverse-Shell lief im Klartext:
+            Inhalt ist unleserlich. Die Bind-Shell lief im Klartext:
             Befehle, Ausgaben und sogar der Dateiinhalt von `key.pem` sind
             lesbar. Nutzer:innen schützt Verschlüsselung vor Mitlesen,
             Administrator:innen erschwert sie die Fehlersuche und die
@@ -1324,7 +1451,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     h1$ netstat -tulnp | grep :80
     ```
 
-    Startet auf `h2` Wireshark (Interface `h2-eth0`) und setzt den Anzeigefilter:
+    Startet auf `h2` Wireshark (`h2$ wireshark &`, Doppelklick auf `h2-eth0`)
+    und setzt den Anzeigefilter:
 
     ```text
     ip.addr == 10.0.1.2 && tcp
@@ -1336,15 +1464,21 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     h2$ ./runSimpleBrowser.sh
     ```
 
-    und ruft `http://h1` auf. Vergleicht in Wireshark ("Follow → TCP
+    (Firefox öffnet beim ersten Start evtl. eine Willkommensseite und einen
+    Tab von mozilla.org, der nie lädt, weil `h2` kein Internet hat; beides
+    könnt ihr ignorieren.) Ruft `http://h1` auf. Vergleicht in Wireshark ("Follow → TCP
     Stream") den HTTP/HTML-Inhalt mit der im Browser sichtbaren Seite bzw.
     mit "View Page Source".
 
     Beendet den HTTP-Server auf `h1` (er läuft im Hintergrund, `Strg+C`
-    erreicht ihn nicht) mit:
+    erreicht ihn nicht): `jobs -l` zeigt seine Prozessnummer, `kill <PID>`
+    beendet ihn. (Nicht `kill %1` verwenden: Die Jobnummer `%1` kann
+    inzwischen zu einem anderen Hintergrundprogramm, z. B. Wireshark,
+    gehören.)
 
     ```bash
-    h1$ kill %1
+    h1$ jobs -l
+    h1$ kill <PID>
     ```
 
     und startet stattdessen den HTTPS-Server:
@@ -1369,7 +1503,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     !!! question "Nachgedacht: Was stimmt an diesem Zertifikat nicht?"
         `cert.pem`/`key.pem` in `topo01` sind ein absichtlich unsinniges,
         selbstsigniertes Test-Zertifikat (Common Name `noway`, Organisation
-        „Not your buisness", Abteilung „bad company"). Das eigentliche
+        „Not your buisness" [sic, so steht es im Zertifikat], Abteilung „bad
+        company"). Das eigentliche
         Lernziel ist, als Nutzer:in *ohne* IT-Hintergrund zu erkennen und zu
         benennen, was daran nicht stimmt. Klickt dazu auf „View the site's
         certificate" und beschreibt, warum der Browser nicht vertraut.
@@ -1405,13 +1540,17 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     mininet> quit
     ```
 
+    Nach `quit` erscheint evtl. eine Zeile `*** Schnappschuss …`: Das
+    Startskript sichert den Endzustand der Routingtabellen; die Meldung ist
+    harmlos.
+
 !!! example "Vertiefung (optional): TLS-ClientHello von curl und Firefox vergleichen"
-    Schritt 10 hat gezeigt, dass der Browser bei einem fehlerhaften
+    Aufgabe 10 hat gezeigt, dass der Browser bei einem fehlerhaften
     Zertifikat warnt. Geht einen Schritt tiefer und vergleicht, *wie*
     unterschiedliche Clients überhaupt eine TLS-Verbindung anbahnen:
     Startet auf `h1` erneut `python3 startHTTPsServer.py` (Passphrase
     `mininet`, siehe oben) und auf `h2`
-    eine Wireshark-Aufzeichnung auf `h2-eth0`. Ruft `https://h1` einmal
+    eine Wireshark-Aufzeichnung auf `h2-eth0` (Doppelklick). Ruft `https://h1` einmal
     mit `curl -k https://h1` und einmal über `./runSimpleBrowser.sh` auf.
     Filtert in Wireshark auf `tls.handshake.type == 1` (Client Hello) und
     vergleicht bei beiden Mitschnitten die angebotene Liste der
@@ -1449,8 +1588,12 @@ ihr selbst einen kleinen, lesbaren DNS-Server (`dns-server.py`, nur
 Standardbibliothek: `socketserver` und `struct`) und seht, wie eine
 DNS-Antwort aufgebaut ist.
 
-Startet `topo01`, öffnet ein Terminal für `h1` und werft zuerst einen Blick in
-das Skript:
+Das Netz `topo01` muss laufen. Habt ihr es in Teil 2 mit `quit` beendet,
+startet es wie dort (`cd ~/rn-practice/topo01`, dann `./start-topo01.sh`;
+zwei Knoten-Fenster öffnen sich); läuft es noch, macht ihr einfach weiter.
+Beendet vor jedem Start einer *anderen* Topologie die laufende mit
+`exit`/`quit`. Wechselt in das Fenster „Node: h1" und werft zuerst einen Blick
+in das Skript:
 
 ```bash
 h1$ cd ~/rn-practice/topo01
@@ -1483,7 +1626,7 @@ h2$ nslookup -port=5353 h1 10.0.1.2
 h2$ host -p 5353 becke.net 10.0.1.2
 ```
 
-So sieht die Antwort auf die erste Frage aus; zum Vergleich mit Aufgabe 5
+So sieht die Antwort (gekürzt) auf die erste Frage aus; zum Vergleich mit Aufgabe 5
 steht diesmal `flags: qr aa` ohne `rd`/`ra`:
 
 ```text
@@ -1568,6 +1711,10 @@ Beendet den DNS-Server auf `h1` mit `Strg+C`.
 
     **Vorwissen:** Teil 2, Aufgabe 9 (`netstat`).
 
+Das Netz `topo01` muss laufen (Start wie in Teil 2, Aufgabe 1: `cd ~/rn-practice/topo01`,
+`./start-topo01.sh`; läuft es schon, macht ihr einfach weiter). Alle Befehle
+mit `h1$` tippt ihr im Fenster „Node: h1".
+
 In Teil 2 (Aufgabe 9) habt ihr `netstat -tulnp` benutzt. `netstat` gilt als
 veraltet und ist auf vielen Distributionen nicht mehr vorinstalliert; sein
 Nachfolger aus dem `iproute2`-Paket ist `ss`. In diesem Teil öffnet ihr
@@ -1626,13 +1773,14 @@ h1$ netstat -tlnp 2>/dev/null | grep 8080 || echo "netstat nicht verfuegbar"
 
 !!! question "Aufgabe: Spalten lesen"
     Welche Spalten zeigt `ss` (Zustand, lokale Adresse:Port, Prozess)? Was
-    bedeutet `LISTEN`? Beendet den Dienst danach wieder (`kill %1` oder
-    `pkill socat`) und prüft mit `ss -tlnp`, dass der Port verschwunden ist.
+    bedeutet `LISTEN`? Beendet den Dienst danach wieder (`jobs -l` zeigt die
+    Prozessnummer, `kill <PID>` beendet ihn) und prüft mit `ss -tlnp`, dass der
+    Port verschwunden ist.
 
     ??? success "Lösung"
         `ss` zeigt `State`, `Recv-Q`/`Send-Q` (Warteschlangen), `Local
         Address:Port`, `Peer Address:Port` und `Process`. `LISTEN` bedeutet:
-        Ein Programm wartet auf eingehende Verbindungen. Nach `kill %1` fehlt
+        Ein Programm wartet auf eingehende Verbindungen. Nach dem `kill` fehlt
         die `8080`-Zeile; es bleibt nur der DNS-Dienst auf Port 53. `netstat
         -tlnp` zeigt dieselbe Information in anderen Spalten
         (`0.0.0.0:8080 … LISTEN 56649/socat`).
@@ -1676,7 +1824,8 @@ SSH-Verbindung aus Aufgabe 9.
 
     - `-i h1-eth1` – auf dieser Schnittstelle mitschneiden.
     - `-w <datei>` – in eine Datei schreiben (später lesbar mit `-r`).
-    - `-A` – Paketinhalt als lesbaren Text (ASCII) anzeigen.
+    - `-A` – Paketinhalt als lesbaren Text (ASCII) anzeigen (beim Lesen
+      mit `-r`; beim Schreiben mit `-w` hat es keine Wirkung).
     - `tcp port 8080` – nur TCP-Pakete mit Port 8080 (der **Aufzeichnungsfilter**).
     - `-r <datei>` – eine gespeicherte Datei anzeigen.
 
@@ -1700,18 +1849,34 @@ SSH-Verbindung aus Aufgabe 9.
     device` – ihr seid nicht `root` (z. B. in einem normalen Terminal statt
     im Knoten-Terminal).
 
-Der Echo-Dienst aus Teil 4 läuft noch auf `h1` (sonst neu starten). Startet auf
-`h1` einen Mitschnitt auf der Schnittstelle Richtung `r1` (`h1-eth1`; über
+Das Netz `topo01` muss laufen (Start wie in Teil 2, Aufgabe 1; läuft es schon,
+macht ihr einfach weiter). Startet auf `h1` den Echo-Dienst aus Teil 4 erneut,
+falls er nicht mehr läuft (ihr habt ihn dort beendet; läuft er noch, überspringt
+den Befehl):
+
+```bash
+h1$ socat TCP-LISTEN:8080,reuseaddr,fork EXEC:/bin/cat &
+```
+
+Startet dann auf `h1` einen Mitschnitt auf der Schnittstelle Richtung `r1` (`h1-eth1`; über
 `h1-eth0` läuft nur der Internet-Uplink) und schickt von `h2` eine Zeile durch:
 
 ```bash
 h1$ mkdir -p ~/rn-practice/pcaps
-h1$ tcpdump -i h1-eth1 -A -w ~/rn-practice/pcaps/01-klartext.pcap tcp port 8080 &
+h1$ tcpdump -i h1-eth1 -w ~/rn-practice/pcaps/01-klartext.pcap tcp port 8080 &
 h2$ printf 'GEHEIM: passwort123\n' | socat -T2 - TCP:10.0.1.2:8080
 ```
 
 Der Echo-Dienst schickt dieselbe Zeile zurück. Beendet den Mitschnitt auf
-`h1` (`pkill tcpdump`) und sucht euren Text darin:
+`h1` wie mit `Strg+C`: `jobs -l` zeigt die Prozessnummer von `tcpdump`,
+`kill -INT <PID>` beendet ihn sauber (ein hartes Abbrechen kann die Datei
+beschädigen). Sucht dann euren Text darin:
+
+```bash
+h1$ jobs -l
+h1$ kill -INT <PID>
+```
+
 
 ```bash
 h1$ tcpdump -r ~/rn-practice/pcaps/01-klartext.pcap -A | grep GEHEIM
@@ -1733,7 +1898,8 @@ er enthält das „Passwort" im Klartext:
 h1$ rm ~/rn-practice/pcaps/01-klartext.pcap
 ```
 
-Beendet auch den Echo-Dienst (`pkill socat`).
+Beendet auch den Echo-Dienst: `jobs -l` zeigt seine Prozessnummer, `kill <PID>`
+beendet ihn.
 
 !!! question "Aufgabe: Klartext oder nicht?"
     Der Text `GEHEIM: passwort123` steht unverschlüsselt im
@@ -1744,8 +1910,8 @@ Beendet auch den Echo-Dienst (`pkill socat`).
 
     ??? success "Lösung"
         `socat` und der Echo-Dienst schicken die Bytes unverändert über TCP;
-        auf dem Weg sind sie lesbar, und jeder, der an einer Leitung oder
-        einem Switch mitschneidet, sieht sie. SSH dagegen verschlüsselt den
+        auf dem Weg sind sie lesbar, und jeder, der an einer Leitung, einem Hub
+        oder einem gespiegelten Switch-Port mitschneidet, sieht sie. SSH dagegen verschlüsselt den
         Inhalt, bevor er auf die Leitung kommt; im Mitschnitt stehen nur
         „Encrypted packet" und Metadaten. Klassisches HTTP, Telnet und FTP
         übertragen Zugangsdaten und Inhalte im Klartext und gelten daher
