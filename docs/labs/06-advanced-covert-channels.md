@@ -56,6 +56,13 @@
 
 ## Aufgaben
 
+!!! tip "Alte Mitschnitte zuerst löschen"
+    Die Mitschnitte in diesem Blatt landen in festen Dateien unter `/tmp`.
+    Eine Datei aus einem früheren Versuch löst `Permission denied` aus oder
+    täuscht Ergebnisse vor, weil `tcpdump` nicht schreiben kann und `grep`
+    die alte Datei liest. Deshalb steht vor jedem Mitschnitt ein
+    `rm -f <datei>` (bei `sudo tcpdump` mit `sudo`).
+
 ### Teil 1 – Passive Traffic-Inspection mit Wireshark/`tcpdump`
 
 Startet die euch bereits aus [Lab 01](01-netzwerkgrundlagen-tools.md)
@@ -181,6 +188,7 @@ erste `h1`-Fenster, der Mitschnitt aus Schritt 3 braucht das zweite.
     Verkehr habt):
 
     ```bash
+    h1$ sudo rm -f /tmp/dnstunnel.pcap
     h1$ sudo tcpdump -i any port 53 -w /tmp/dnstunnel.pcap
     ```
 
@@ -241,6 +249,7 @@ bzw. TTL-Manipulation.
 2. Zeichnet parallel auf `h1` den ICMP-Verkehr auf:
 
     ```bash
+    h1$ sudo rm -f /tmp/secret.pcap
     h1$ sudo tcpdump -i any -nn icmp -w /tmp/secret.pcap
     ```
 
@@ -291,6 +300,7 @@ Mitschnitt im Vergleich zu klassischem DNS noch sichtbar ist.
     DoH-Verkehr (TCP/443 zu `1.1.1.1`) zugleich erfasst:
 
     ```bash
+    h1$ sudo rm -f /tmp/dns_plain.pcap
     h1$ sudo tcpdump -i any -w /tmp/dns_plain.pcap "port 53 or host 1.1.1.1"
     ```
 
@@ -512,6 +522,7 @@ cd ~/rn-practice/topo01
     ICMP-Verkehr aufzeichnet:
 
     ```bash
+    h1$ sudo rm -f /tmp/ttlmsg.pcap
     h1$ sudo tcpdump -i any icmp -n -w /tmp/ttlmsg.pcap
     ```
 
@@ -578,6 +589,7 @@ Startet den Server auf `h1` auf Port 5353 (Port 53 belegt dort bereits
 ```bash
 h1$ cd ~/rn-practice/topo01
 h1$ python3 dns-server.py 5353 &
+h1$ sudo rm -f /tmp/dnschan.pcap
 h1$ sudo tcpdump -i h1-eth1 -w /tmp/dnschan.pcap udp port 5353 &
 ```
 
@@ -629,6 +641,7 @@ Zeichnet auf `h1` TCP auf und schickt von `h2` ein einzelnes SYN mit einer
 selbst gewählten Sequenznummer (`hping3 -M`):
 
 ```bash
+h1$ sudo rm -f /tmp/seqchan.pcap
 h1$ sudo tcpdump -i h1-eth1 -w /tmp/seqchan.pcap tcp -c 2 &
 h2$ sudo hping3 -c 1 -S -M 305419896 -p 80 10.0.1.2
 ```
@@ -675,6 +688,7 @@ Zeichnet auf `h1` alle SYN-Pakete auf und „klopft" von `h2` eine feste
 Sequenz auf drei geschlossene Ports:
 
 ```bash
+h1$ sudo rm -f /tmp/knock.pcap
 h1$ sudo tcpdump -i h1-eth1 -w /tmp/knock.pcap tcp -c 6 &
 h2$ for p in 7000 8000 9000; do sudo hping3 -c 1 -S -p $p 10.0.1.2; sleep 1; done
 ```
@@ -716,6 +730,7 @@ lässt.
 Zeichnet ICMP auf `h1` auf und schickt von `h2` eine Timestamp-Anfrage:
 
 ```bash
+h1$ sudo rm -f /tmp/icmpts.pcap
 h1$ sudo tcpdump -i h1-eth1 -v -w /tmp/icmpts.pcap icmp -c 2 &
 h2$ sudo hping3 --icmp-ts -c 1 10.0.1.2
 ```
@@ -761,6 +776,7 @@ einen Mitschnitt:
 ```bash
 h1$ cd ~/rn-practice/topo01
 h1$ ./startHTTP3Server.sh &
+h1$ sudo rm -f /tmp/sni.pcap
 h1$ sudo tcpdump -i h1-eth1 -A -w /tmp/sni.pcap tcp port 443 &
 ```
 
@@ -815,6 +831,7 @@ den raffinierteren Verstecken gegenüber.
 Startet auf `h1` einen UDP-Empfänger und einen Mitschnitt, sendet von `h2`:
 
 ```bash
+h1$ sudo rm -f /tmp/udpchan.pcap
 h1$ sudo tcpdump -i h1-eth1 -A -w /tmp/udpchan.pcap udp port 9999 &
 h1$ socat -u UDP-RECV:9999 -
 h2$ echo 'EXFIL_UDP' | socat - UDP-SENDTO:10.0.1.2:9999

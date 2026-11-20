@@ -562,8 +562,12 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Nach dem Start öffnen sich zwei Terminalfenster, eines für `h1` und eines
     für `h2` (Titel „Node: h1" und „Node: h2"). In diesen Knoten-Terminals
     seid ihr `root`; die Eingabeaufforderung sieht in beiden gleich aus. Die
-    Fenster können übereinander liegen: Zieht sie am Titelbalken
-    auseinander. Für die Router
+    Fenster können übereinander liegen oder komplett hinter der
+    Mininet-Konsole verschwinden. Ihr findet sie über die Fensterliste oben
+    links in der Leiste: Klickt auf den Eintrag „Xfce4-terminal"; die Liste
+    nennt jedes Fenster mit Titel („Node: h1", „Node: h2", „Terminal").
+    Alternativ zieht ihr die Fenster am Titelbalken auseinander. Mehr dazu in
+    der [Umgebungsreferenz](../reference/umgebung.md#fenster-wiederfinden-und-tippen). Für die Router
     `r1`/`r2` oder ein versehentlich geschlossenes Fenster öffnet ihr auf der
     Mininet-Konsole ein weiteres Terminal:
 
@@ -1066,10 +1070,13 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         Ablaufdatum. Weiter unten stehen Kontaktdaten des Inhabers.
 
         **Typische Fehlermeldung:** `connect: Network is unreachable` heißt
-        auf `h2`: Der Knoten hat kein Internet. Hängt `whois` auf `h1` dagegen
-        etwa eine Minute und liefert dann einen Verbindungsfehler (z. B. auch
-        `Network is unreachable` beim IPv6-Versuch), ist TCP-Port 43 an
-        eurem Standort gesperrt; das ist auf manchen Desktops der Fall. Dann
+        auf `h2`: Der Knoten hat kein Internet. Auf `h1` gilt beides als
+        erwartbar: Je nach Standort (z. B. auf dem ICC-Cluster) kommt sofort
+        `connect: Network is unreachable`, oder `whois` hängt etwa eine Minute
+        und liefert dann einen Verbindungsfehler (z. B. auch
+        `Network is unreachable` beim IPv6-Versuch). In beiden Fällen ist
+        TCP-Port 43 an eurem Standort nicht erreichbar bzw. gesperrt; das ist
+        auf manchen Desktops der Fall. Dann
         hilft RDAP (siehe Vertiefung unten).
 
     Auf `h1`:
@@ -1298,6 +1305,12 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Kopiert anschließend von `h2` aus eine Datei von `h1`. Beim ersten
     Verbinden fragt `scp` nach dem Fingerabdruck von `h1`: antwortet mit `yes`.
 
+    !!! warning "Kommt die Frage nicht, tippt nichts"
+        Habt ihr `h1` schon einmal bestätigt (zum Beispiel bei einem früheren
+        Versuch), fragt `scp` bzw. `ssh` nicht mehr, und die Datei wird
+        sofort kopiert. Tippt dann **kein** `yes`: Die Shell führt es als
+        Befehl aus und flutet das Fenster mit `y` (Abbruch mit Strg+C).
+
     ```bash
     h2$ scp -i ~/.ssh/rn-practice-key cads@10.0.1.2:rn-practice/test30M.txt ./
     ```
@@ -1461,8 +1474,14 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Startet den Browser auf `h2`:
 
     ```bash
-    h2$ ./runSimpleBrowser.sh
+    h2$ ./runSimpleBrowser.sh &
     ```
+
+    Das `&` am Ende lässt Firefox im Hintergrund laufen. Ohne `&` blockiert
+    Firefox das Terminal von `h2`: Alles, was ihr dort tippt, geht verloren,
+    bis ihr Strg+C drückt (das beendet auch Firefox). Habt ihr ohne `&`
+    gestartet, nutzt für weitere Befehle ein neues `h2`-Fenster
+    (`mininet> xterm h2`).
 
     (Firefox öffnet beim ersten Start evtl. eine Willkommensseite und einen
     Tab von mozilla.org, der nie lädt, weil `h2` kein Internet hat; beides

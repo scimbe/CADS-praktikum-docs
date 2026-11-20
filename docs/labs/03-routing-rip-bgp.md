@@ -1331,8 +1331,10 @@ gefiltert in eine neue schreiben (`-w`). RIP läuft über UDP-Port 520, BGP übe
 TCP-Port 179:
 
 ```bash
+r1$ rm -f /tmp/rip.pcap
 r1$ tcpdump -r "$P" -w /tmp/rip.pcap udp port 520
 r1$ capinfos -c -d -u /tmp/rip.pcap
+r1$ rm -f /tmp/bgp.pcap
 r1$ tcpdump -r "$P" -w /tmp/bgp.pcap tcp port 179
 r1$ capinfos -c -d -u /tmp/bgp.pcap
 ```

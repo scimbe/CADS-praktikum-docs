@@ -29,6 +29,10 @@ Die Aufgaben laufen in zwei Mininet-Topologien. In `topoP04` (Teile A, C, F)
 liegt zwischen zwei Hosts ein Link mit Verlust, in `topo02` (Teile B, D, E, G
 bis J) ein verlustfreier Link mit 10 Mbit/s zwischen zwei Routern.
 
+Die Teile heißen hier A bis J (nicht 1 bis n). Teil A beginnt gleich unter
+„Aufgaben“; im Inhaltsverzeichnis rechts steht er vor Teil B und hat die
+Unterpunkte „Die Topologie“ und „Schritt 1“ bis „Schritt 3“.
+
 Ein Präfix vor einem Befehl zeigt, in welchem Fenster ihr ihn tippt. **Das
 Präfix selbst tippt ihr nicht mit**; euer Prompt sieht anders aus (zum Beispiel
 `root@…:~/rn-practice/topo02#`). Kopiert ihr einen Befehl aus dem Blatt, löscht
@@ -857,6 +861,7 @@ Verlustbehandlung, Rate-Limiting auf Anwendungsebene)?
     deaktiviert währenddessen für etwa eine Minute `r1-eth0`:
 
     ```bash
+    h0$ rm -f /tmp/rto.pcap
     h0$ tcpdump -i h0-eth0 -w /tmp/rto.pcap
     ```
 

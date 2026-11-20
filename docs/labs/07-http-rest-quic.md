@@ -33,6 +33,13 @@
 
 ## Aufgaben
 
+!!! tip "Alte Mitschnitte zuerst löschen"
+    Die Mitschnitte in diesem Blatt landen in festen Dateien unter `/tmp`.
+    Eine Datei aus einem früheren Versuch löst `Permission denied` aus oder
+    täuscht Ergebnisse vor, weil `tcpdump` nicht schreiben kann und `grep`
+    die alte Datei liest. Deshalb steht vor jedem Mitschnitt ein
+    `rm -f <datei>` (bei `sudo tcpdump` mit `sudo`).
+
 ### Teil 1 – Manuelles HTTP gegen die lokale Gegenstelle (topo01)
 
 Bevor ihr gegen einen echten, externen Server sprecht, übt den Ablauf zuerst
@@ -326,6 +333,7 @@ Zeichnet parallel auf `h2` den TCP-Verkehr mit: Startet den Mitschnitt mit
 den Mitschnitt (`jobs -l` zeigt die PID, dann `kill <PID>`) und seht ihn euch an:
 
 ```bash
+h2$ sudo rm -f /tmp/http12.pcap
 h2$ sudo tcpdump -i h2-eth0 -w /tmp/http12.pcap tcp port 443 &
 # die beiden curl-Befehle von oben ausfuehren
 h2$ sleep 1; jobs -l                # PID von tcpdump ablesen
@@ -364,6 +372,7 @@ Mitschnitt, der **nur UDP auf Port 443** aufzeichnet, und ruft dann die Seite
 gezielt über HTTP/3 ab:
 
 ```bash
+h2$ sudo rm -f /tmp/quic.pcap
 h2$ sudo tcpdump -i h2-eth0 -w /tmp/quic.pcap udp port 443 &
 h2$ curl -k --http3-only -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}, Status %{response_code}\n' https://10.0.1.2/
 ```
@@ -557,6 +566,7 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
    wiederholt, und sucht den Payload im Klartext:
 
     ```bash
+    h2$ sudo rm -f /tmp/teil8-xss.pcap
     h2$ sudo tcpdump -i h2-eth0 -w /tmp/teil8-xss.pcap -U &
     # Schritte 2-4 wiederholen
     h2$ sleep 1; jobs -l; kill <PID>

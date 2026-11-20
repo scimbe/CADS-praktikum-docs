@@ -34,6 +34,36 @@ unverändert nutzbar und öffnet ein Terminalfenster für den Knoten `h1` — im
 Hintergrund läuft dabei ebenfalls `xfce4-terminal`, nicht das Programm
 `xterm` (siehe `images/desktop/xterm-shim`).
 
+## Fenster wiederfinden und tippen
+
+Nach dem Start einer Topologie öffnen sich Knotenfenster („Node: h1", „Node:
+h2", …). Sie liegen oft übereinander oder komplett hinter dem Mininet-Terminal.
+
+- **Fensterliste:** Klickt in der Leiste oben links auf den Eintrag
+  „Xfce4-terminal". Es klappt eine Liste aller Terminalfenster auf („Node:
+  h1", „Node: h2", „Terminal" usw.); ein Klick holt das Fenster nach vorn.
+  Der Fenstertitel nennt den Knoten, in dem ihr gerade tippt.
+- **Auseinanderziehen:** Zieht überlappende Fenster am Titelbalken
+  auseinander.
+- **Neues Terminal:** Strg+Umschalt+N im aktiven Terminalfenster oder das
+  Terminal-Symbol am Rand. Das Symbol holt ein bereits offenes Fenster nur
+  nach vorn, wenn eines existiert und verdeckt wird. Beendet mit `exit` nur
+  das Fenster, das ihr meint: Prüft vorher den Fenstertitel.
+- **Erst klicken, dann tippen:** Nach einem Fensterwechsel geht der erste
+  Buchstabe manchmal verloren (`ingall` statt `pingall`). Klickt zuerst ins
+  Fenster, wartet kurz und tippt dann. Fehlt ein Buchstabe, löscht die Zeile
+  mit Strg+U und tippt den Befehl neu; „command not found" ist dann meist
+  ein Tippfehler, kein Fehler im Blatt.
+
+## Mitschnitte in `/tmp`
+
+Viele Blätter schreiben Mitschnitte in feste Dateien unter `/tmp`. Eine
+Datei aus einem früheren Versuch kann dann Ergebnisse vortäuschen oder
+`Permission denied` auslösen, weil sie einem anderen Benutzer gehört.
+Löscht die Datei deshalb vor jedem Mitschnitt (`rm -f <datei>`, bei Dateien
+von `sudo tcpdump` mit `sudo rm -f <datei>`); die Blätter führen das als
+ersten Befehl auf.
+
 ## Vorinstallierte Werkzeuge
 
 `mininet`, `openvswitch-switch`, `frr` (Routing-Daemons: `zebra`, `ripd`,
