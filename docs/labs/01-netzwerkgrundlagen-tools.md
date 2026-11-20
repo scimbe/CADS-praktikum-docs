@@ -1359,10 +1359,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         Tippen erscheinen keine Zeichen. Danach steht im Terminal
         `Serving TLS`.
 
-    Ruft auf `h2` `https://h1` auf und beobachtet erneut in Wireshark, dass
-    der Inhalt diesmal nicht mehr im Klartext sichtbar ist.
-
-    Der Browser zeigt eine Zertifikatswarnung:
+    Ruft auf `h2` im Browser `https://h1` auf. Statt der Seite zeigt der
+    Browser zuerst eine Zertifikatswarnung – das ist hier **gewollt** und kein
+    Fehler eurer Umgebung:
 
     ![Firefox-Warnseite „Warning: Security Risk" für die Adresse h1: „Be careful. Something doesn't look right." Im aufgeklappten Bereich „Advanced" steht, dass das Zertifikat selbst signiert ist und nicht von einer anerkannten Zertifizierungsstelle stammt; unten der Fehlercode MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT. Links dahinter das Terminal mit „Serving TLS"](../assets/screenshots/01-netzwerkgrundlagen-tools/firefox-zertifikatswarnung.png)
     *Die Warnung beim Aufruf von `https://h1`. Der Fehlercode lautet `MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT`.*
@@ -1385,6 +1384,18 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
             Warnung wegklickt, verschlüsselt zwar die Übertragung, weiß aber
             nicht, mit wem er spricht – ein Angreifer in der Mitte könnte sich
             mit einem genauso selbst gebauten Zertifikat ausgeben.
+
+    !!! warning "Warnung hier bewusst akzeptieren"
+        Damit die Seite trotzdem lädt, müsst ihr das Zertifikat **in dieser
+        Übung ausdrücklich akzeptieren**: Klickt auf der Warnseite auf
+        **„Advanced…“** und dann auf **„Accept the Risk and Continue“**.
+        Erst danach erscheint die Seite von `h1`. Das ist nur hier in
+        Ordnung, weil ihr wisst, dass `h1` euer eigener Testserver mit einem
+        absichtlich selbst gebauten Zertifikat ist – bei einer echten Webseite
+        würdet ihr an dieser Stelle abbrechen.
+
+    Beobachtet nun erneut in Wireshark, dass der Inhalt diesmal nicht mehr
+    im Klartext sichtbar ist.
 
     Beendet den HTTPS-Server auf `h1` mit `Strg+C`.
 
