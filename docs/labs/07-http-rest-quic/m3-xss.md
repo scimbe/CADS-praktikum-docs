@@ -20,10 +20,10 @@ Hier seht ihr an einem absichtlich verwundbaren Übungsziel, wie ein ungeprüft 
     Dieser Teil übt Werkzeuge, die man von Kali Linux kennt (Site-Cloning,
     Cross-Site-Scripting) – ausschließlich gegen einen absichtlich
     verwundbaren Server, den ihr selbst in `topo01` startet. `h2`, von wo aus
-    ihr in diesem Teil arbeitet, hat **keine Route ins Internet** (anders als
+    ihr in diesem Teil arbeitet, **kommt nicht ins Internet** (anders als
     `h1`, das für [Teil 2](m1-http-von-hand.md#teil-2-manuelles-httprest-gegen-die-externe-openweathermap-api) eine NAT-Route nach draußen braucht) – ein Aufruf
     gegen ein externes Ziel scheitert von hier aus technisch, nicht nur aus
-    Vorsicht. Übertragt nichts davon auf ein Ziel außerhalb dieser Topologie.
+    Vorsicht. Warum genau, seht ihr in der Gegenprobe in Schritt 6. Übertragt nichts davon auf ein Ziel außerhalb dieser Topologie.
 
 HTTP/REST-Anfragen von Hand zu sprechen (Teile 1–3) heißt auch: zu sehen, was
 mit den Daten passiert, die eine Anfrage mitbringt – zum Beispiel ein
@@ -47,6 +47,14 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     h1$ python3 startXSSLabServer.py &
     ```
 
+    Es erscheint `[uebungsziel] hoert auf Port 8080`. Die Startseite des
+    Übungsziels nennt sich noch „Blatt 07 Teil 4“; gemeint ist dieser Teil 8.
+    Die Fenster `Node: h1` und `Node: h2` liegen nach dem Start übereinander;
+    wie ihr sie wiederfindet und sicher tippt, steht unter
+    [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
+    `h1$` und `h2$` bedeuten: Befehl im Fenster `Node: h1` bzw. `Node: h2`
+    (Prompt `root@…#`).
+
 2. Findet von `h2` aus die reflektierte Lücke in `/suche`: der Parameter `q`
    landet unescaped in der Antwort.
 
@@ -69,7 +77,10 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
 
     Das `+` für die Verkettung steht hier als `%2B`: Der Server liest ein
     rohes `+` in der URL als Leerzeichen, das gespeicherte Skript wäre dann
-    syntaktisch ungültig.
+    syntaktisch ungültig. Das Gästebuch nimmt Einträge per `GET` an (das
+    Formular nutzt `method="get"`); deshalb genügt ein Aufruf mit `curl`.
+    Einträge bleiben erhalten – wiederholt ihr den Schritt später, steht
+    der Eintrag mehrfach in der Seite.
 
     Der zweite Aufruf zeigt, dass der Eintrag jetzt **dauerhaft** in der
     Seite steht – anders als bei der reflektierten Lücke aus Schritt 2, die
@@ -86,11 +97,22 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
 
     `/sammler` ist bewusst derselbe interne Server – der "Diebstahl" bleibt
     innerhalb von `topo01`, es wird nichts exfiltriert. Wer einen grafischen
-    Browser zur Hand hat, kann die Payload-URL aus Schritt 3 stattdessen
-    wirklich öffnen (`h2 firefox-esr http://10.0.1.2:8080/gaestebuch &` im
-    Mininet-CLI; öffnet zuerst `http://10.0.1.2:8080/`, damit das Demo-Cookie
-    gesetzt ist) und beobachten, dass `alert(1)` bzw. der `fetch`-Aufruf ohne
-    weiteres Zutun feuert.
+    Browser zur Hand hat, kann die Seiten stattdessen wirklich öffnen und
+    beobachten, dass das eingeschleuste Skript ohne weiteres Zutun feuert.
+    Startet den Browser im Fenster `Node: h2` (der Aufruf `h2 firefox-esr …`
+    in der Mininet-Konsole startet bei Tests kein Fenster, weil Firefox dort
+    als `root` nicht unterstützt wird). Öffnet zuerst `/`, damit das
+    Demo-Cookie gesetzt ist, danach das Gästebuch:
+
+    ```bash
+    h2$ sudo -u cads env DISPLAY=$DISPLAY HOME=/config firefox-esr http://10.0.1.2:8080/ &
+    h2$ sudo -u cads env DISPLAY=$DISPLAY HOME=/config firefox-esr http://10.0.1.2:8080/gaestebuch &
+    ```
+
+    Der `fetch`-Aufruf zeigt keinen Dialog; ob er gefeuert hat, seht ihr in
+    `/sammler/log`, wo danach neue Einträge stehen. Die reflektierte Lücke
+    aus Schritt 2 zeigt dagegen den `alert(1)`-Dialog, wenn ihr
+    `http://10.0.1.2:8080/suche?q=<script>alert(1)</script>` öffnet.
 
 5. Schneidet die Strecke zwischen `h1` und `h2` mit, während ihr Schritt 2–4
    wiederholt, und sucht den Payload im Klartext:
@@ -100,8 +122,15 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     h2$ sudo tcpdump -i h2-eth0 -w /tmp/teil8-xss.pcap -U &
     # Schritte 2-4 wiederholen
     h2$ sleep 1; jobs -l; kill <PID>
-    h2$ tcpdump -r /tmp/teil8-xss.pcap -A | grep -E 'script|sammler'
+    h2$ tcpdump -n -r /tmp/teil8-xss.pcap -A | grep -E 'script|sammler'
     ```
+
+    Wartet nach dem Start des Mitschnitts, bis `listening on h2-eth0`
+    erscheint, bevor ihr weitertippt; sonst geht der Anfang eurer Eingabe
+    verloren. Die `<PID>` lest ihr aus der Ausgabe von `jobs -l` ab (Zahl
+    hinter `[1]+`); sie gehört zu `sudo`, `kill` darauf beendet `tcpdump`
+    trotzdem. `-n` beim Lesen verhindert, dass `tcpdump` Port 8080 als
+    `http-alt` beschriftet.
 
     **Aufgabe:** Findet im Mitschnitt (a) die Anfrage mit dem reflektierten
     Payload, (b) die Anfrage, die den gespeicherten Payload einträgt, und (c)
@@ -121,8 +150,13 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     **Aufgabe (Gegenprobe):** Versucht denselben Befehl gegen ein Ziel
     außerhalb der Topologie, z. B. `httrack "http://1.1.1.1/" -O /tmp/clone-extern`.
     Vergleicht `ip route` auf `h2` mit dem auf `h1` (`h2$ ip route`, dann
-    `h1$ ip route`) und erklärt, warum der zweite Aufruf technisch scheitert
-    (Timeout/"Network unreachable"), während der erste funktioniert.
+    `h1$ ip route`) und erklärt, warum der zweite Aufruf technisch scheitert,
+    während der erste funktioniert. Erwartet keine Fehlermeldung im Klartext:
+    `httrack` meldet nur `Done.1.1.1.1/ (0 bytes) - -4`, also null geladene
+    Byte und den Fehlercode `-4` (Verbindung fehlgeschlagen). Mehr zeigt
+    `ping 1.1.1.1` auf `h2`. Achtet darauf, **wer** den Fehler meldet. `h2`
+    hat sehr wohl eine Default-Route; schaut, wohin sie führt, und wer auf
+    dem Weg antwortet.
 
 --8<-- "issue-feedback.md"
 
@@ -133,4 +167,6 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     - Beim gespeicherten XSS wird der Payload abgelegt und bei jedem Abruf erneut ausgeliefert.
     - Der Payload geht als normaler HTTP-Verkehr über die Leitung und bleibt im Mitschnitt sichtbar.
 
-    **Abschluss:** Damit schließt das Praktikum: Ihr habt Netzwerke von der Sicherungsschicht bis zur Anwendungsschicht selbst aufgebaut, beobachtet, angegriffen und verteidigt und könnt Protokolle im Mitschnitt lesen.
+    **Abschluss:** Damit schließt das Praktikum: Ihr habt Netzwerke von der Netzzugriffsschicht bis zur Anwendungsschicht selbst aufgebaut und beobachtet und könnt Protokolle im Mitschnitt lesen. Die Verteidigerrolle hattet ihr in [Blatt 05](../05-arp-spoofing-dos/m3-verteidigen.md); Teil 8 hat nur die Angriffsseite gezeigt.
+
+    **Aufräumen:** Beendet den Server mit `kill <PID>` (die PID zeigt `jobs -l` im Fenster `Node: h1`) und die Topologie mit `exit` in der Mininet-Konsole.

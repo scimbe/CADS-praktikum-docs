@@ -21,7 +21,12 @@ TCP-basierten HTTP-Versionen sichtbar. Der lokale Server aus dem Skript
 `startHTTP3Server.sh` beantwortet dieselbe Seite über **alle drei** Versionen
 gleichzeitig – über TCP (HTTP/1.1 und HTTP/2) und über QUIC (HTTP/3, Teil 5).
 
-Startet `topo01`, falls nicht mehr aktiv, und den Server auf `h1`:
+Startet `topo01`, falls nicht mehr aktiv, und den Server auf `h1`. Beim Start
+öffnen sich die Fenster `Node: h1` und `Node: h2`; wie ihr verdeckte Fenster
+wiederfindet und sicher tippt, steht unter
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
+`h1$` und `h2$` auf dieser Seite bedeuten: Befehl im Fenster `Node: h1` bzw.
+`Node: h2`; der Prompt dort lautet `root@…#`.
 
 ```bash
 cd ~/rn-practice/topo01
@@ -34,6 +39,12 @@ h1$ ./startHTTP3Server.sh
 ```
 
 !!! note "Werft einen Blick in das Skript"
+    Der Server läuft im Vordergrund und belegt das Fenster `Node: h1`, bis
+    ihr ihn am Ende von Teil 7 mit ++ctrl+c++ beendet. Lest das Skript
+    deshalb **vor** dem Start oder im Fenster `Node: h2` (beide Knoten
+    sehen dasselbe Verzeichnis); alle weiteren Befehle dieser Seite tippt ihr
+    in `Node: h2`.
+
     `cat startHTTP3Server.sh` zeigt euch, dass hier kein Hexenwerk passiert:
     derselbe nginx-`server`-Block hört doppelt – `listen 443 ssl` für TCP
     (HTTP/1.1 und HTTP/2) und `listen 443 quic` für QUIC. Genau diese eine
@@ -44,9 +55,12 @@ HTTP/2 ab und lasst euch von `curl` die tatsächlich ausgehandelte Version
 ausgeben:
 
 ```bash
-h2$ curl -k --http1.1 -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}\n' https://10.0.1.2/
-h2$ curl -k --http2   -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}\n' https://10.0.1.2/
+h2$ curl -sk --http1.1 -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}\n' https://10.0.1.2/
+h2$ curl -sk --http2   -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}\n' https://10.0.1.2/
 ```
+
+`-s` unterdrückt den Fortschrittsbalken von `curl`, der sonst die Zeile
+`ausgehandelt: …` verdeckt.
 
 Zeichnet parallel auf `h2` den TCP-Verkehr mit: Startet den Mitschnitt mit
 `&`, führt die beiden `curl`-Befehle aus, wartet kurz (`sleep 1`), beendet
@@ -55,16 +69,32 @@ den Mitschnitt (`jobs -l` zeigt die PID, dann `kill <PID>`) und seht ihn euch an
 ```bash
 h2$ sudo rm -f /tmp/http12.pcap
 h2$ sudo tcpdump -i h2-eth0 -w /tmp/http12.pcap tcp port 443 &
-# die beiden curl-Befehle von oben ausfuehren
-h2$ sleep 1; jobs -l                # PID von tcpdump ablesen
-h2$ kill <PID>
-h2$ tcpdump -r /tmp/http12.pcap -n | head
 ```
 
-Beide Abrufe laufen über TCP, Port 443. Vergleicht: HTTP/2 überträgt in einer
-einzigen TCP-Verbindung binär gerahmte, gemultiplexte Ströme, während
-HTTP/1.1 pro Anfrage seriell arbeitet. Beide sind – anders als HTTP/3 in
-Teil 5 – **TCP**.
+Wartet, bis `listening on h2-eth0` erscheint, und führt dann die beiden
+`curl`-Befehle von oben aus. Beendet danach den Mitschnitt und seht ihn euch
+an:
+
+```bash
+h2$ sleep 1; jobs -l                # PID ablesen
+h2$ kill <PID>
+h2$ tcpdump -r /tmp/http12.pcap -n | head
+h2$ tcpdump -r /tmp/http12.pcap -n | grep 'Flags \[S\]'
+```
+
+Die PID in `jobs -l` gehört zu `sudo`; `kill` auf sie beendet `tcpdump`
+trotzdem. Die Zusammenfassung des Mitschnitts erscheint erst nach dem `kill`
+und kann zwischen spätere Eingaben rutschen. `head` zeigt nur die ersten
+Pakete; die zweite Zeile zählt die Verbindungsaufbauten (Flags `[S]`) – wie
+viele sind es?
+
+Beide Abrufe laufen über TCP, Port 443. Anders als HTTP/3 in Teil 5 sind
+beide – **TCP**. Ob HTTP/2 mehrere Anfragen gemultiplext in einer Verbindung
+überträgt, während HTTP/1.1 sie nacheinander abarbeitet, könnt ihr an diesem
+Mitschnitt nicht ablesen: TLS 1.3 verschlüsselt den Inhalt, und ihr habt
+je Version nur einen Abruf gemacht. Das ist die Theorie aus dem folgenden
+Hintergrundkasten; im Mitschnitt seht ihr die TCP-Verbindungen und die
+TLS-Daten.
 
 !!! quote "Hintergrund: HTTP/2 löst nur das halbe Blockier-Problem"
     HTTP/2 ersetzte den Textklartext von HTTP/1.1 durch binäre Frames
@@ -94,7 +124,7 @@ gezielt über HTTP/3 ab:
 ```bash
 h2$ sudo rm -f /tmp/quic.pcap
 h2$ sudo tcpdump -i h2-eth0 -w /tmp/quic.pcap udp port 443 &
-h2$ curl -k --http3-only -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}, Status %{response_code}\n' https://10.0.1.2/
+h2$ curl -sk --http3-only -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}, Status %{response_code}\n' https://10.0.1.2/
 ```
 
 `--http3-only` erzwingt HTTP/3 (kein Rückfall auf TCP). Wartet kurz
@@ -127,24 +157,29 @@ abgerufen habt?
 ### Teil 6 – Der QUIC-Handshake im Mitschnitt: das 1200-Byte-Initial (`topo01`)
 
 Schaut euch den Mitschnitt aus Teil 5 genauer an. Die **ersten** Pakete, die
-`h2` an `h1` sendet, sind auffällig groß – rund 1200 Byte –, obwohl noch gar
+`h2` an `h1` sendet, sind auffällig groß – genau 1200 Byte –, obwohl noch gar
 keine Nutzdaten geflossen sind:
 
 ```bash
-h2$ tcpdump -r /tmp/quic.pcap -n -v | head -20
+h2$ tcpdump -r /tmp/quic.pcap -n | head -20
 ```
 
-Zählt die Paketgrößen der ersten Datagramme vom Client (`10.0.6.2 > 10.0.1.2`)
-und vergleicht sie mit den ersten Antworten des Servers.
+`h2` hat die Adresse `10.0.6.2`, `h1` die `10.0.1.2`. Zählt die Paketgrößen
+der ersten Datagramme vom Client (`10.0.6.2 > 10.0.1.2`) und vergleicht sie
+mit den ersten Antworten des Servers. `length` ist die UDP-Nutzlast; mit
+`-v` zeigt `tcpdump` zusätzlich die Länge im IP-Header, die um die 28 Byte
+von IP- und UDP-Header größer ist.
 
 **Aufgabe:** Die QUIC-Spezifikation (RFC 9000, Abschnitt 14.1) verlangt, dass
 der Client sein erstes Paket auf mindestens 1200 Byte **auffüllt** (Padding).
 Überlegt: Warum schreibt ein Protokoll ausgerechnet eine *Mindestgröße* für
-das erste Paket vor? (Stichwort: Ein Angreifer könnte mit einer kleinen,
-gefälschten Anfrage eine große Antwort an ein Opfer auslösen – eine
-*Amplification*. Wie verhindert eine Mindestgröße der Anfrage genau das?)
+das erste Paket vor? (Stichwort: Absenderadressen in UDP-Paketen lassen sich
+fälschen.) Rechnet dazu die Bytes des Servers bis zur nächsten Client-Nachricht
+gegen die Bytes eurer ersten Client-Datagramme auf.
 
-!!! quote "Hintergrund: warum das erste QUIC-Paket auf 1200 Byte aufgefüllt wird"
+Klappt den Hintergrund erst nach eurer eigenen Überlegung auf.
+
+??? quote "Hintergrund: warum das erste QUIC-Paket auf 1200 Byte aufgefüllt wird"
     Ein QUIC-Client muss jedes UDP-Datagramm, das ein Initial-Paket trägt, mit
     PADDING-Frames auf mindestens 1200 Byte UDP-Nutzlast auffüllen (RFC 9000,
     Abschnitt 14.1). Das dient zwei Zwecken: Es beweist, dass der Pfad Pakete
@@ -158,10 +193,8 @@ gefälschten Anfrage eine große Antwort an ein Opfer auslösen – eine
     - „The Illustrated QUIC Connection" (quic.xargs.org): <https://quic.xargs.org/>
 
 !!! question "Kurz nachgedacht"
-    Das Padding auf 1200 Byte schützt vor Amplification-Angriffen, weil ein
-    Server vor der Adressvalidierung höchstens das Dreifache dessen senden
-    darf, was er empfangen hat. Was würde passieren, wenn der Client sein
-    erstes Paket stattdessen winzig klein halten dürfte?
+    Was würde passieren, wenn der Client sein erstes Paket stattdessen winzig
+    klein halten dürfte – und wer hätte davon den Schaden?
 
 --8<-- "issue-feedback.md"
 
@@ -179,7 +212,9 @@ zeigen:
 h2$ curl -k -I https://10.0.1.2/
 ```
 
-Achtet in der Ausgabe auf die Zeile `alt-svc: h3=":443"; ma=86400`. Sie sagt
+Achtet in der Ausgabe auf die Zeile `alt-svc: h3=":443"; ma=86400` (bei
+HTTP/2 schreibt `curl` Header-Namen klein; die erste Zeile zeigt, welche
+Version `curl` hier ausgehandelt hat). Sie sagt
 dem Client: „Denselben Dienst gibt es auch als HTTP/3 (`h3`) auf Port 443,
 und du darfst dir das 86400 Sekunden lang merken (`ma`)."
 
@@ -204,11 +239,24 @@ unterwegs gesperrt sein, wie in dieser Umgebung nach außen.)
     `Alt-Svc` erfuhr. Warum kann ein Browser nicht einfach beim allerersten
     Kontakt zu einem unbekannten Server direkt QUIC probieren?
 
+!!! tip "Aufräumen"
+    Beendet den Server im Fenster `Node: h1` mit ++ctrl+c++ und prüft, dass
+    nichts mehr auf Port 443 lauscht (keine Ausgabe heißt: beendet):
+
+    ```bash
+    h1$ ss -tlpn | grep 443
+    h1$ ss -ulpn | grep 443
+    ```
+
+    Beendet dann die Topologie mit `exit` in der Mininet-Konsole (Fenster
+    `Terminal`, Prompt `mininet>`). Laufende Mitschnitte beendet ihr wie
+    oben mit `kill <PID>`.
+
 !!! success "Meilenstein 2 geschafft"
     **Das habt ihr gelernt:**
 
     - HTTP/1.1 und HTTP/2 laufen über TCP, HTTP/3 läuft über QUIC und damit über UDP.
-    - QUIC (RFC 9000) setzt bewusst auf UDP auf; der Handshake zeigt sich in großen Initial-Paketen von rund 1200 Byte.
+    - QUIC (RFC 9000) setzt bewusst auf UDP auf; der Handshake zeigt sich in großen Initial-Paketen von 1200 Byte UDP-Nutzlast.
     - Ein Server kündigt per Alt-Svc-Header (RFC 7838) an, dass er auch HTTP/3 spricht; der Client wechselt dann von TCP um.
 
     **Was Meilenstein 3 verspricht:** Der letzte Meilenstein zeigt, was passiert, wenn ein Server Eingaben ungeprüft in die HTML-Antwort einbaut: Reflektiertes und gespeichertes XSS gegen ein absichtlich verwundbares Übungsziel, mit Blick auf den Netzwerkverkehr.

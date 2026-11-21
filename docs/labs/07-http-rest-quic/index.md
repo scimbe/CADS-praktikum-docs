@@ -58,12 +58,13 @@ Das Blatt ist in 3 Meilensteine geteilt. Jeder Meilenstein ist eine eigene Seite
   `curl --http3-only` erreicht den lokalen Server mit HTTP-Status 200 über
   UDP/443.
 - **Teil 8 (Site-Cloning/XSS) funktioniert technisch nur gegen das eigene
-  Übungsziel.** `h2` hat keine Route ins Internet (`r1`/`r2` bekommen in
+  Übungsziel.** `h2` kommt nicht ins Internet (seine Default-Route führt zu `r2`,
+  der mit „Destination Net Unreachable“ antwortet; `r1`/`r2` bekommen in
   `topo01.py` keine Default-Route mit), und `startXSSLabServer.py` nimmt
   selbst nie eine ausgehende Verbindung auf – ein Aufruf gegen ein Ziel
   außerhalb der Topologie scheitert daher technisch, nicht nur aus Vorsicht.
 - **Internet-Zugriff für Teil 2 nur über `h1`.** In `topo01` hat allein `h1`
-  über den NAT-Uplink einen Weg nach draußen; `h2` hat keine Route ins
+  über den NAT-Uplink einen Weg nach draußen; `h2` kommt nicht ins
   Internet. Bearbeitet Teil 2 deshalb auf `h1`. Ob der ausgehende Zugriff auf
   `api.openweathermap.org:80` gelingt, hängt zusätzlich von der
   Firewall-/Proxy-Konfiguration des Container-Hosts ab. Schlägt die Verbindung
