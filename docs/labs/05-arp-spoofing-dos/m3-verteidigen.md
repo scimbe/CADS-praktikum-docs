@@ -80,6 +80,9 @@ cd ~/rn-practice/topo02
     h2$ ip link show h2-eth0
     ```
 
+    Das Fenster `Node: h2` ist noch durch das laufende Skript belegt. Gebt den
+    Befehl dann in der Mininet-Konsole ein: `mininet> h2 ip link show h2-eth0`.
+
     Stimmen beide MAC-Adressen überein, habt ihr den Angreifer eindeutig
     identifiziert – rein aus der Opfer-Perspektive, ohne den Angriffs-Traffic
     selbst mitgeschnitten zu haben.
@@ -186,7 +189,9 @@ vorher und nachher; die Differenz zählt:
 h1$ nstat -az TcpExtListenDrops
 ```
 
-**Erwartete Ausgabe:** Im Normalzustand `200`. Unter Flood mit `syncookies=0`
+**Erwartete Ausgabe:** Im Normalzustand liefert `curl` den Statuscode `200`.
+`nstat -az` zeigt Zählerstände seit dem Start der Topologie; vergleicht deshalb
+immer den Wert vorher mit dem Wert nachher. Unter Flood mit `syncookies=0`
 steht in `ss … syn-recv` nur eine kleine Zahl halboffener Verbindungen (der
 Server-Backlog ist begrenzt) und der Zähler `TcpExtListenDrops` wächst stark
 an.
@@ -333,14 +338,16 @@ h3$ ip neigh replace 10.0.20.1 lladdr <echte-MAC> dev h3-eth0 nud permanent
 h2$ ./startARP-AttackerOnNodeH2.sh &
 h3$ ip neigh show 10.0.20.1                      # unveraendert?
 # 3. Angriff beenden (das Skript raeumt Alias und gefaelschten Webserver auf):
-h2$ jobs -l                  # PID des Skripts ablesen
-h2$ kill -INT <PID>
+h2$ fg                       # Skript in den Vordergrund holen ...
+                             # ... und dann Strg+C druecken
+# 4. festen Eintrag wieder entfernen (sonst wirkt er in spaeteren Teilen weiter):
+h3$ ip neigh del 10.0.20.1 dev h3-eth0
 ```
 
-Läuft das Skript im Vordergrund, genügt ++ctrl+c++ in `h2`. Mit `&` im
-Hintergrund hat ++ctrl+c++ keine Wirkung, deshalb `kill -INT <PID>`. Beendet den
-Angriff immer, sonst bleibt die Vergiftung für alle folgenden Versuche
-bestehen.
+Ein im Hintergrund (`&`) gestartetes Skript holt ihr mit `fg` in den
+Vordergrund und beendet es dann mit ++ctrl+c++. Ein `kill -INT <PID>` reicht bei
+diesem Skript nicht: Es läuft danach weiter. Beendet den Angriff immer, sonst
+bleibt die Vergiftung für alle folgenden Versuche bestehen.
 
 **Erwartete Ausgabe:** Nach dem `permanent`-Eintrag bleibt die MAC-Adresse für
 `10.0.20.1` trotz laufendem `arpspoof` unverändert die **echte** MAC des
@@ -409,7 +416,7 @@ h3$ mkdir -p ~/rn-practice/pcaps
 h3$ tcpdump -i h3-eth0 -n arp -w ~/rn-practice/pcaps/05-teilh-arpspoof.pcap &
 h2$ ./startARP-AttackerOnNodeH2.sh &
 # einige Sekunden laufen lassen, dann beenden (Angriff zuerst):
-h2$ jobs -l; kill -INT <PID>                          # PID des Skripts; es raeumt Alias/Webserver auf
+h2$ fg                                                # Skript in den Vordergrund, dann Strg+C; es raeumt Alias/Webserver auf
 h3$ jobs -l; kill <PID>                               # PID von tcpdump; beendet und schreibt die Datei fertig
 h3$ P=~/rn-practice/pcaps/05-teilh-arpspoof.pcap
 h3$ capinfos -c "$P"                                  # wie viele Pakete?
@@ -419,7 +426,9 @@ h3$ editcap -r "$P" ~/rn-practice/pcaps/05-teilh-auszug.pcap 1-3   # Beweis-Auss
 ```
 
 **Erwartete Ausgabe:** `capinfos` nennt die Gesamtzahl der ARP-Pakete;
-`grep -c is-at` zählt die gefälschten Replies; die Beispielzeile zeigt eine
+`grep -c is-at` zählt alle Replies – überwiegend die gefälschten, dazu
+einige wenige mit der **echten** Gateway-MAC, die das Skript beim Beenden
+sendet, um die Caches wieder zu reparieren. Die Beispielzeile zeigt eine
 `is-at`-Zuordnung auf die MAC des Angreifers `h2`.
 
 !!! info "Was ihr seht"

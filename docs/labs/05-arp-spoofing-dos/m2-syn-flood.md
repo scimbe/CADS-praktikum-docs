@@ -41,6 +41,8 @@ Hier erzeugt ihr selbst einen SYN-Flood gegen einen eigenen Server und beobachte
     - `-w <fenster>` – TCP-Fenstergröße im SYN-Paket.
     - `-p <port>` – Zielport (hier `80` für HTTP).
     - `--flood` – sendet ohne Rücksicht auf Antworten so schnell wie möglich.
+      Ein zusätzliches `-c <n>` wird dabei nicht beachtet: `hping3` sendet,
+      bis ihr es mit ++ctrl+c++ beendet.
     - `--rand-source` – täuscht für jedes Paket eine andere, zufällige
       Absender-IP vor.
 
@@ -89,8 +91,14 @@ annehmen kann (Denial-of-Service). Nutzt weiterhin die aus [Teil B](m1-arp-spoof
     `http://10.0.10.11` auf, um den Dienst zu testen:
 
     ```bash
-    h3$ firefox-esr http://10.0.10.11 &
+    h3$ sudo -u cads env DISPLAY=$DISPLAY HOME=/config firefox-esr http://10.0.10.11 &
     ```
+
+    In den Knotenfenstern seid ihr `root`; Firefox lässt sich dort nicht direkt
+    als `root` starten (Meldung „Running Firefox as root … is not supported“
+    bzw. „$HOME is /config which is owned by cads“). Der Aufruf oben startet ihn
+    als normaler Benutzer `cads`. Ohne Browser geht es auch mit
+    `h3$ curl -s -o /dev/null -w '%{http_code}\n' http://10.0.10.11` (Ausgabe `200`).
 
     Schließt Firefox danach wieder, damit sich der Effekt des Angriffs im
     nächsten Schritt klarer beobachten lässt.
@@ -105,13 +113,29 @@ annehmen kann (Denial-of-Service). Nutzt weiterhin die aus [Teil B](m1-arp-spoof
     Siehe Werkzeug-Steckbrief oben für die Bedeutung der Optionen und eine
     echte Beispielausgabe.
 
-4. **Wirkung beobachten:** Öffnet erneut Firefox auf `h3` und versucht,
-    `http://10.0.10.11` erneut aufzurufen. Öffnet zusätzlich in der
-    Mininet-Konsole ein weiteres Terminal für `h1` (`mininet> xterm h1`,
-    siehe [Lab 01](../01-netzwerkgrundlagen-tools/index.md)), startet dort
-    `wireshark &` und beobachtet die Quelladressen der eingehenden
-    SYN-Pakete – das ist IP-Spoofing sichtbar im Mitschnitt. Rechnet damit,
-    dass Wireshark unter der Last des Angriffs nicht mehr flüssig läuft.
+4. **Wirkung beobachten:** Öffnet erneut Firefox auf `h3` (Aufruf wie in
+    Schritt 2) und versucht, `http://10.0.10.11` erneut aufzurufen. Öffnet
+    zusätzlich in der Mininet-Konsole ein weiteres Terminal für `h1`
+    (`mininet> xterm h1`, siehe [Lab 01](../01-netzwerkgrundlagen-tools/index.md))
+    und schaut euch die Quelladressen der eingehenden SYN-Pakete an – das ist
+    IP-Spoofing sichtbar im Mitschnitt.
+
+    !!! warning "Wireshark nicht live während des Floods mitlaufen lassen"
+        Der Flood erzeugt in kurzer Zeit Millionen Pakete. Wireshark hält
+        jedes davon im Arbeitsspeicher; nach ein bis zwei Minuten ist der
+        Speicher eures Desktops voll, und der **ganze Desktop** wird beendet
+        (ihr verliert offene Fenster und Topologie). Schneidet deshalb nur
+        wenige Sekunden und nur eine begrenzte Paketzahl mit und schaut die
+        Datei erst danach an:
+
+        ```bash
+        h1$ tcpdump -i h1-eth0 -n -c 50 -w /tmp/syn.pcap tcp port 80
+        h1$ tcpdump -r /tmp/syn.pcap -n | head -20
+        ```
+
+        `-c 50` beendet den Mitschnitt nach 50 Paketen von selbst. Wer die
+        Datei in Wireshark ansehen will, öffnet sie erst **nach** dem Ende
+        des Floods (`wireshark /tmp/syn.pcap &`).
 
 5. **Angriff beenden** (`Strg+C` im Terminal von `h0`; der Flood belastet
     sonst die CPU des ganzen Desktops) und die Erholung des Ziels bestätigen
