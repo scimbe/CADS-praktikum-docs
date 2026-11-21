@@ -80,7 +80,8 @@ jobs:
         run: |
           anzahl=$(find site -name '*.pdf' | wc -l)
           echo "PDFs erzeugt: $anzahl"
-          test "$anzahl" -eq 14 || { echo "FEHLER: 14 PDFs erwartet (7 Blaetter x DE/EN), gefunden $anzahl"; exit 1; }
+          # 7 Blaetter, nur Deutsch (Englisch seit 2026-11-21 aus, siehe mkdocs.yml)
+          test "$anzahl" -eq 7 || { echo "FEHLER: 7 PDFs erwartet, gefunden $anzahl"; exit 1; }
           find site -name '*.pdf' -printf '  %p  %s Byte\n'
 
           # Der Knopf muss auf eine Datei zeigen, die es gibt. Bis 2026-09-24
@@ -88,7 +89,7 @@ jobs:
           # - alle sieben Knoepfe lieferten HTTP 404. Geprueft wird deshalb
           # das href der gebauten Seite, nicht eine geratene URL.
           fehler=0
-          for seite in site/labs/*/index.html site/en/labs/*/index.html; do
+          for seite in site/labs/*/index.html; do
             verzeichnis=$(dirname "$seite")
             ziel=$(grep -oE 'href="[^"]*\.pdf"' "$seite" | head -1 | sed 's/href="//; s/"$//')
             test -n "$ziel" || { echo "FEHLER: kein PDF-Knopf in $seite"; fehler=1; continue; }
@@ -116,6 +117,13 @@ jobs:
           fi
 
           test "$fehler" -eq 0 || exit 1
+
+      # Seit 2026-11-21 besteht ein Blatt aus Uebersicht und Meilenstein-Seiten:
+      # jede Seite muss im PDF stehen, aufklappbare Bloecke mit Inhalt.
+      - name: Gegenprobe - Meilenstein-Seiten und aufklappbare Bloecke im PDF
+        run: |
+          sudo apt-get install -y -qq poppler-utils >/dev/null
+          python3 scripts/check-pdf-details.py site
 
       - uses: actions/upload-pages-artifact@v3
         with:

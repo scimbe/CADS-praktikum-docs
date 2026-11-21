@@ -9,13 +9,17 @@ als Text lesbar und als PDF herunterladbar.
 
 | # | Thema | Topologie |
 |---|-------|-----------|
-| [01](labs/01-netzwerkgrundlagen-tools.md) | Netzwerkgrundlagen & Tools (ping, netcat, dig, nmap, Wireshark, Schichtenmodell) | `topo01` |
-| [02](labs/02-subnetting-arp.md) | IPv4-Subnetting & ARP | `topoP02`, `topoP04`, `topo02`, `topo01` |
-| [03](labs/03-routing-rip-bgp.md) | Routing: RIP/BGP mit FRR | `topoP03`, `topo03` |
-| [04](labs/04-tcp-udp-congestion.md) | TCP/UDP & Congestion Control | `topoP04`, `topo02` |
-| [05](labs/05-arp-spoofing-dos.md) | ARP-Spoofing & Denial-of-Service | `topo02` |
-| [06](labs/06-advanced-covert-channels.md) | Advanced: DNS-Tunneling, Covert Channels, JA3, NTP | `topo01` |
-| [07](labs/07-http-rest-quic.md) | HTTP/REST/QUIC von Hand (netcat/telnet) | `topo01` |
+| [01](labs/01-netzwerkgrundlagen-tools/index.md) | Netzwerkgrundlagen & Tools (ping, netcat, dig, nmap, Wireshark, Schichtenmodell) | `topo01` |
+| [02](labs/02-subnetting-arp/index.md) | IPv4-Subnetting & ARP | `topoP02`, `topoP04`, `topo02`, `topo01` |
+| [03](labs/03-routing-rip-bgp/index.md) | Routing: RIP/BGP mit FRR | `topoP03`, `topo03` |
+| [04](labs/04-tcp-udp-congestion/index.md) | TCP/UDP & Congestion Control | `topoP04`, `topo02` |
+| [05](labs/05-arp-spoofing-dos/index.md) | ARP-Spoofing & Denial-of-Service | `topo02` |
+| [06](labs/06-advanced-covert-channels/index.md) | Advanced: DNS-Tunneling, Covert Channels, JA3, NTP | `topo01` |
+| [07](labs/07-http-rest-quic/index.md) | HTTP/REST/QUIC von Hand (netcat/telnet) | `topo01` |
+
+Jedes Blatt ist in drei bis vier Meilensteine geteilt, jeder auf einer eigenen Seite. Am Ende
+jedes Meilensteins steht, was ihr gelernt habt und was der nächste bringt; eine kleine Grafik zeigt,
+in welchen Schichten des TCP/IP-Modells ihr euch gerade bewegt. Das PDF enthält das ganze Blatt.
 
 Die Topologien liegen auf dem Desktop unter `~/rn-practice/`.
 
