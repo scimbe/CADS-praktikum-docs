@@ -24,6 +24,11 @@ auffallen – etwa die **Timestamp**-Nachricht (Typ 13/14, RFC 792, Abschnitt
 dass sich ein solcher Typ überhaupt erzeugen und im Mitschnitt wiedererkennen
 lässt.
 
+Dieser Meilenstein läuft wieder in `topo01` (Start wie in Meilenstein 3). Die
+Fenster „Node: h1“ und „Node: h2“ öffnen sich beim Start von selbst, weitere
+Fenster mit `mininet> xterm h1`; Hilfe beim Wiederfinden gibt
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
+
 Zeichnet ICMP auf `h1` auf und schickt von `h2` eine Timestamp-Anfrage:
 
 ```bash
@@ -37,6 +42,12 @@ Schaut euch die Nachrichtentypen im Mitschnitt an:
 ```bash
 h1$ tcpdump -r /tmp/icmpts.pcap -v -n | grep -i 'time stamp'
 ```
+
+(`tcpdump -c 2` beendet sich nach zwei Paketen von selbst; Meldungen wie
+`2 packets captured` oder `Done` erscheinen dabei mitten im Prompt. Drückt
+einfach ++enter++.) `hping3` und `tcpdump` zeigen die Zeitfelder als
+Millisekunden seit Mitternacht UTC bzw. als Uhrzeit; `org 15:44:39.569`
+entspricht `Originate=56679569`.
 
 **Aufgabe:** Ihr solltet `time stamp query` und `time stamp reply` sehen –
 nicht das gewohnte `echo request`. Die Timestamp-Nachricht trägt drei
@@ -74,8 +85,14 @@ einen Mitschnitt:
 h1$ cd ~/rn-practice/topo01
 h1$ ./startHTTP3Server.sh &
 h1$ sudo rm -f /tmp/sni.pcap
-h1$ sudo tcpdump -i h1-eth1 -A -w /tmp/sni.pcap tcp port 443 &
+h1$ sudo tcpdump -U -i h1-eth1 -A -w /tmp/sni.pcap tcp port 443 &
 ```
+
+Der Server meldet sich mit mehreren Zeilen (u. a. einem Testhinweis für
+`curl --http3-only`, also QUIC über UDP). Diese Ausgabe kann die Eingabezeile
+zerstückeln: Wartet kurz, drückt ++enter++ und tippt erst bei sauberem Prompt
+weiter. Hier nutzt ihr nicht QUIC, sondern den TLS-Port TCP/443, auf dem der
+Server ebenfalls lauscht.
 
 Baut von `h2` eine TLS-Verbindung mit einem frei gewählten Servernamen auf:
 
@@ -83,11 +100,17 @@ Baut von `h2` eine TLS-Verbindung mit einem frei gewählten Servernamen auf:
 h2$ echo | openssl s_client -connect 10.0.1.2:443 -servername geheim.example.org
 ```
 
-Sucht den Servernamen im Mitschnitt:
+Beendet den Mitschnitt auf `h1` (`jobs -l`, die Zeile mit `tcpdump`,
+`kill <PID>`) und sucht erst danach den Servernamen im Mitschnitt. Liest ihr
+die Datei, solange `tcpdump` noch läuft, meldet `tcpdump -r` ggf. `truncated
+dump file`; der Treffer kann trotzdem erscheinen.
 
 ```bash
 h1$ tcpdump -r /tmp/sni.pcap -A | grep -a geheim.example.org
 ```
+
+Den HTTP/3-Server (Zeile mit `startHTTP3Server.sh` in `jobs -l`) lasst ihr
+für Teil 14 laufen und beendet ihn dort mit `kill <PID>`.
 
 **Aufgabe:** Der Name `geheim.example.org` steht im Klartext im Mitschnitt,
 obwohl die Verbindung TLS-verschlüsselt ist. Erklärt, warum die SNI
@@ -125,25 +148,35 @@ Der ehrlichste – und zugleich am leichtesten erkennbare – „Kanal" ist einf
 eine UDP-Nutzlast. Das baut ihr mit `socat` (im Image vorhanden) und stellt es
 den raffinierteren Verstecken gegenüber.
 
-Startet auf `h1` einen UDP-Empfänger und einen Mitschnitt, sendet von `h2`:
+Dafür braucht `h1` **zwei Fenster**, weil `socat` im Vordergrund läuft und sein
+Fenster blockiert: Fenster 1 ist das bisherige `h1`-Fenster (Mitschnitt),
+Fenster 2 öffnet ihr mit `mininet> xterm h1`. Beide heißen „Node: h1“;
+kennzeichnet sie am besten, indem ihr in jedem zuerst z. B. `echo FENSTER-1`
+bzw. `echo FENSTER-2` tippt, und wechselt über die Fensterliste (siehe
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen)).
+
+Startet einen UDP-Empfänger und einen Mitschnitt, sendet von `h2`:
 
 ```bash
-h1$ sudo rm -f /tmp/udpchan.pcap
-h1$ sudo tcpdump -i h1-eth1 -A -w /tmp/udpchan.pcap udp port 9999 &
-h1$ socat -u UDP-RECV:9999 -
+h1$ sudo rm -f /tmp/udpchan.pcap                                           # Fenster 1
+h1$ sudo tcpdump -U -i h1-eth1 -A -w /tmp/udpchan.pcap udp port 9999 &     # Fenster 1
+h1$ socat -u UDP-RECV:9999 -                                               # Fenster 2 (blockiert)
 h2$ echo 'EXFIL_UDP' | socat - UDP-SENDTO:10.0.1.2:9999
 ```
 
-Startet `socat` im zweiten `h1`-Terminal (`mininet> xterm h1`) und beendet es
-dort mit ++ctrl+c++. Beendet den Mitschnitt im ersten Fenster: `jobs -l` zeigt
-die PID von `tcpdump`, dann `kill <PID>`. Erst danach lest ihr die Datei,
-sonst ist sie ggf. unvollständig.
+Beendet `socat` in Fenster 2 mit ++ctrl+c++. Beendet den Mitschnitt in
+Fenster 1: `jobs -l` zeigt die PID von `tcpdump` (ggf. die von `sudo`), dann
+`kill <PID>`. Erst danach lest ihr die Datei, sonst ist sie ggf.
+unvollständig.
 
 Prüft, dass die Nutzlast im Mitschnitt steht:
 
 ```bash
 h1$ tcpdump -r /tmp/udpchan.pcap -A | grep -a EXFIL_UDP
 ```
+
+Als Absender erscheint im Mitschnitt `10.0.6.2`; das ist die Adresse von `h2`
+(wie in Teil 7).
 
 **Aufgabe:** `EXFIL_UDP` steht sofort im Klartext im Paket. Vergleicht diesen
 Kanal mit dem DNS-Kanal aus [Teil 8](m3-kanaele-selbst-bauen.md#teil-8-dns-kanal-ohne-iodine-der-lesbare-dns-server-als-endpunkt-topo01) und dem Sequenznummer-Kanal aus [Teil 9](m3-kanaele-selbst-bauen.md#teil-9-ein-kanal-in-der-tcp-sequenznummer-topo01):
@@ -158,27 +191,56 @@ Rolle des Verteidigers ein: Ein verdeckter Kanal verrät sich fast immer durch
 sein *statistisches* Verhalten, auch wenn kein einzelnes Paket verdächtig
 aussieht.
 
-Nehmt einen der Mitschnitte aus den Teilen 8, 11 oder 13 und einen Mitschnitt
-von normalem Verkehr (z. B. ein `curl` gegen den lokalen Server) und
-vergleicht Paketzahl und -größe:
+Nehmt einen der Mitschnitte aus den Teilen 8, 11 oder 13 (`/tmp/dnschan.pcap`,
+`/tmp/icmpts.pcap`, `/tmp/udpchan.pcap`) und einen Mitschnitt von normalem
+Verkehr und vergleicht Paketzahl und -größe. Die Mitschnitte liegen in `/tmp`
+und sind nach einem Neustart der Topologie weg; fehlt `dnschan.pcap`, wiederholt
+Teil 8 (Server und Mitschnitt starten, `dig` senden, beides beenden). Den
+Mitschnitt von normalem Verkehr erzeugt ihr mit dem noch laufenden
+HTTP/3-Server aus Teil 12 (sonst startet ihn wie dort neu):
+
+```bash
+h1$ sudo rm -f /tmp/normal.pcap
+h1$ sudo tcpdump -U -i h1-eth1 -w /tmp/normal.pcap tcp port 443 &
+h2$ curl -sk https://10.0.1.2/
+```
+
+Beendet den Mitschnitt (`jobs -l`, `kill <PID>`) und den HTTP/3-Server
+(`kill <PID>`). Vergleicht dann:
 
 ```bash
 h1$ capinfos /tmp/dnschan.pcap
 h1$ capinfos /tmp/udpchan.pcap
+h1$ capinfos /tmp/normal.pcap
 ```
 
 `capinfos` (im Image vorhanden) fasst pro Mitschnitt Paketzahl, Dauer,
-durchschnittliche Paketgröße und Datenrate zusammen. Zählt ergänzend, wie
-viele Pakete auf einen bestimmten Kanal entfallen:
+durchschnittliche Paketgröße und Datenrate zusammen. Beachtet: Ein
+Mitschnitt aus Teil 8 oder 13 enthält nur ein bis zwei Pakete, und
+Datenrate und Durchschnitt sind bei so wenigen Paketen nicht
+aussagekräftig. Für eine Statistik braucht ihr mehr Verkehr. Startet den
+DNS-Server wie in Teil 8 neu und schickt von `h2` mehrere Abfragen mit
+unterschiedlichen langen Hex-Namen (hier 20 Stück) in einer Schleife:
 
 ```bash
-h1$ tcpdump -r /tmp/dnschan.pcap -n | wc -l
+h1$ sudo rm -f /tmp/dnsmenge.pcap
+h1$ sudo tcpdump -U -i h1-eth1 -w /tmp/dnsmenge.pcap udp port 5353 &
+h2$ for i in $(seq 20); do dig @10.0.1.2 -p 5353 +short +time=1 +tries=1 "$(head -c 20 /dev/urandom | od -An -tx1 | tr -d ' \n').exfil.h1"; done
+```
+
+Beendet Mitschnitt und Server und lest `capinfos /tmp/dnsmenge.pcap`. Zählt
+ergänzend, wie viele Pakete auf einen bestimmten Kanal entfallen (die Zeile
+`reading from file …` geht auf die Fehlerausgabe und wird nicht mitgezählt):
+
+```bash
+h1$ tcpdump -r /tmp/dnsmenge.pcap -n | wc -l
 ```
 
 **Aufgabe:** DNS-Tunneling erzeugt auffällig **viele** DNS-Anfragen mit
 auffällig **langen** Namen; ein normaler Client fragt selten und kurz. Nennt
-zwei messbare Merkmale (z. B. Anfragerate, mittlere Namenslänge, Verhältnis
-von Anfragen ohne Antwort), an denen ein Verteidiger einen der vorherigen
+zwei messbare Merkmale (z. B. Anfragerate, mittlere Namenslänge, Anteil der
+`NXDOMAIN`-Antworten – der Server antwortet zwar, aber nie mit einem
+Treffer), an denen ein Verteidiger einen der vorherigen
 Kanäle erkennen könnte – **ohne** eine einzige Nutzlast zu entschlüsseln.
 
 --8<-- "issue-feedback.md"

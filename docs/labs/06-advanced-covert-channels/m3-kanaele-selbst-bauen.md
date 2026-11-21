@@ -30,6 +30,13 @@ cd ~/rn-practice/topo01
 ./start-topo01.sh
 ```
 
+Die Knotenfenster „Node: h1“ und „Node: h2“ öffnen sich beim Start von
+selbst. Fehlt eines, tippt am `mininet>`-Prompt (im Fenster, in dem ihr das
+Skript gestartet habt) `xterm h1` bzw. `xterm h2`. Hilfe beim Wiederfinden
+und Tippen: [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
+Der echte Prompt dort ist `root@…#`; das `h1$` im Blatt gehört nicht zum
+Befehl (siehe [Übersicht](index.md)).
+
 1. **Empfänger vorbereiten.** Startet auf `h1` einen Mitschnitt, der nur
     ICMP-Verkehr aufzeichnet:
 
@@ -37,6 +44,8 @@ cd ~/rn-practice/topo01
     h1$ sudo rm -f /tmp/ttlmsg.pcap
     h1$ sudo tcpdump -i any icmp -n -w /tmp/ttlmsg.pcap
     ```
+
+    Die Warnung zum Promiscuous-Modus bei `any` ist harmlos.
 
 2. **Sender:** Wechselt zu `h2` und schickt (ohne `h1` vorher zu verraten,
     was ihr sendet) ein kurzes Wort Zeichen für Zeichen, mit einem
@@ -58,17 +67,25 @@ cd ~/rn-practice/topo01
     *empfangene* TTL jedes eingehenden Pakets aus:
 
     ```bash
-    h1$ tcpdump -r /tmp/ttlmsg.pcap -n -v
+    h1$ tcpdump -r /tmp/ttlmsg.pcap -n -v | grep -B1 'echo request'
     ```
 
-    Achtet nur auf die Zeilen mit `ICMP echo request` (Absender `h2`, in
-    `topo01` die Adresse `10.0.6.2`) – die dazugehörigen `echo reply`-Zeilen
+    Achtet nur auf die Pakete mit `ICMP echo request` (Absender `h2`, in
+    `topo01` die Adresse `10.0.6.2`) – die dazugehörigen `echo reply`-Pakete
     (Absender `h1`) tragen `h1`s eigenen, unveränderten Standard-TTL-Wert und
-    sind für die Decodierung ohne Bedeutung. Die relevanten Zeilen zeigen
-    euch je einen Wert wie `ttl 70`. Das ist
+    sind für die Decodierung ohne Bedeutung. Bei `-v` steht die TTL **nicht**
+    in der `echo request`-Zeile selbst, sondern in der IP-Kopfzeile direkt
+    davor (`IP (tos …, ttl 70, id …)`); `grep -B1` gibt deshalb jeweils die
+    Zeile davor mit aus. (Ein einfaches `grep 'echo request'` würde die TTL
+    verlieren.) Mit `-i any` steht in den Kopfzeilen auch die Richtung
+    (`In` oder `Out`): Eingehende Pakete sind die `In`-Zeilen. Falls
+    `traceroute` (s. u.) bei laufendem Mitschnitt gelaufen ist, tauchen
+    weitere ICMP-Zeilen (z. B. `udp port … unreachable`) auf; die ignoriert
+    ihr. Die relevanten Zeilen zeigen euch je einen Wert wie `ttl 70`. Das ist
     **nicht** der von `h2` gesendete Wert, sondern der bereits um die Anzahl
     der durchlaufenen Router verminderte Wert – bestimmt diese Hop-Zahl
-    selbst mit `traceroute` (oder `tracepath`) von `h2` zu `h1`, bevor ihr
+    selbst mit `traceroute` (oder `tracepath`) von `h2` zu `h1`
+    (`h2$ traceroute -n 10.0.1.2`), bevor ihr
     zurückrechnet. Gemeint ist die Zahl der **Router** auf dem Weg: Die
     Zeilen von `traceroute` minus 1 (die letzte Zeile ist `h1` selbst), hier
     also 2 (`r2` und `r1`). Nur Router vermindern die TTL.
@@ -102,8 +119,13 @@ Startet den Server auf `h1` auf Port 5353 (Port 53 belegt dort bereits
 h1$ cd ~/rn-practice/topo01
 h1$ python3 dns-server.py 5353 &
 h1$ sudo rm -f /tmp/dnschan.pcap
-h1$ sudo tcpdump -i h1-eth1 -w /tmp/dnschan.pcap udp port 5353 &
+h1$ sudo tcpdump -U -i h1-eth1 -w /tmp/dnschan.pcap udp port 5353 &
 ```
+
+Der Server druckt gleich nach dem Start eine Meldung in das Fenster; sie kann
+die Eingabezeile überschreiben und die nächsten Zeichen zerstückeln. Wartet
+kurz, drückt ++enter++ und prüft, dass der Prompt sauber dasteht, bevor ihr
+weitertippt.
 
 Kodiert auf `h2` eine kurze Nachricht als Hex und verpackt sie als Subdomain
 in eine DNS-Abfrage an den Server:
@@ -116,17 +138,31 @@ h2$ dig @10.0.1.2 -p 5353 "$msg.exfil.h1"
 `dig` zeigt `status: NXDOMAIN`. Das ist hier richtig: Der Server kennt den
 Namen nicht, aber die Daten sind in der Anfrage schon angekommen.
 
-Beendet den Mitschnitt auf `h1`: `jobs -l` zeigt die PID von `tcpdump`;
-beendet ihn mit `kill <PID>`. Lest dann die Abfragenamen aus:
+Beendet den Mitschnitt auf `h1`: `jobs -l` listet zwei Hintergrundjobs, den
+Python-Server und `tcpdump`. Wählt die Zeile mit `tcpdump` (dort steht ggf. die
+PID von `sudo`; `kill` darauf beendet den Mitschnitt trotzdem) und beendet ihn
+mit `kill <PID>`. Lest dann die Abfragenamen aus:
 
 ```bash
 h1$ tcpdump -r /tmp/dnschan.pcap -n | grep exfil
 ```
 
+`grep exfil` zeigt nur die Anfrage. Der Mitschnitt enthält zwei Pakete; in der
+Antwort (`NXDOMAIN`) steht der Name in dieser Darstellung nicht, deshalb fehlt
+sie in der gefilterten Ausgabe.
+
+Beendet danach auch den DNS-Server (`kill <PID>` der Zeile mit `dns-server.py`
+aus `jobs -l`). Er belegt sonst weiter Port 5353; Teil 14 startet ihn bei
+Bedarf neu.
+
 **Aufgabe:** Der Hex-String steht im Klartext im Abfragenamen. Ein einzelnes
 DNS-Label darf höchstens 63 Zeichen lang sein, ein ganzer Name höchstens 255
 (RFC 1035, Abschnitt 2.3.4 / 3.1). Rechnet aus, wie viele Nutzbytes euch pro
-Abfrage bleiben, wenn ihr hex-kodiert (zwei Zeichen je Byte). Woran erkennt
+Abfrage bleiben, wenn ihr hex-kodiert (zwei Zeichen je Byte). Die Daten
+dürfen auf mehrere Labels verteilt werden; das Suffix `.exfil.h1` und die
+Trennpunkte zählen zum Namen und verbrauchen Platz. Gebt auch an, wie viele
+Nutzbytes in ein einzelnes Label passen. Eine Größenordnung für den ganzen
+Namen genügt. Woran erkennt
 ein Beobachter im Mitschnitt, dass hier kein normales DNS läuft?
 
 !!! quote "Hintergrund: warum ein DNS-Label bei 63 Zeichen endet"
@@ -163,6 +199,14 @@ Lest die empfangene Sequenznummer aus dem Mitschnitt zurück:
 ```bash
 h1$ tcpdump -r /tmp/seqchan.pcap -n -v | grep -o 'seq 305419896'
 ```
+
+Der Mitschnitt hat zwei Pakete (`-c 2` beendet ihn von selbst; die
+`Done`-Meldung erscheint ggf. erst beim nächsten ++enter++). Das zweite ist
+die Antwort von `h1`: ein `RST` (`Flags [R.]`) mit `seq 0` und
+`ack 305419897`, denn Port 80 ist geschlossen. `hping3` zeigt dieselbe
+Antwort als `flags=RA seq=0`. Das `ack 305419897` ist die gesendete
+Sequenznummer plus 1 und gehört nicht zum Kanal, verrät den Wert einem
+Beobachter aber ein zweites Mal.
 
 **Aufgabe:** `305419896` ist dezimal für `0x12345678`. Erklärt, warum die
 Sequenznummer ein besonders schwer zu entdeckendes Versteck ist (Stichwort:
@@ -210,6 +254,13 @@ Lest die Klopf-Sequenz aus dem Mitschnitt zurück:
 ```bash
 h1$ tcpdump -r /tmp/knock.pcap -n | grep -oE '\.(7000|8000|9000):'
 ```
+
+Der Mitschnitt enthält sechs Pakete (`-c 6`): die drei SYN und die drei
+`RST`-Antworten von `h1`, denn alle drei Ports sind geschlossen. `grep`
+trifft nur die SYN-Zeilen, weil dort der Zielport mit `:` endet
+(`10.0.1.2.7000:`); bei den Antworten steht der Port vor dem `>`. Der
+führende Punkt in der Ausgabe (`.7000:`) gehört zur Schreibweise
+`<Adresse>.<Port>`.
 
 **Aufgabe:** Die drei Zielports erscheinen in genau der gesendeten
 Reihenfolge. Erklärt, warum ein Port-Knock-Daemon (der auf diese Sequenz

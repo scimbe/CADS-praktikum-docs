@@ -19,15 +19,23 @@ Diese Seite fragt, was bei verschlüsseltem Verkehr noch sichtbar bleibt, und ze
 **Ziel:** Führt DNS-Anfragen über HTTPS durch und analysiert, was im
 Mitschnitt im Vergleich zu klassischem DNS noch sichtbar ist.
 
-1. Startet auf `h1` einen Mitschnitt, der klassisches DNS (Port 53) und den
-    DoH-Verkehr (TCP/443 zu `1.1.1.1`) zugleich erfasst:
+Dieser Teil braucht die laufende Topologie `topo01` (`cd ~/rn-practice/topo01`,
+`./start-topo01.sh`) und **zwei** `h1`-Fenster: Der Mitschnitt blockiert sein
+Fenster, `dig` und `curl` laufen parallel in einem zweiten. Öffnet es mit
+++ctrl+shift+t++ im `h1`-Fenster (neuer Tab im selben Knoten) oder mit
+`mininet> xterm h1`; Hilfe beim Wiederfinden gibt
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
+
+1. Startet im ersten `h1`-Fenster einen Mitschnitt, der klassisches DNS
+    (Port 53) und den DoH-Verkehr (TCP/443 zu `1.1.1.1`) zugleich erfasst:
 
     ```bash
     h1$ sudo rm -f /tmp/dns_plain.pcap
     h1$ sudo tcpdump -i any -w /tmp/dns_plain.pcap "port 53 or host 1.1.1.1"
     ```
 
-2. Löst `example.com` klassisch über den eingetragenen Resolver auf:
+2. Löst im zweiten `h1`-Fenster `example.com` klassisch über den
+    eingetragenen Resolver auf:
 
     ```bash
     h1$ dig example.com
@@ -40,7 +48,13 @@ Mitschnitt im Vergleich zu klassischem DNS noch sichtbar ist.
         "https://1.1.1.1/dns-query?name=example.com&type=A"
     ```
 
-4. Öffnet den Mitschnitt in Wireshark: Was ist bei der klassischen
+4. Beendet den Mitschnitt im ersten Fenster mit ++ctrl+c++ und öffnet ihn
+    in Wireshark (`h1$ wireshark /tmp/dns_plain.pcap`; alternativ
+    `tshark -r /tmp/dns_plain.pcap`). Beachtet: Der Resolver in `h1` ist
+    `dnsmasq`. `dig` fragt ihn (Adresse `10.0.1.2`), und er leitet die
+    Anfrage selbst weiter (Absender `10.0.5.2`). Deshalb seht ihr für eine
+    Abfrage vier statt zwei DNS-Pakete; bei `-i any` erscheinen dieselben
+    Pakete ggf. zusätzlich auf mehreren Schnittstellen. Was ist bei der klassischen
     DNS-Anfrage im Klartext sichtbar (Anfragename, Antwort), was ist bei der
     DoH-Anfrage nur noch als TLS-Record erkennbar? Wie unterscheidet sich
     DoH dadurch von klassischem DNS aus Sicht eines mitlesenden Dritten im
@@ -65,10 +79,50 @@ mittels JA3-Fingerprint.
         -e tls.handshake.ciphersuite -e tls.handshake.version
     ```
 
-3. Notiert Unterschiede zwischen `curl`, `wget` und Firefox beim
+    Die Spalte mit dem Servernamen (SNI) bleibt hier leer: `curl` hat in
+    Teil 4 eine IP-Adresse statt eines Namens angesprochen, also gibt es
+    keinen Servernamen zu senden. Die Warnung `Running as user "root" …
+    dangerous` kommt daher, dass die Knotenfenster als `root` laufen; für
+    diese Übung ist sie harmlos.
+
+3. Notiert Unterschiede zwischen `curl`, `openssl s_client` und Firefox beim
     TLS-Handshake (Cipher-Suite-Liste, TLS-Erweiterungen, Reihenfolge) – das
     ist die Grundlage, auf der ein JA3-Fingerprint einen Client eindeutig
-    erkennen kann, ganz ohne den Server-Namen (SNI) auszuwerten.
+    erkennen kann, ganz ohne den Server-Namen (SNI) auszuwerten. (`wget` ist
+    im Image nicht installiert.) Dafür nehmt ihr eigenen Verkehr auf; nutzt
+    wieder zwei `h1`-Fenster (Mitschnitt im ersten, die Clients im zweiten):
+
+    ```bash
+    h1$ sudo rm -f /tmp/ja3.pcap
+    h1$ sudo tcpdump -U -i any -w /tmp/ja3.pcap "tcp port 443" &
+    h1$ curl -sS -o /dev/null https://www.wikipedia.org
+    h1$ echo | openssl s_client -connect www.wikipedia.org:443 -servername www.wikipedia.org > /dev/null 2>&1
+    h1$ sudo rm -f /tmp/ff.png
+    h1$ sudo -u cads env DISPLAY=$DISPLAY HOME=/config firefox-esr --headless --screenshot /tmp/ff.png https://www.wikipedia.org
+    ```
+
+    Firefox startet in einem Knotenfenster nicht, wenn ihr ihn direkt als
+    `root` aufruft (`Running Firefox as root in a regular user's session is
+    not supported`). Der Aufruf über `sudo -u cads` startet ihn als normalen
+    Benutzer. Mit sichtbarem Fenster geht es entsprechend:
+    `sudo -u cads env DISPLAY=$DISPLAY HOME=/config firefox-esr https://www.wikipedia.org &`
+    (dann Seite laden lassen und das Firefox-Fenster wieder schließen).
+
+    Beendet danach den Mitschnitt (`jobs -l`, `kill <PID>`, siehe Kasten in
+    der [Übersicht](index.md)) und lest je `ClientHello` den JA3-Hash und
+    den Servernamen aus:
+
+    ```bash
+    h1$ tshark -r /tmp/ja3.pcap -Y "tls.handshake.type == 1" \
+        -T fields -e frame.number -e tls.handshake.extensions_server_name \
+        -e tls.handshake.ja3
+    ```
+
+    `-e tls.handshake.ja3_full` zeigt zusätzlich die Zeichenkette, aus der
+    der Hash gebildet wird (TLS-Version, Cipher-Suites, Erweiterungen,
+    Kurven, Punktformate). Firefox sendet neben der Seite selbst auch
+    Verbindungen zu eigenen Diensten (z. B. `mozilla.net`); ordnet die
+    Zeilen über den Servernamen zu.
 
 4. **Erweiterung (optional, Rechercheaufgabe):** Ein Python-Modul wie `pyja3`
     berechnet aus den obigen Feldern direkt den JA3-Hash. Es ist im Image
@@ -77,13 +131,20 @@ mittels JA3-Fingerprint.
 
 !!! example "Vertiefung (optional): Zwei Programme, zwei Fingerabdrücke"
     Nehmt dasselbe Ziel noch einmal auf, aber mit einem **anderen** Programm –
-    z. B. einmal mit `curl` und einmal mit `openssl s_client` oder `wget`.
-    Vergleicht die ClientHello-Felder beider Mitschnitte nebeneinander.
+    z. B. einmal mit `curl` und einmal mit `openssl s_client` oder Firefox
+    (Befehle siehe Schritt 3). Vergleicht die ClientHello-Felder der
+    Mitschnitte nebeneinander.
 
     Zwei Beobachtungen lohnen die Mühe: Erstens unterscheiden sich die
-    Fingerabdrücke deutlich, obwohl beide Programme *dasselbe* tun. Zweitens
-    bleibt der Fingerabdruck eines Programms gleich, egal welche Seite ihr
-    ansteuert.
+    Fingerabdrücke verschiedener Programme, obwohl sie *dasselbe* tun – wie
+    deutlich, hängt vom Paar ab: `curl` und `openssl s_client` verwenden
+    beide OpenSSL und können dieselbe Cipher-Suite-Liste senden, der Hash
+    unterscheidet sich dann nur über andere Felder (z. B. Erweiterungen);
+    prüft das in `ja3_full`. Zweitens: Steuert dasselbe Programm mehrere
+    Ziele an (z. B. `curl` einmal gegen `example.com`, einmal gegen
+    `www.wikipedia.org`), und vergleicht die Hashes. Bei Firefox könnt ihr
+    beobachten, ob der Hash je nach Ziel gleich bleibt oder wechselt; das
+    kann sich zwischen Seite und Firefox-eigenen Diensten unterscheiden.
 
     Überlegt, was daraus folgt: Der Fingerabdruck verrät nichts über den
     **Inhalt** der Verbindung – aber sehr wohl, **womit** sie aufgebaut
@@ -107,8 +168,14 @@ Systemuhr zu verstellen.
     Zertifikatsprüfung. Stattdessen verstellt ihr die Zeit nur **für einen
     einzelnen Prozess**: `faketime` lädt eine Bibliothek, die die
     Zeit-Abfragen genau dieses Programms abfängt. Für das Programm sieht das
-    aus wie eine falsche Systemuhr; der Rest des Systems merkt nichts. Alle
-    Befehle laufen als normaler Benutzer, ohne `sudo`.
+    aus wie eine falsche Systemuhr; der Rest des Systems merkt nichts.
+
+    **Arbeitet in einem normalen Desktop-Terminal** (Prompt `cads@…`), nicht
+    in einem Knotenfenster: Dort seid ihr `root` (Prompt `root@…`), und
+    `~/zeit` würde `root` gehören. Die Befehle brauchen sonst kein `sudo`.
+    Der Internet-Test in Schritt 4 läuft ebenfalls dort. (Hilfe beim
+    Wiederfinden der Fenster:
+    [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).)
 
     ```bash
     date -s "next monday 10:00"                 # scheitert: Operation not permitted
@@ -116,12 +183,17 @@ Systemuhr zu verstellen.
     faketime '2035-01-01 10:00:00' date         # nur dieser Prozess "lebt" 2035
     ```
 
+    `date -s` druckt vor der Fehlermeldung die gewünschte Zeit
+    (z. B. `Mon Nov 23 10:00:00 AM UTC 2026`). Das heißt nicht, dass die Uhr
+    gesetzt wurde; entscheidend ist die Zeile `cannot set date: Operation
+    not permitted`, und `date` zeigt danach weiter die echte Zeit.
+
 1. **Ein Zertifikat mit kurzer Lebensdauer erzeugen.** Legt ein
     selbstsigniertes Zertifikat an, das einen Tag gültig ist, und lest das
     Gültigkeitsfenster aus:
 
     ```bash
-    mkdir -p ~/zeit && cd ~/zeit
+    sudo rm -rf ~/zeit; mkdir ~/zeit && cd ~/zeit
     openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
       -keyout k.pem -out c.pem -subj /CN=localhost \
       -addext subjectAltName=DNS:localhost -days 1
@@ -139,6 +211,13 @@ Systemuhr zu verstellen.
     *Erwartet:* `Certificate will not expire` (Rückgabe 0) und
     `Certificate will expire` (Rückgabe 1) – in 48 Stunden ist das
     Zertifikat abgelaufen.
+
+    Das `rm -rf` am Anfang räumt Reste aus früheren Versuchen weg: Ein
+    altes `~/zeit` kann `root` gehören oder ein altes `c.pem` enthalten
+    (dann gäbe es `Permission denied` bzw. falsche Datumswerte). Merkt euch
+    außerdem die Bedeutung von `-checkend`: Es fragt, ob das Zertifikat in
+    der angegebenen Zeit **nicht mehr gültig** ist, und meldet
+    `Certificate will expire` auch dann, wenn es **schon abgelaufen** ist.
 
 2. **Dieselbe Prüfung zu einem anderen Zeitpunkt.** `openssl verify` kennt
     dafür `-attime` (Unix-Zeit):
@@ -162,9 +241,12 @@ Systemuhr zu verstellen.
     echo | faketime -f '-2d' openssl s_client -connect localhost:8443 -CAfile c.pem -verify_return_error 2>&1 | grep -E "Verification|Verify return"
     ```
 
-    *Erwartet:* `Verification: OK`, dann `certificate has expired` (Code 10),
-    dann `certificate is not yet valid` (Code 9). Das ist derselbe Server und
-    dasselbe Zertifikat – nur die Uhr des **Clients** unterscheidet sich.
+    *Erwartet:* `Verification: OK`, dann `Verification error: certificate
+    has expired` (Code 10), dann `Verification error: certificate is not yet
+    valid` (Code 9). Das ist derselbe Server und dasselbe Zertifikat – nur
+    die Uhr des **Clients** unterscheidet sich. Eine Uhr in der Zukunft
+    macht das Zertifikat „nicht mehr gültig“ (abgelaufen), eine Uhr in der
+    Vergangenheit „noch nicht gültig“.
 
     Dasselbe mit `curl` (hier ist der Rückgabecode 60 der Beleg):
 
@@ -174,13 +256,15 @@ Systemuhr zu verstellen.
     ```
 
     *Erwartet:* beim ersten Aufruf `200` und `Exit: 0`. Beim zweiten Aufruf
-    (Uhr drei Tage vor) `000` (keine Antwort), die Meldung `curl: (60) SSL
-    certificate problem: certificate has expired` und `Exit: 60`.
+    (Uhr drei Tage vor) die Meldung `curl: (60) SSL certificate problem:
+    certificate has expired`, danach ein längerer Hilfetext von `curl`, dann
+    `000` (keine Antwort) und `Exit: 60`.
 
     Beendet den Server danach: `jobs -l` zeigt seine PID, dann `kill <PID>`.
 
-4. **Ein echter Server im Internet** (nur wenn euer Knoten das Internet
-    erreicht, z. B. `h1`):
+4. **Ein echter Server im Internet** (nur wenn euer Rechner das Internet
+    erreicht; im Desktop-Terminal ist das der Fall). Der Aufruf mit
+    `faketime` dauert einige Sekunden:
 
     ```bash
     curl -sS -o /dev/null -w '%{http_code}\n' https://example.com
@@ -205,15 +289,19 @@ Systemuhr zu verstellen.
     ```
 
     *Erwartet:* `notBefore` vor zehn Tagen, `notAfter` vor drei Tagen,
-    `Certificate will expire`, Rückgabe 1.
+    `Certificate will expire`, Rückgabe 1. Das Zertifikat ist bereits
+    abgelaufen; `-checkend 0` meldet auch dann „will expire“ (siehe
+    Schritt 1).
 
 6. **Erweiterung (Denkaufgabe):** Ein Angreifer, der einem Client einen
     gefälschten NTP-Server unterschiebt, verstellt dessen Uhr genau so wie
-    `faketime` die Uhr eines Prozesses. Welche der Beobachtungen aus 3 und 4
-    entspricht einem Angriff, der ein **abgelaufenes, gestohlenes**
-    Zertifikat wieder „gültig" machen soll – Zukunft oder Vergangenheit? Und
-    warum bringt es einem Angreifer nichts, die Uhr in die Zukunft zu
-    stellen, wenn er ein *noch nicht gültiges* Zertifikat benutzen will?
+    `faketime` die Uhr eines Prozesses. Welche der Beobachtungen aus
+    Schritt 3 und 4 (`faketime -f '+3d'` und `'-2d'` bzw. die Jahre 2035 und
+    2001) entspricht einem Angriff, der ein **abgelaufenes, gestohlenes**
+    Zertifikat wieder „gültig" machen soll – Uhr in der Zukunft oder in der
+    Vergangenheit? Und in welche Richtung müsste er die Uhr stellen, wenn er
+    ein *noch nicht gültiges* Zertifikat benutzen will (dessen `notBefore`
+    in der Zukunft liegt) – und welche Grenze setzt ihm dabei `notAfter`?
 
 !!! question "Kurz nachgedacht"
     Zertifikate prüfen ein Gültigkeitsfenster mit zwei Grenzen (nicht davor,

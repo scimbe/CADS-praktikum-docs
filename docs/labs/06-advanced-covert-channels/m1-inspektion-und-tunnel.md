@@ -16,8 +16,12 @@ Hier lernt ihr, Verkehr passiv mitzulesen, und baut die ersten verdeckten Kanäl
 
 ### Teil 1 – Passive Traffic-Inspection mit Wireshark/`tcpdump`
 
-Startet die euch bereits aus [Lab 01](../01-netzwerkgrundlagen-tools/index.md)
-bekannte Topologie `topo01`:
+Prüft zuerst die Werkzeuge (Kasten am Anfang der [Übersicht](index.md)) und
+startet dann die euch bereits aus [Lab 01](../01-netzwerkgrundlagen-tools/index.md)
+bekannte Topologie `topo01`. Wie die Befehle zu lesen sind (`h1$` und der
+echte Prompt) und wie ihr Knotenfenster wiederfindet, steht in der
+Übersicht und unter
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen):
 
 ```bash
 cd ~/rn-practice/topo01
@@ -31,6 +35,10 @@ cd ~/rn-practice/topo01
     ```bash
     h1$ sudo tcpdump -i any -w h1.pcap
     ```
+
+    Die Meldung `WARNING: any: That device doesn't support promiscuous
+    mode` ist beim Pseudo-Interface `any` normal; der Mitschnitt läuft
+    trotzdem.
 
 2. Öffnet für `h1` ein weiteres Terminal (`mininet> xterm h1`; das erste
     Fenster läuft weiter für den Mitschnitt) und erzeugt dort Verkehr gegen `h2`
@@ -55,7 +63,8 @@ cd ~/rn-practice/topo01
 
     `curl becke.net` läuft auf `h2` ins Leere (kein Uplink); `dig becke.net`
     wird über den Resolver auf `h1` beantwortet. Vergleicht, wie sich die
-    Pakete im Mitschnitt unterscheiden.
+    Pakete im Mitschnitt unterscheiden (Protokolle, Anzahl der
+    DNS-Anfragen, welche Adressen als Ziel auftauchen).
 
 4. Beendet den Mitschnitt auf `h1` (++ctrl+c++ im Fenster des Mitschnitts)
     und öffnet die Datei in Wireshark:
@@ -85,9 +94,10 @@ cd ~/rn-practice/topo01
     Da `~/rn-practice` persistent ist, müsst ihr eure Mitschnitte nicht nach
     jeder Sitzung verwerfen. Legt euch ein Verzeichnis
     `~/rn-practice/pcaps/` an und sichert dort `h1.pcap` aus Teil 1 sowie in
-    den folgenden Teilen `/tmp/dnstunnel.pcap`, `/tmp/secret.pcap` und
-    `/tmp/dns_plain.pcap` unter sprechenden Namen. Öffnet am Ende des
-    gesamten Aufgabenblatts alle vier Mitschnitte gemeinsam in Wireshark und
+    den folgenden Teilen `/tmp/dnstunnel.pcap`, `/tmp/secret.pcap` und (erst in Meilenstein 2
+    entstehend) `/tmp/dns_plain.pcap` unter sprechenden Namen. Öffnet erst am
+    Ende des gesamten Aufgabenblatts (nicht schon nach diesem Meilenstein)
+    alle vier Mitschnitte gemeinsam in Wireshark und
     vergleicht, wie unterschiedlich "verdächtig" die jeweiligen verdeckten
     Kanäle im Vergleich zu normalem Verkehr aussehen – die DNS-Tunneling-
     Anfragen aus Teil 2 fallen durch ungewöhnliche Länge und Entropie der
@@ -188,7 +198,8 @@ bzw. TTL-Manipulation.
         der Fehlermeldung `Option error: -E option useless without -d`.
         Ergänzt den Aufruf daher um `-d <Bytegröße-der-Datei>`. Die Größe
         ermittelt ihr mit `wc -c /tmp/secret.txt` (hier 11 Byte: `TOP_SECRET`
-        plus Zeilenumbruch):
+        plus Zeilenumbruch von `echo`) und setzt genau diesen Wert ein, nicht
+        die Zeichenzahl des sichtbaren Textes (10):
         `hping3 -1 -d 11 -E /tmp/secret.txt -c 5 10.0.1.2`. (Im Screenshot
         unten steht `-d 20`; der Wert ist dort nur ein anderes Beispiel.)
 
@@ -221,7 +232,11 @@ bzw. TTL-Manipulation.
     h2$ hping3 -2 --ttl 65 -p 53 -c 1 10.0.1.2
     ```
 
-    (`65` ist der ASCII-Code von `A`.)
+    (`65` ist der ASCII-Code von `A`.) `hping3` meldet hier `100% packet
+    loss`: Auf Port 53 lauscht in `h1` nur `dnsmasq`, und das beantwortet
+    ein Paket ohne gültige DNS-Anfrage nicht. Eine Antwort ist für die
+    Übung nicht nötig; das Paket mit dem gewählten TTL wurde trotzdem
+    gesendet.
 
     Ein Wert, der normalerweise nur zur Pfadverfolgung dient, lässt sich so
     zweckentfremden, um (langsam, aber unauffällig) Informationen zu

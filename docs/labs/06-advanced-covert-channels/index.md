@@ -63,6 +63,32 @@
     die alte Datei liest. Deshalb steht vor jedem Mitschnitt ein
     `rm -f <datei>` (bei `sudo tcpdump` mit `sudo`).
 
+!!! info "Schreibweise der Befehle (Prompts) und Fenster"
+    `h1$ ping -c 4 10.0.1.2` heißt: Tippt nur `ping -c 4 10.0.1.2` (ohne das
+    `h1$`) in das Fenster mit dem Titel „Node: h1“; entsprechend `h2$` für
+    „Node: h2“. Der echte Prompt in allen Knotenfenstern sieht gleich aus
+    (`root@<zufälliger Name>:~/rn-practice/topo01#`); nur der Fenstertitel
+    verrät den Knoten, und in den Knotenfenstern seid ihr `root`. Das
+    `sudo` vor einigen Befehlen ist dort überflüssig, aber harmlos. Zeilen
+    ohne Knotenpräfix gehören in ein normales Desktop-Terminal (Prompt
+    `cads@…`). Wenn ihr Fenster nicht findet oder das erste Zeichen
+    verschluckt wird, hilft
+    [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
+
+!!! tip "Mitschnitte im Hintergrund: `-U`, `jobs -l`, erst beenden, dann lesen"
+    Mehrere Teile starten `tcpdump` mit `&` im Hintergrund. Drei Dinge
+    gelten dann immer:
+
+    - Gebt `tcpdump -U` an (Paket für Paket in die Datei schreiben). Ohne
+      `-U` puffert `tcpdump` und eine mit `kill` beendete Aufnahme kann als
+      leere Datei (24 Byte) enden.
+    - `jobs -l` zeigt bei `sudo tcpdump …` oft die PID von `sudo`, nicht die
+      von `tcpdump`. `kill <PID>` auf diese PID beendet den Mitschnitt
+      trotzdem; achtet darauf, die Zeile mit `tcpdump` zu wählen und nicht
+      die eines anderen Hintergrundjobs.
+    - Lest die Datei erst, wenn der Mitschnitt beendet ist. Bei einem noch
+      laufenden Mitschnitt meldet `tcpdump -r` ggf. `truncated dump file`.
+
 Das Blatt ist in 4 Meilensteine geteilt. Jeder Meilenstein ist eine eigene Seite und endet mit einer kurzen Zusammenfassung: was ihr gelernt habt und was der nächste Meilenstein bringt. Bearbeitet sie der Reihe nach.
 
 1. [Meilenstein 1: Verkehr inspizieren, erste verdeckte Kanäle](m1-inspektion-und-tunnel.md){ .meilenstein }  
