@@ -147,7 +147,11 @@ laufen noch nicht.*
     gilt, auch wenn ihr IPv6 nie eingerichtet habt (die zusätzliche Adresse an
     `lo` legt das Übungsskript an; ignoriert sie).
 
-Öffnet ein Terminal auf `r1` und seht euch die Adressen an:
+Öffnet ein Terminal auf `r1` und seht euch die Adressen an. Jedes neue
+Knotenfenster nimmt den Fokus und liegt oft über den anderen Fenstern: Prüft
+vor dem Tippen den Fenstertitel („Node: r1“ usw.); wie ihr ein Fenster
+wiederfindet, steht unter
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
 
 ```bash
 mininet> xterm r1
@@ -216,8 +220,8 @@ PING fe80::b438:9ff:fe1f:9c3%r2-eth0 (fe80::b438:9ff:fe1f:9c3%r2-eth0) 56 data b
 
 (Die Adresse in dieser Beispielausgabe weicht von der im Befehl oben ab: Jeder
 Start vergibt andere `fe80::…`-Adressen.) Ein Blick auf `r1$ ip -6 route` zeigt
-für `fe80::/64` einen Eintrag je Schnittstelle: IPv6 führt eine eigene Tabelle
-neben `ip route`.
+für `fe80::/64` einen Eintrag je Schnittstelle, auch für `lo`: IPv6 führt eine
+eigene Tabelle neben `ip route`.
 
 !!! question "Nachgedacht: Warum braucht IPv6 hier ein `%r2-eth0`?"
     `r2` hat zwei Schnittstellen, und `fe80::…`-Adressen sind nur im jeweiligen
@@ -229,6 +233,12 @@ neben `ip route`.
         weiß `r2` nicht, über welches Segment es das Paket schicken soll.
         Eine Routing-Tabelle kann das bei `fe80::/64` nicht entscheiden, weil
         dieses Präfix an jeder Schnittstelle gilt.
+
+        Probiert es aus: Lasst den Zusatz `%r2-eth0` weg. Der Ping scheitert
+        dann mit `Destination unreachable: No route`, und als Absender
+        steht eine Adresse mit `%lo` in der Meldung: Der Kernel hat in dieser
+        Lage keine passende Schnittstelle gefunden und ist auf `lo` ausgewichen,
+        über das sich kein anderer Knoten erreichen lässt.
 
 #### Routing-Tabellen im Detail: `topo03` konkret
 
@@ -250,6 +260,9 @@ teil, nicht am BGP-Verbund zwischen `r1`/`r2`/`r3` (AS 65001/65002/65003).
 Öffnet ihr die Konfigurationsdateien, lasst die Dateien `*.ref` und die
 Kommentare am Dateianfang außer Acht; sie stammen aus einem Test. Wichtig sind
 nur die Zeilen `router rip`, `network …`, `router bgp …` und `neighbor …`.
+In `r2/ripd.conf` stehen außerdem zwei Zeilen `route … metric 16`; sie
+stammen aus derselben Testvorlage (Metrik 16 heißt für RIP „unerreichbar“) und
+müsst ihr nicht deuten.
 Welche davon gewinnt und was `r4` beiträgt, untersucht ihr im weiteren
 Verlauf.
 
@@ -307,13 +320,21 @@ mit den Routen.*
 
 Lest den Mitschnitt von oben nach unten:
 
-1. `RIPv2 Request` von `193.1.1.1` (`r1`): „schickt mir eure Tabellen".
+1. `RIPv2 Request` von `193.1.1.1` (`r1`) – ebenso von `r2` und `r4`, denn jeder
+   RIP-Router fragt beim Start: „schickt mir eure Tabellen".
 2. `RIPv2 Response` von `193.1.1.2` und `193.1.1.4`: die Antworten von `r2` und
    `r4` an die Multicast-Adresse `224.0.0.9`, die alle RIP-Router abhören.
+   Die Reihenfolge der Nachrichten kann bei euch abweichen.
 3. `OPEN Message`: `r1` und `r2` bauen ihre BGP-Sitzung auf und stellen sich
    mit ihrer AS-Nummer vor.
 4. `KEEPALIVE Message`: „Sitzung steht".
 5. `UPDATE Message`: Die Nachbarn tauschen ihre Routen.
+
+Vor der stabilen Sitzung seht ihr möglicherweise zusätzliche `OPEN`- und
+`NOTIFICATION Message`-Zeilen. Das ist beim Aufbau normal: `r1` und `r2`
+öffnen die TCP-Verbindung gleichzeitig (Verbindungskollision), eine der beiden
+Verbindungen wird mit einer `NOTIFICATION` wieder abgebaut, und die andere
+bleibt bestehen.
 
 Danach wiederholen sich die `RIPv2 Response`-Nachrichten in festen
 Zeitabständen. Das ist typisch für Distance-Vector-Protokolle wie RIP, im
@@ -322,8 +343,9 @@ bei Änderungen verschicken und dazwischen nur kleine Hello-Pakete senden.
 Wie groß dieser Abstand wirklich ist, messt ihr in [Teil 4](m3-rekonvergenz-und-spuren.md#teil-4-protokollspuren-vermessen-statt-anschauen-topo03).
 
 Schließt Wireshark mit dem Schließen des Fensters. Fragt Wireshark, ob ihr den
-Mitschnitt speichern wollt (Dialog „Stop and Save“ bzw. „Quit without
-Saving“), antwortet mit **Quit without Saving**. Wartet danach bis zu etwa
+Mitschnitt speichern wollt (Dialog „Stop and Save“ bzw. „Stop and Quit without
+Saving“), antwortet mit **Stop and Quit without Saving** (bei bereits
+gestoppter Aufzeichnung heißt der Knopf **Quit without Saving**). Wartet danach bis zu etwa
 einer Minute: So lange kann es dauern, bis alle RIP-Routen eingetragen sind
 (BGP-Routen stehen meist nach wenigen Sekunden). Mit `r1$ ip route` seht ihr
 den Stand.
@@ -487,7 +509,10 @@ r1# exit
 
 Die drei Werte stehen für eBGP-Routen (von einem anderen autonomen System
 gelernt), iBGP-Routen (innerhalb desselben AS gelernt) und lokal auf dem Router
-konfigurierte BGP-Routen. Die Änderung gilt sofort. Prüft die Auswirkung:
+konfigurierte BGP-Routen. Die Änderung wirkt nach wenigen Sekunden: Der
+Kernel übernimmt die neue Auswahl erst etwas später, `ip route` zeigt direkt
+nach dem Befehl vielleicht noch `proto bgp`. Wartet kurz und prüft dann die
+Auswirkung:
 
 ```bash
 r1$ traceroute -n 192.168.3.1
@@ -648,7 +673,8 @@ r1$ ip route del 192.168.3.1/32
 !!! info "Werkzeug: `ifconfig … down` – eine Schnittstelle abschalten"
     `ifconfig r4-eth1 down` schaltet die Schnittstelle `r4-eth1` aus (Schicht
     2), als hättet ihr das Kabel gezogen; `ifconfig r4-eth1 up` schaltet sie
-    wieder ein. `ifconfig` ohne Argument listet alle Schnittstellen auf.
+    wieder ein. `ifconfig` ohne Argument listet alle aktiven Schnittstellen auf (mit
+    `ifconfig -a` auch abgeschaltete).
 
 !!! question "Nachgedacht: Ein Ausfall, der niemanden trifft"
     Schaltet auf `r4` das Interface in Richtung `r3` ab und beobachtet dabei
@@ -691,7 +717,8 @@ r1$ ip route del 192.168.3.1/32
     ??? success druck-zu "Lösung"
         Beobachtung: `show ip rip` auf `r1` zeigt die bereits gelernten RIP-Routen nach
         dem Abschalten zunächst weiter, nach 180 s (RIP-Timeout) mit Metrik
-        `16` (= unerreichbar) und nach weiteren 120 s (Garbage Collection) ganz weg. Die Routen über
+        `16` (= unerreichbar; ab da zählt die Spalte **Time** die 120 s bis
+        zum Löschen herunter) und nach diesen 120 s (Garbage Collection) ganz weg. Die Routen über
         BGP bleiben die ganze Zeit; `ping 192.168.3.1` gelingt weiter. Auch
         mit `distance bgp 200 200 200` auf allen Routern fällt nichts
         auseinander: Die administrative Distanz entscheidet nur zwischen

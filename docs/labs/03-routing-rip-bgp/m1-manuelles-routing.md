@@ -52,6 +52,13 @@ einem Netz ins andere weitergeben.
     - `mininet> h2 ip addr` stellt den Knotennamen vor einen Befehl: Er läuft
       dann einmalig in `h2`, ohne ein Fenster zu öffnen.
 
+    Neue Knotenfenster nehmen den Fokus und liegen oft über oder unter dem
+    Mininet-Terminal. Prüft vor dem Tippen den Fenstertitel („Node: r1“ usw.);
+    wie ihr ein Fenster wiederfindet, steht unter
+    [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
+    Geht beim Tippen der erste Buchstabe verloren, löscht die Zeile mit
+    ++ctrl+u++ und tippt sie neu.
+
     Mit `exit` (gleichbedeutend: `quit`) an der Mininet-Konsole beendet ihr
     die Emulation. Nur in `topo03` ([Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh)) hat `exit` zwei Stufen, siehe dort.
     Beendet `topoP03` immer mit `exit`, bevor ihr `topo03` startet: Das
@@ -83,6 +90,8 @@ einem Netz ins andere weitergeben.
     lo               UNKNOWN        127.0.0.1/8 ::1/128
     h1-eth0@if390    UP             fe80::6ced:c9ff:feff:34e/64
     ```
+
+    (Die Zahl nach `@if` und die `fe80::…`-Adresse sind bei euch andere.)
 
     Erste Spalte: Name der Schnittstelle (`lo` ist die interne Schleife
     des Rechners, `h1-eth0` der Anschluss ans Netz). Zweite Spalte: Zustand
@@ -153,14 +162,15 @@ diese Route selbst angelegt, als ihr die Adresse vergeben habt. Das sind die
 **Selbst.**
 
 1. Vergebt die übrigen Adressen aus der Tabelle. Für `h2` und `h4` müsst ihr
-   kein Fenster öffnen: `mininet> h2 ip addr add 10.0.0.2/24 dev h2-eth0`.
-   Für `h3` nutzt das Terminal von `h3`.
+    kein Fenster öffnen: `mininet> h2 ip addr add 10.0.0.2/24 dev h2-eth0`.
+    Für `h3` nutzt das Terminal von `h3`.
 2. Pingt von `h1` aus `h2` (`ping -c 2 10.0.0.2`): Das gelingt, beide stehen
-   im selben Netz.
+    im selben Netz. Notiert dabei den Wert `ttl=…` in der Ausgabe.
 3. Pingt von `h1` aus `h3` (`ping -c 2 20.0.0.1`): Das scheitert mit
-   `Network is unreachable`. `h1` kennt kein Netz `20.0.0.0/24`.
+    `Network is unreachable`. `h1` kennt kein Netz `20.0.0.0/24`.
 4. Tragt auf `h1` und `h2` die Route zum Netz 2 über `r1` ein, auf `h3` und
-   `h4` die Route zum Netz 1:
+    `h4` die Route zum Netz 1 (`h2`/`h4` wieder mit `mininet> h2 …`, bzw.
+    `mininet> h4 …`):
 
     ```bash
     h1$ ip route add 20.0.0.0/24 via 10.0.0.254
@@ -169,9 +179,8 @@ diese Route selbst angelegt, als ihr die Adresse vergeben habt. Das sind die
     h4$ ip route add 10.0.0.0/24 via 20.0.0.254
     ```
 
-    (`h2`/`h4` wieder mit `mininet> h2 …`, bzw. `mininet> h4 …`.)
 5. Prüft mit `ping` und `traceroute` von `h1` zu `h3` und vergleicht die
-   Routing-Tabelle von `r1` (`ip route`) mit der von `h1`.
+    Routing-Tabelle von `r1` (`ip route`) mit der von `h1`.
 
 !!! info "Werkzeug: `traceroute` – den Weg eines Pakets sichtbar machen"
     `traceroute` schickt Pakete mit absichtlich kleiner Lebensdauer (TTL).
@@ -212,7 +221,8 @@ PING 20.0.0.1 (20.0.0.1) 56(84) bytes of data.
 ```
 
 `ttl=63` zeigt, dass ein Router dazwischen lag: `h3` startet seine Antwort mit
-TTL 64, `r1` zieht eins ab.
+TTL 64, `r1` zieht eins ab. Beim Ping von `h1` zu `h2` im selben Netz steht
+dagegen `ttl=64`, denn dort liegt kein Router dazwischen.
 
 ![Drei Terminalfenster: oben links "Node: r1" mit den Adressen 10.0.0.254/24 und 20.0.0.254/24 auf r1-eth0 und r1-eth1, oben rechts "Node: h3" mit der Adresse 20.0.0.1/24 und der Route 10.0.0.0/24 via 20.0.0.254, unten "Node: h1" mit der Adresse 10.0.0.1/24, der Route 20.0.0.0/24 via 10.0.0.254, einem erfolgreichen ping von h1 zu 20.0.0.1 mit 0% Verlust und einem traceroute mit zwei Hops](../../assets/screenshots/03-routing-rip-bgp/topoP03-manual-routing.png)
 *Von Hand eingetragene Adressierung und Routen in `topoP03`: `r1` bekommt
@@ -222,10 +232,12 @@ Ziel.*
 
 !!! question "Nachgedacht: Warum scheitert der Ping, wenn nur eine Richtung stimmt?"
     Löscht auf `h3` die Rückroute (`h3$ ip route del 10.0.0.0/24`) und pingt
-    erneut von `h1` aus. Öffnet dazu ein zweites Fenster für `h3` (`mininet> xterm h3`):
-    In einem Fenster läuft vorher `tcpdump -n -i h3-eth0 icmp` (siehe
-    Werkzeug-Kasten unten), im anderen löscht ihr die Route. Kommen die
-    Anfragen bei `h3` an? Setzt die Route danach wieder
+    erneut von `h1` aus. Öffnet dazu ein zweites Fenster für `h3` (`mininet> xterm h3`).
+    Danach gibt es zwei Fenster mit dem gleichen Titel „Node: h3“: Das
+    **neue** Fenster (das zuletzt geöffnete, es liegt vorn) nehmt ihr für
+    `tcpdump -n -i h3-eth0 icmp` (siehe Werkzeug-Kasten unten), im **alten**
+    löscht ihr die Route. Startet `tcpdump` zuerst und löscht die Route erst
+    danach. Kommen die Anfragen bei `h3` an? Setzt die Route danach wieder
     (`h3$ ip route add 10.0.0.0/24 via 20.0.0.254`).
 
     !!! info "Werkzeug: `tcpdump` – Pakete auf einer Schnittstelle mitlesen"

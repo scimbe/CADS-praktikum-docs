@@ -72,7 +72,9 @@ verfolgt ein einzelnes Präfix durch sie hindurch.
 **Vorbedingung:** `topo03` läuft in Stufe 2 und ist frisch gestartet (RIP und
 BGP aktiv, siehe [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh)). Habt ihr in [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh) die BGP-Distanz verändert, startet
 die Topologie vorher neu, sonst seht ihr 200 statt 20. Terminal auf `r1`
-(`mininet> xterm r1`).
+(`mininet> xterm r1`). Das neue Fenster nimmt den Fokus und liegt oft hinter
+anderen Fenstern: Prüft vor dem Tippen den Fenstertitel (Hilfe:
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen)).
 
 **Vorgemacht:**
 
@@ -105,6 +107,10 @@ r1$ vtysh -c "show ip bgp"
 r1$ ip route
 ```
 
+`ip route` zeigt je Präfix nur den Eintrag, den der Kernel tatsächlich benutzt
+(das Wort hinter `proto` nennt die Quelle); die Kandidaten der Protokolle gibt
+es nur in der Routing-Software.
+
 !!! question "Nachgedacht: Warum ist `193.1.2.0/24` auch doppelt?"
     Im vollständigen `show ip route` stehen `192.168.3.0/24` und `193.1.2.0/24`
     jeweils als `B>*` und als `R`. Aus welcher Tabelle stammt die RIP-Zeile, und
@@ -115,7 +121,14 @@ r1$ ip route
         2). Die Routing-Software hat beide Kandidaten und wählt anhand der
         administrativen Distanz (BGP 20 < RIP 120) den BGP-Eintrag. Nur dieser
         steht im Kernel (`proto bgp` in `ip route`); der RIP-Eintrag bleibt als
-        Reserve in der Routing-Software.
+        Reserve in der Routing-Software. Daran erkennt ihr ihn: Seine Zeile
+        trägt kein `>*`.
+
+        Im vollständigen `show ip route` steht außerdem
+        `B 193.1.1.0/26 … inactive`: BGP kennt auch das Netz, an dem `r1`
+        direkt hängt, aber die direkt angeschlossene Route (`C>*`, Distanz 0)
+        gewinnt. Der BGP-Eintrag ist deshalb nicht aktiv (`inactive`) und
+        kommt nicht in den Kernel.
 
 !!! info "Hintergrund: administrative Distanz ist Konvention, kein Standard"
     Die Zahl vor der Metrik (20 für BGP, 120 für RIP) ist die *administrative
@@ -197,7 +210,8 @@ Paths: (1 available, best #1, table default)
 
 `65002 65003` ist der **AS-Pfad**: Die Route entstand in AS 65003 (`r3`), lief
 durch AS 65002 (`r2`) und kam so zu `r1` (AS 65001). `external` heißt: Sie
-kam von einem Router in einem anderen AS (eBGP).
+kam von einem Router in einem anderen AS (eBGP). Versionsnummer und
+Zeitstempel in der Ausgabe weichen bei euch ab.
 
 **Selbst:** Vergleicht den AS-Pfad zu `192.168.3.0/24` mit dem zu
 `193.1.2.0/24` (`show ip bgp 193.1.2.0/24`) und notiert, warum der zweite Pfad
@@ -262,15 +276,21 @@ steht mit Metrik **3** da: `r3` kennt das Netz direkt (1), `r2` meldet es mit 2,
 `r1` lernt es von `r2` mit 3. `193.1.2.0/24` liegt mit Metrik 2 eine Station
 näher.
 
-**Selbst:** Schaltet wie in [Teil 3](m3-rekonvergenz-und-spuren.md#teil-3-redundanz-im-rip-netz-testen-reale-rekonvergenz-messen-topo03) `r2-eth1` aus und beobachtet auf `r1` etwa
-eine Minute lang `show ip rip`. Über welchen Nexthop und mit welcher Metrik
+**Selbst:** Schaltet wie in [Teil 3](m3-rekonvergenz-und-spuren.md#teil-3-redundanz-im-rip-netz-testen-reale-rekonvergenz-messen-topo03) `r2-eth1` aus (in einem
+Fenster für `r2`: `mininet> xterm r2`, dann `r2$ ifconfig r2-eth1 down`) und
+beobachtet auf `r1` etwa eine Minute lang `show ip rip`; eine Schleife nimmt euch das Wiederholen
+ab: `r1$ while true; do date +%T; vtysh -c "show ip rip" | grep 192.168.3; sleep 5; done`
+(Ende mit ++ctrl+c++). Über welchen Nexthop und mit welcher Metrik
 kennt `r1` das Netz `192.168.3.0/24` danach? Warum hat sich die Metrik nicht
 verändert, obwohl der Weg ein anderer ist? Schaltet `r2-eth1` danach wieder
 ein.
 
 ??? success druck-zu "Lösung zur Selbst-Aufgabe"
-    Nach etwa einer halben Minute steht in `show ip rip` auf `r1`
-    `192.168.3.0/24` mit Next Hop `193.1.1.4` (`r4`) und Metrik **3**. Der Weg
+    Innerhalb von etwa 15 bis 30 Sekunden steht in `show ip rip` auf `r1`
+    `192.168.3.0/24` mit Next Hop `193.1.1.4` (`r4`) und Metrik **3**. Kurz
+    davor könnt ihr noch die alte Route über `193.1.1.2` mit Metrik **16**
+    sehen: So markiert RIP eine ausgefallene Route als unerreichbar, bevor
+    sie ersetzt wird. Der Weg
     `r1` → `r4` → `r3` hat genauso viele Zählschritte wie vorher `r1` → `r2` →
     `r3`: `r3` kennt das Netz direkt (1), `r4` meldet es mit 2, `r1` lernt es
     mit 3. RIP kennt nur diese Zahl, nicht die Strecke oder die Bandbreite
@@ -375,8 +395,18 @@ r1$ tcpdump -r "$P" -v -n tcp port 179 | grep Message
 	Keepalive Message (4), length: 19
 ```
 
+Die Längen der `Update`-Nachrichten und ihre Zahl können bei euch abweichen.
+
 Notiert, in welcher Reihenfolge die Typen auftreten, und vergleicht das mit
-dem Wireshark-Mitschnitt aus [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh).
+dem Wireshark-Mitschnitt aus [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh). Teil 2 zeigt dazu nur ein Bild;
+wollt ihr den Mitschnitt selbst vergleichen, erzeugt ihn neu: `topo03` neu
+starten, in Stufe 1 `wireshark -i r1-eth1 -k &` aufrufen und mit `exit` in
+Stufe 2 wechseln (Wireshark schließt ihr wieder mit **Stop and Quit without
+Saving**). Dort stehen zusätzlich möglicherweise mehrere `OPEN`- und
+`NOTIFICATION`-Nachrichten vom gleichzeitigen Verbindungsaufbau
+(Verbindungskollision), die in der Datei aus Teil 4 fehlen. Wireshark fasst
+außerdem mehrere `UPDATE`-Nachrichten in einem TCP-Segment oft in einer Zeile
+zusammen, `tcpdump` zeigt jede einzeln.
 
 !!! question "Nachgedacht: Warum ist die Antwort länger als die Anfrage?"
     Eine RIP-Anfrage hat 24 Byte, eine Antwort mit zwei Routen 44 Byte. Woher

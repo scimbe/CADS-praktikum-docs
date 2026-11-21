@@ -43,11 +43,15 @@ sondern auch bei `r1`.
 
 In diesem Teil legt ihr diese direkte Verbindung lahm und messt, wie
 schnell RIP auf den Ersatzpfad über `r4` umschaltet. Startet dafür `topo03`
-neu (Beenden und Neustart wie in [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh) beschrieben: zweimal `exit`, dann
-`./start-topo03.sh`), wechselt mit **einem** `exit` in Stufe 2 und wartet etwa
-eine Minute, bis BGP und RIP stehen.
+neu (Beenden und Neustart wie in [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh) beschrieben). Ein `exit` an **Stufe 2** beendet die
+Topologie samt aller Knotenfenster; steht sie noch in Stufe 1, braucht ihr zwei.
+Startet dann `./start-topo03.sh`, wechselt mit **einem** `exit` in Stufe 2 und
+wartet etwa eine Minute, bis BGP und RIP stehen.
 
-**Vorgemacht.** Stellt auf `r2` den funktionierenden Zustand fest:
+**Vorgemacht.** Stellt auf `r2` den funktionierenden Zustand fest. Jedes neue
+Knotenfenster nimmt den Fokus: Prüft vor dem Tippen den Fenstertitel („Node: r2“
+usw.), sonst landet der Befehl im falschen Knoten (Hilfe:
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen)).
 
 ```bash
 mininet> xterm r2
@@ -107,14 +111,14 @@ Routing entry for 192.168.3.0/24
   * 193.1.1.4, via r2-eth0, weight 1
 ```
 
-Beobachtet auch den laufenden Ping auf `r1` und lasst ihn mindestens vier
-Minuten laufen. Er bleibt eine ganze Weile stumm und läuft dann von selbst
-weiter. Die Pause erkennt ihr an dem Sprung in `icmp_seq`: Der `ping` zählt
+Beobachtet auch den laufenden Ping auf `r1` und lasst ihn laufen, bis er
+wieder Antworten bekommt, mindestens vier Minuten. Er bleibt eine ganze Weile
+stumm und läuft dann von selbst weiter. Die Pause erkennt ihr an dem Sprung in `icmp_seq`: Der `ping` zählt
 jede Sekunde ein Paket weiter, Antworten gibt es aber erst später wieder.
 
 ![Zwei Terminalfenster: links "Node: r1" mit einem laufenden ping auf 192.168.3.1, die Antworten springen von icmp_seq=6 auf icmp_seq=177; rechts "Node: r2" mit show ip route 192.168.3.0/24 vor dem Abschalten (bgp und rip über 193.1.2.2 via r2-eth1), dem Befehl ifconfig r2-eth1 down und danach der Route "rip, metric 3" über 193.1.1.4 via r2-eth0](../../assets/screenshots/03-routing-rip-bgp/topo03-ausfall-r2-eth1.png)
-*Links der Ping von `r1`: Die Antworten setzen nach `icmp_seq=6` für 170
-Sekunden aus. Rechts `r2`: Es hat nach dem Abschalten von `r2-eth1` die
+*Links der Ping von `r1`: Die Antworten setzen nach `icmp_seq=6` in diesem
+Beispiel für 170 Sekunden aus. Rechts `r2`: Es hat nach dem Abschalten von `r2-eth1` die
 Ersatzroute über `193.1.1.4` (`r4`).*
 
 **Selbst.**
@@ -122,12 +126,14 @@ Ersatzroute über `193.1.1.4` (`r4`).*
 1. Schaltet `r2-eth1` wieder ein (`r2$ ifconfig r2-eth1 up`) und wartet, bis
    `r2$ vtysh -c "show ip route 192.168.3.0/24"` wieder den direkten
    Weg über `193.1.2.2` zeigt (für die Messung genügt die RIP-Zeile;
-   die BGP-Zeile mit `best` kann bis zu drei Minuten dauern). Erst dann startet
+   die BGP-Zeile mit `best` steht meist ebenfalls nach wenigen Sekunden
+   wieder, bei uns 1 bis 12 s nach dem Einschalten). Erst dann startet
    ihr die Messschleife erneut: Zeigt `r2` direkt nach dem Einschalten noch
    `193.1.1.4`, endet die Schleife sofort mit „0 Sekunden“ und die Messung ist
    wertlos. Wiederholt die Messung zwei- bis dreimal. Bei der Wiederholung
-   genügt die Messschleife auf `r2`; den Ping braucht ihr dazu nicht. Notiert
-   jedes Mal die Zeit. Bei uns kamen Messungen zwischen 5 und 37 Sekunden; mehr als
+   genügt die Messschleife auf `r2`; den Ping braucht ihr dazu nicht (läuft er
+   noch, löst jede Wiederholung einen weiteren Ausfall darin aus). Notiert
+   jedes Mal die Zeit. Bei uns kamen Messungen zwischen 3 und 37 Sekunden; mehr als
    etwa 40 Sekunden sind unwahrscheinlich.
 2. Vergleicht eure Zeiten mit RIPs periodischem Update-Intervall von 30
    Sekunden.
@@ -155,20 +161,23 @@ Ersatzroute über `193.1.1.4` (`r4`).*
         periodischen Update von `r4`: `r4`s eigene Route ist vom Ausfall nicht
         betroffen, er hat also keinen Anlass für ein triggered update. Je
         nachdem, wo im 30-Sekunden-Zyklus von `r4` der Ausfall liegt, dauert das
-        etwa 5 bis 40 Sekunden (30 Sekunden mit zufälliger Streuung); die Messwerte streuen deshalb
+        zwischen wenigen und etwa 40 Sekunden (30 Sekunden mit zufälliger Streuung); die Messwerte streuen deshalb
         zwischen den Wiederholungen.
 
         **Auf `r1`:** `r1` ist selbst RIP-Nachbar von `r4` und übernimmt die
         Route aus derselben Meldung: Seine Kernel-Route zu `192.168.3.1` zeigt
         dann `via 193.1.1.4 dev r1-eth1`.
 
-        **Der Ping auf `r1`** setzt trotzdem knapp drei Minuten aus (bei uns
-        170 und 185 Sekunden). Der Hinweg über `r4` funktioniert, aber der
+        **Der Ping auf `r1`** setzt trotzdem zwei bis drei Minuten aus (bei uns
+        157 bis 185 Sekunden). Der Hinweg über `r4` funktioniert, aber der
         Rückweg nicht: `r3`s eigenes Interface bleibt aktiv, `r3` bemerkt den
         Ausfall von `r2-eth1` also nicht direkt. Er behält seine BGP-Route zu
         `193.1.1.0/26` über `193.1.2.1` (`r2`), bis die BGP-Sitzung zu `r2`
         nach Ablauf der Hold Time (180 s ohne Nachricht von `r2`) abgebaut
-        wird. Bis dahin verdrängt die BGP-Route (Distanz 20) jede RIP-Route
+        wird. Die Hold Time läuft ab der letzten empfangenen Nachricht, also
+        ab dem letzten Keepalive (alle 60 s) von `r2`; je nachdem, wann im
+        Minutentakt der Ausfall liegt, dauert die Pause deshalb etwa 120 bis
+        180 s (plus wenige Sekunden bis zur Umschaltung). Bis dahin verdrängt die BGP-Route (Distanz 20) jede RIP-Route
         (Distanz 120), auch die über `r4`, die `r3` in dieser Zeit lernt. Erst
         nach dem Abbau gilt die RIP-Route. Die direkten Nachbarschaften bleiben die ganze Zeit
         intakt – `r4` erreicht `r2` und `r3` durchgehend ohne Verlust.
@@ -186,10 +195,10 @@ r2$ vtysh -c "show ip route 192.168.3.0/24"
 ```
 
 Die Route wechselt innerhalb von ein bis zwei Sekunden auf den direkten Pfad
-über `193.1.2.2` zurück (`Known via "rip", … metric 2`). Die BGP-Sitzung
-zwischen `r2` und `r3` braucht danach noch länger, bis sie wieder steht; in
-`show ip bgp summary` steht dort bis dahin nicht eine Zahl, sondern `Idle`,
-`Active` oder `Connect`. Beendet den Ping auf
+über `193.1.2.2` zurück (`Known via "rip", … metric 2`). Auch die BGP-Sitzung
+zwischen `r2` und `r3` steht danach binnen Sekunden wieder (bei uns nach 3 bis
+12 s `Established`). Fragt ihr in `show ip bgp summary` sehr früh ab, steht dort
+statt einer Zahl vielleicht noch `Idle`, `Active` oder `Connect`. Beendet den Ping auf
 `r1` mit ++ctrl+c++.
 
 --8<-- "issue-feedback.md"
@@ -291,7 +300,8 @@ r1$ tcpdump -i r1-eth1 -w ~/rn-practice/pcaps/03-teil4-protokollspuren.pcap -U -
 
 Wechselt nun an der Mininet-Konsole mit einmaligem `exit` in **Stufe 2**
 (RIP und BGP starten) und lasst den Mitschnitt **mindestens 2,5 Minuten**
-laufen. Diese Dauer ist kein Zufall: Ihr braucht mehrere Abstände zwischen
+laufen; wechselt dabei zügig, denn die Zeit in Stufe 1 zählt in der
+Gesamtdauer der Datei mit. Diese Dauer ist kein Zufall: Ihr braucht mehrere Abstände zwischen
 periodischen Updates, um aus ihnen einen Mittelwert bilden zu können – bei
 einem einzigen Abstand wäre jede Aussage über die Streuung erfunden. Beendet
 `tcpdump` danach mit ++ctrl+c++ und prüft, dass die Datei wirklich gefüllt ist:
@@ -300,8 +310,10 @@ einem einzigen Abstand wäre jede Aussage über die Streuung erfunden. Beendet
 r1$ ls -l ~/rn-practice/pcaps/03-teil4-protokollspuren.pcap
 ```
 
-Die Dateigröße liegt bei etwa 7 bis 8 Kilobyte. Eure Werte weichen um einige
-Prozent von den Beispielwerten unten ab; die Größenordnung zählt.
+Die Dateigröße liegt bei etwa 7 bis 8 Kilobyte. Pakete, Byte und Dauer hängen
+davon ab, wie lange ihr aufgezeichnet habt; die Zahlen unten sind Beispielwerte
+einer Aufnahme von rund 140 Sekunden. Eure Werte weichen deshalb ab, vergleichbar
+sind nur die Werte **je Minute**, und die Größenordnung zählt.
 
 #### Schritt 3 – Die Zahlen aus der Datei holen
 
@@ -321,7 +333,7 @@ r1$ P=~/rn-practice/pcaps/03-teil4-protokollspuren.pcap
     | `-d` | Summe der Paketgrößen in Byte (komplette Rahmen mit Ethernet-, IP- und UDP/TCP-Kopf) |
     | `-u` | Dauer der Aufzeichnung in Sekunden |
 
-    Echte Ausgabe für die ganze Datei:
+    Echte Ausgabe für die ganze Datei (Beispielwerte; bei euch weichen sie ab):
 
     ```text
     r1$ capinfos -c -d -u "$P"
@@ -343,8 +355,8 @@ Byte je Minute = Data size / Capture duration * 60
 
 Für die ganze Datei: 6130 / 141,3 · 60 ≈ 2.600 Byte je Minute.
 
-Das ist **nicht** nur Routing: Die Datei enthält auch ARP und
-IPv6-Nachbarschaftspakete. Prüft das mit
+Das ist **nicht** nur Routing: Die Datei enthält auch ARP, IGMP (IGMPv3-Reports
+an `224.0.0.22`) und IPv6-Nachbarschaftspakete. Prüft das mit
 `tcpdump -r "$P" -n not udp port 520 and not tcp port 179 | head`. Die
 Aufteilung nach Protokoll kommt gleich.
 
@@ -363,7 +375,7 @@ r1$ capinfos -c -d -u /tmp/bgp.pcap
 ```
 
 Die Zeile `reading from file …` von `tcpdump -r` ist nur eine Statusmeldung.
-Echte Ergebnisse:
+Echte Ergebnisse (Beispielwerte):
 
 ```text
 RIP:  Number of packets:   14
@@ -383,7 +395,8 @@ r1$ tcpdump -tt -n -r "$P" 'udp port 520 and src 193.1.1.2' \
       | awk '{if (p != "") printf "%.2f s\n", $1-p; p=$1}'
 ```
 
-Beachtet die Einschränkung auf **einen** Sprecher (`src 193.1.1.2`, also `r2`).
+Tippt den Befehl in einer Zeile (ohne `\` und Umbruch); der Umbruch im Block
+dient nur der Lesbarkeit. Beachtet die Einschränkung auf **einen** Sprecher (`src 193.1.1.2`, also `r2`).
 Ohne sie mischt ihr die Zeitreihen mehrerer Router und erhaltet Abstände, die
 kein einzelner Router je eingehalten hat. Echte Ausgabe:
 
@@ -441,15 +454,18 @@ gemessenen Wert und begründet jede Abweichung.
        nur über die Keepalives nach dem Verbindungsaufbau (`greater 80`, nur
        Abstände von etwa 60 s, je Keepalive 85 Byte plus eine 66-Byte-
        Bestätigung). Warum unterscheiden sich die beiden Werte so stark, und
-       welcher davon ist der Ruhezustand?
+       welcher davon ist der Ruhezustand? Rechnet danach auch RIP einmal nur
+       für den Ruhezustand (ohne die ersten zehn Sekunden nach dem Start der
+       Dienste) und vergleicht die beiden Ruhewerte.
     3. **Der Preis des Ruhezustands.** Rechnet euren RIP-Wert auf eine Woche
        hoch und stellt ihn der Nutzlast eines einzigen Bildes im Browser
        gegenüber. Formuliert in einem Satz, warum dieser Aufwand trotzdem
        gerechtfertigt ist.
 
     ??? success druck-zu "Lösung"
-        Eure Zahlen weichen im Detail ab; die Größenordnungen sollten passen.
-        Bei rund 140 Sekunden Aufzeichnung auf `r1-eth1`:
+        Eure Zahlen weichen im Detail ab, vor allem, wenn ihr länger
+        aufgezeichnet habt; die Größenordnungen sollten passen. Beispielwerte
+        bei rund 140 Sekunden Aufzeichnung auf `r1-eth1`:
 
         | Größe | Typischer Wert |
         |---|---|
@@ -465,13 +481,19 @@ gemessenen Wert und begründet jede Abweichung.
         den einmaligen Verbindungsaufbau (TCP-Handshake, `Open`, `Keepalive`,
         `Update`, rund 2.000 Byte). Im Ruhezustand schickt jeder BGP-Nachbar
         nur alle 60 Sekunden einen `Keepalive` (85 Byte Rahmen), dazu je eine
-        66-Byte-Bestätigung: zusammen etwa 300 Byte je Minute – weniger als
-        RIP, weil RIP die ganze Tabelle alle 30 Sekunden neu sendet, BGP aber
-        nach dem Aufbau nur noch Lebenszeichen. RIP sprechen auf dem Segment `r1`, `r2` und `r4`; `r1` hört
-        periodische Updates von `r2` und `r4` und sendet selbst nur eine
-        Anfrage beim Start. Die RIP-Nachrichten sind 24 Byte (Anfrage, Antwort
-        mit einer Route) bzw. 44 Byte (Antwort mit zwei Routen) groß, die
-        Ethernet-Rahmen 66 bzw. 86 Byte.
+        66-Byte-Bestätigung: zusammen etwa 300 Byte je Minute. Der faire
+        Vergleich ist **Ruhezustand gegen Ruhezustand**: Auch bei RIP
+        gehören die Anfragen und Antworten direkt nach dem Start nicht dazu.
+        Im Ruhezustand sendet RIP alle 30 Sekunden die ganze Tabelle
+        (zwei Sprecher, je 86 Byte Rahmen: bei uns rund 310 Byte je Minute) –
+        das liegt in der gleichen Größenordnung wie BGP. Der Unterschied
+        steckt woanders: Ein RIP-Update wächst mit der Tabelle, ein
+        BGP-`Keepalive` bleibt gleich groß. RIP sprechen auf dem Segment `r1`,
+        `r2` und `r4`; `r1` hört periodische Updates von `r2` und `r4`. Beim
+        Start schickt jeder der drei eine Anfrage, danach sendet `r1` im
+        Mitschnitt nichts mehr. Die RIP-Nachrichten sind 24 Byte (Anfrage,
+        Antwort mit einer Route) bzw. 44 Byte (Antwort mit zwei Routen) groß,
+        die Ethernet-Rahmen 66 bzw. 86 Byte.
 
         Zu 1: Würden alle Router gleichzeitig senden, entstünden regelmäßige
         Lastspitzen, in denen Pakete kollidieren oder Warteschlangen
