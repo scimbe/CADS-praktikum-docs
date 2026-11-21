@@ -55,7 +55,10 @@ gewinnende Route bestimmen und mit `ip route get` prüfen.
 
 **Vorbedingung:** `topoP02` läuft (`cd ~/rn-practice/topoP02 && ./start-topoP02.sh`;
 beendet vorher eine andere laufende Topologie mit `mininet> quit`).
-Öffnet ein Terminal auf `r2` (`mininet> xterm r2`).
+Öffnet ein Terminal auf `r2` (`mininet> xterm r2`; `topoP02` öffnet beim
+Start keine Knotenfenster, anders als `topo02`). Liegen Fenster übereinander,
+hilft [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen);
+das Fenster `Terminal` in der Fensterliste ist die Mininet-Konsole.
 
 **Vorgemacht:** Ein Paket an `128.155.200.1` (liegt im Verkaufsnetz). Auf `r2`
 passen zwei Routen: `128.155.192.0/19` (Adressen 192.0 bis 223.255) und
@@ -84,6 +87,9 @@ r2$ ip route get 128.155.240.2     # h4, nur über /18 erreichbar
 *Die Routingtabelle von `r2` und zwei Entscheidungen des Kernels: Für
 `128.155.192.5` gewinnt das längere `/19`, für `128.155.240.2` bleibt nur das
 `/18`.*
+
+Die Ausgabe von `ip route get` enthält außerdem `uid 0` und eine Zeile
+`cache`; beides könnt ihr ignorieren.
 
 **Erwartete Ausgabe:** `ip route get 128.155.192.5` nennt
 `dev r2-eth0 src 128.155.192.1` **ohne** `via` (das direkt angeschlossene `/19`
@@ -118,10 +124,13 @@ Host im Entwicklungsnetz)? Entscheidet auf Papier und prüft mit
     exceeded`, und `traceroute` zeigt abwechselnd `10.0.0.2` (`r2`) und
     `* * *` (`r3` bleibt aus demselben `rp_filter`-Grund stumm wie bei Hop 3;
     steht die Route aus der Hop-3-Lösung noch, wechseln `10.0.0.2` und
-    `10.0.1.2`). Ab etwa Hop 6 kommen nur noch Sterne, weil die Router ihre
+    `10.0.1.2`). Ab etwa Hop 5 kommen nur noch Sterne, weil die Router ihre
     ICMP-Meldungen begrenzen. (Zum
     Ausprobieren: `r2$ ip route del 128.155.192.0/19`; zurück geht es nur mit
-    einem Neustart der Topologie.)
+    einem Neustart der Topologie. `h2` hat die Adresse `128.155.192.2`; ihr
+    pingt und verfolgt den Weg aus der Mininet-Konsole mit
+    `mininet> h1 ping -c 2 128.155.192.2` und
+    `mininet> h1 traceroute -n -m 8 128.155.192.2`.)
 
 ### Teil 8 – IPv6 nebenher: Link-Local-Adressen und Neighbor Discovery statt ARP (`topo02`)
 
@@ -174,7 +183,8 @@ erreichen.
 
     **So lest ihr das:** Eine Anfrage an die Multicast-Adresse `ff02::1` ist an
     **alle** Geräte im Segment gerichtet, deshalb antworten mehrere: `h0` selbst
-    (`…:1`), `r1` (`…:5`) und `h1` (`…:2`). Die Antworten sind mehr als Anfragen;
+    (`…:1`), `r1` (`…:5`) und `h1` (`…:2`). Es kommen mehr Antworten an, als
+    Anfragen gesendet wurden;
     `ping6` zählt sie als `+2 duplicates` – das ist hier erwünscht. Der Zusatz
     `%h0-eth0` legt die Schnittstelle fest: `fe80::`-Adressen gelten auf
     **jeder** Schnittstelle, und ohne Zusatz wählt der Kernel auf einem Knoten
@@ -205,7 +215,8 @@ link`. Auf den Ping an die All-Nodes-Adresse antworten `h0` selbst sowie
 `fe80::200:ff:fe00:2` (`h1`) und `fe80::200:ff:fe00:5` (`r1`). Danach stehen
 in `ip -6 neigh` diese beiden Nachbarn mit ihrer MAC-Adresse
 (`00:00:00:00:00:02`, `00:00:00:00:00:05`) – gefüllt durch NDP, nicht durch
-ARP.
+ARP. Als Zustand steht dort je nach Zeitpunkt `REACHABLE` oder kurz `DELAY`
+(wie bei ARP in Teil 6).
 
 Probiert den Zusatz `%…` auch auf `r1` aus, das mehrere Schnittstellen hat
 (öffnet dafür das Fenster `Node: r1`, es ist seit dem Start offen):
@@ -256,7 +267,7 @@ mitsieht – und in welche Richtung.
 |---|---|---|
 | **A**: `Node: h1` | seit dem Start offen | Lauscher: schneidet den Verkehr mit |
 | **B**: `Node: h0` | seit dem Start offen | Sender: `ping` und `macof` |
-| **C**: Desktop-Terminal | `Terminal`-Symbol auf dem Desktop | Switch einstellen und auslesen (mit `sudo`) |
+| **C**: Desktop-Terminal | `Terminal`-Symbol auf dem Desktop, sonst `Strg+Umschalt+N` in einem offenen Terminal (nicht die Mininet-Konsole mit `mininet>`) | Switch einstellen und auslesen (mit `sudo`) |
 
 #### Schritt 1 – Lauscher einrichten (Fenster A)
 
@@ -312,16 +323,20 @@ $ sudo ovs-vsctl remove bridge s1 other-config mac-table-size
 
 **Erwartete Ausgabe:** In der Baseline sieht `h1` nichts. Während `macof`
 läuft, zeigt `fdb/stats-show` eine volle Tabelle (`16/16`) und stark
-steigende `evicted`-Zahlen (sechsstellig). Gemessen sah `h1` bei beiden
-Läufen alle 8 **Echo-Antworten** von `r1` an `h0`:
+steigende `evicted`-Zahlen (fünf- bis sechsstellig, je nach Hardware).
+Gemessen sah `h1` 7 bis 8 **Echo-Antworten** von `r1` an `h0` (oft fehlt die
+erste, weil der Switch `h0` beim ersten Paket noch kennt und per Unicast
+zustellt; `tcpdump` meldet dann `7 packets captured`):
 
 ```text
-21:03:12.405922 IP 10.0.10.1 > 10.0.10.10: ICMP echo reply, id 8886, seq 1, length 64
+21:03:12.405922 IP 10.0.10.1 > 10.0.10.10: ICMP echo reply, id 8886, seq 2, length 64
 ...
 21:03:14.534392 IP 10.0.10.1 > 10.0.10.10: ICMP echo reply, id 8886, seq 8, length 64
 ```
 
-aber **keine** Echo-Anfragen von `h0` an `r1`.
+aber **keine** Echo-Anfragen von `h0` an `r1`. Die Zähler `learned` und
+`evicted` in `fdb/stats-show` laufen weiter und bleiben nach den sechs
+Sekunden stehen: Ihr müsst die Statistik nicht in Hektik abfragen.
 
 ![Drei Fenster: oben links Node: h1 mit tcpdump, der nur ICMP echo reply von 10.0.10.1 an 10.0.10.10 für seq 1 bis 8 zeigt, oben rechts Node: h0 mit macof im Hintergrund und ping -c 8 ohne Verlust, unten das Desktop-Terminal mit fdb/stats-show s1: 16/16 Einträge und sehr vielen verdrängten](../../assets/screenshots/02-subnetting-arp/teil9-fluten-drei-fenster.png)
 *Die Messung aus Teil 9: `h1` (links oben) sieht ausschließlich Echo-Antworten,

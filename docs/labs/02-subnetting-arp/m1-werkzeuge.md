@@ -92,8 +92,9 @@ späteren Teilen verweisen wir nur noch darauf.
     Befehl dahinter nicht.
 
 Startet die Referenztopologie dieses Blatts in einem Desktop-Terminal
-(Doppelklick auf das Symbol `Terminal` auf dem Desktop) und probiert `nodes`
-und `net` aus. Läuft noch eine andere Topologie (z. B. `topo01` aus Blatt 01),
+(Doppelklick auf das Symbol `Terminal` auf dem Desktop; ist das Symbol von
+Fenstern verdeckt, öffnet `Strg+Umschalt+N` in einem offenen Terminal ein neues)
+und probiert `nodes` und `net` aus. Läuft noch eine andere Topologie (z. B. `topo01` aus Blatt 01),
 beendet sie vorher mit `exit` bzw. `quit` auf ihrer Mininet-Konsole:
 
 ```bash
@@ -132,6 +133,12 @@ auch die Knotenterminals auf.
     beobachtet, und ein Terminal für die Mininet-Kommandozeile. Lest vor jedem
     Befehl die Titelzeile des Fensters (`Node: h1`) – die häufigste
     Fehlerquelle in diesem Praktikum ist ein Befehl im falschen Fenster.
+    Knotenfenster liegen oft übereinander. Wie ihr ein verdecktes Fenster über
+    die Fensterliste oben links wiederfindet und warum nach einem
+    Fensterwechsel das erste Zeichen verloren gehen kann, steht unter
+    [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
+    Das Fenster `Terminal` in dieser Liste ist die Mininet-Konsole (Prompt
+    `mininet>`), kein Knotenfenster.
 
 ### `ip addr`: Welche Adressen hat dieser Knoten?
 
@@ -169,8 +176,9 @@ auch die Knotenterminals auf.
     | `inet 128.155.128.2/18` | die **IPv4-Adresse** (Schicht 3) und die **Präfixlänge**: Die ersten 18 Bit bezeichnen das Netz. |
     | `brd 128.155.191.255` | die **Broadcast-Adresse** des Netzes: „alle Rechner in diesem Subnetz“. |
 
-    Die Kurzform `ip -br addr` auf `h4` zeigt in einer Zeile Name, Zustand und
-    Adressen:
+    Die Kurzform `ip -br addr` auf `h4` zeigt in einer Zeile je Schnittstelle
+    Name, Zustand und Adressen. Darüber steht noch die Zeile `lo` (die
+    Loopback-Schnittstelle des Knotens), die ihr hier ignorieren könnt:
 
     ```text
     h4-eth0@if4      UP             128.155.240.2/23 fe80::5496:fff:fed3:a928/64
@@ -254,7 +262,7 @@ auch die Knotenterminals auf.
     | `ping -c 3 -i 0.3 <ziel>` | Abstand 0,3 Sekunden statt einer Sekunde |
     | `ping -s 1000 <ziel>` | Nutzlast 1000 Byte statt 56 ([Teil 3](m2-adressplan.md#teil-3-vertiefung-optional-mtu-und-fragmentierung-topop04)) |
     | `ping -M do -s 1000 <ziel>` | zusätzlich „nicht fragmentieren“ ([Teil 3](m2-adressplan.md#teil-3-vertiefung-optional-mtu-und-fragmentierung-topop04)) |
-    | `ping -W 1 <ziel>` | höchstens 1 Sekunde auf eine Antwort warten |
+    | `ping -W 1 <ziel>` | höchstens 1 Sekunde auf eine Antwort warten (bei einer unbesetzten Adresse im eigenen Netz zu kurz, siehe `Destination Host Unreachable` unten) |
 
     **Echte Ausgabe** (`h1$ ping -c 4 128.155.224.2`):
 
@@ -289,7 +297,7 @@ auch die Knotenterminals auf.
     |---|---|
     | `ping: connect: Network is unreachable` | Der sendende Knoten hat gar keine passende Route. |
     | `From 128.155.128.1 icmp_seq=1 Destination Net Unreachable` | Ein Router (hier `r1`) meldet: „Ich habe keine Route zu diesem Ziel.“ |
-    | `From 10.0.10.10 icmp_seq=1 Destination Host Unreachable` | Der Absender selbst (im Beispiel `h0` aus `topo02`) meldet: Das Ziel liegt im eigenen Netz, antwortet aber auf ARP nicht. |
+    | `From 10.0.10.10 icmp_seq=1 Destination Host Unreachable` | Der Absender selbst (im Beispiel `h0` aus `topo02`) meldet: Das Ziel liegt im eigenen Netz, antwortet aber auf ARP nicht. Die Meldung kommt erst, wenn die ARP-Auflösung nach etwa 3 Sekunden aufgibt; mit `-W 1` oder `-c 1` beendet sich `ping` vorher und zeigt nur `100% packet loss`. |
     | `ping: sendmsg: Message too long` | Das Paket ist größer als die MTU und darf nicht fragmentiert werden ([Teil 3](m2-adressplan.md#teil-3-vertiefung-optional-mtu-und-fragmentierung-topop04)). |
     | `100% packet loss` ohne jede Meldung | Irgendwo auf Hin- oder Rückweg wird das Paket still verworfen (fehlende Rückroute, Firewall, Verlust). |
 
@@ -372,6 +380,11 @@ auch die Knotenterminals auf.
     0 packets dropped by kernel
     ```
 
+    Drückt ihr `Strg+C` nicht gleich nach dem Ping, zeigt eure Bilanz oft 8
+    statt 4 Pakete: Router frischen ihre ARP-Einträge nach einigen Sekunden
+    von selbst auf (etwa `who-has 128.155.128.2 tell 128.155.128.1`). Die vier
+    gezeigten Zeilen sind die Auflösung, die der Ping ausgelöst hat.
+
     **So lest ihr das:** Die ersten vier Zeilen sind Meldungen von `tcpdump`
     selbst (bei `-i any` normal: Auf dem Sammelgerät `any` gibt es keinen
     Promiscuous-Modus). Jede Paketzeile besteht aus: Uhrzeit, Schnittstelle,
@@ -417,8 +430,8 @@ auch die Knotenterminals auf.
 
     **Typische Meldung:** Pingt ihr eine Adresse im eigenen Netz, die niemandem
     gehört, steht kurz `128.155.128.99 dev h1-eth0 INCOMPLETE` (Anfrage
-    gestellt, keine Antwort) und danach `… FAILED` im Cache; `ping` meldet
-    `Destination Host Unreachable`. `FAILED` heißt: Auf Schicht 2 antwortet
+    gestellt, keine Antwort) und danach `… FAILED` im Cache; `ping` meldet nach
+    etwa 3 Sekunden `Destination Host Unreachable`. `FAILED` heißt: Auf Schicht 2 antwortet
     niemand – das Problem liegt nicht im Routing.
 
 !!! success "Geschafft: euer Werkzeugkasten"

@@ -133,7 +133,9 @@ Netz mit `mininet> net`.
 Startet in Mininet (falls noch nicht geschehen: `./start-topoP02.sh`; beendet
 vorher eine noch laufende andere Topologie mit `mininet> quit`) auf `h1`
 einen Ping zu `h3` und `h4`. Öffnet dafür mit `mininet> xterm h1` ein
-Terminal:
+Terminal (die Fenster liegen oft übereinander: [Fenster wiederfinden und
+tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen); das
+Fenster `Terminal` in der Fensterliste ist die Mininet-Konsole):
 
 ```bash
 h1$ ping -c 4 128.155.224.2   # h3
@@ -281,6 +283,7 @@ zwischengespeichert. Löscht deshalb zuerst die Caches, dann schneidet ihr mit:
 3. Startet in den Fenstern von `r1`, `r2` und `r3` je
    `tcpdump -n -i any arp`.
 4. Löst von `h1` aus genau eine Übertragung aus: `ping -c 1 128.155.224.2`.
+   Drückt danach gleich `Strg+C` in den drei `tcpdump`-Fenstern.
 
 Zu Beginn meldet `tcpdump` vier Zeilen über sich selbst (siehe Steckbrief
 oben: `WARNING: any: …` und `listening on any …`); danach folgen die
@@ -312,7 +315,10 @@ je einer Antwort:
   `who-has 128.155.224.2 tell 128.155.224.1` (`r3` sucht `h3`).
 
 Dieselbe Anfrage taucht also auf zwei Routern auf: einmal beim Absender, einmal
-beim Empfänger. Beendet die drei `tcpdump` mit `Strg+C`.
+beim Empfänger. Wartet ihr länger als ein paar Sekunden, kommen auf den
+Routern weitere ARP-Zeilen dazu (die Router frischen ihre Einträge von selbst
+auf) und `tcpdump` meldet `8 packets captured` statt 4; das gehört nicht zur
+Aufgabe.
 
 **So lest ihr das:** Die IP-Zieladresse des Pakets (`128.155.224.2`) blieb auf
 dem gesamten Weg gleich. Gefragt wurde auf jedem Segment aber nach jeweils
@@ -332,7 +338,10 @@ h1$ ip neigh
 
 Auf den Routern stehen daneben auch Einträge im Zustand `DELAY` (der Nachbar,
 der die Anfrage gestellt hat): Das ist ein Zwischenzustand, nach wenigen
-Sekunden wird daraus `REACHABLE` oder `STALE`.
+Sekunden wird daraus `REACHABLE` oder `STALE`. Welchen Zustand ihr seht,
+hängt davon ab, wie lange der Ping zurückliegt: Schaut ihr erst nach einer
+Minute nach, steht auch bei `h1` schon `STALE` statt `REACHABLE`, und `DELAY`
+seht ihr gar nicht mehr.
 
 **Kernbeobachtung:** Obwohl die IP-Zieladresse (`128.155.224.2`) über den
 gesamten Pfad unverändert bleibt, wird auf jedem der vier Segmente
@@ -653,7 +662,8 @@ für die nächsten Befehle.
     `~/rn-practice/topoP02/meine-config.sh` mit genau diesem Inhalt an,
     zum Beispiel im Desktop-Terminal mit dem Editor `mousepad`
     (`mousepad ~/rn-practice/topoP02/meine-config.sh &`; `nano` ist im
-    Image nicht installiert):
+    Image nicht installiert). Existiert die Datei schon aus einem früheren
+    Versuch, öffnet `mousepad` sie mit dem alten Inhalt: Ersetzt ihn:
 
     ```text
     r1 ifconfig r1-eth0 128.155.128.1/18
@@ -786,7 +796,8 @@ Knoten-Fenstern tippt ihr den Befehl **ohne** den Knotennamen davor
 **Erwartung:** Mit gesetztem DF-Bit verweigert schon `h1` das Senden
 (`ping: sendmsg: Message too long`). Ohne DF-Bit wird jedes Echo in zwei
 Fragmente zerlegt; durch die Verlustrate gehen einzelne Pings verloren
-(gemessen: `4 packets transmitted, 2 received, 50% packet loss`; das erste
+(gemessen: `4 packets transmitted, 2 received, 50% packet loss`, bei
+anderen Läufen auch 75 % oder mehr; das erste
 Echo braucht wegen des ARP-Vorlaufs oft über eine Sekunde, bei jedem Lauf
 fallen andere Pings aus). Der Mitschnitt zeigt je Echo zwei Zeilen:
 
@@ -816,7 +827,9 @@ mininet> h1 ping -c 1 -s 1000 10.0.0.2
 
 Wegen der 10 % Verlust kommen nicht immer alle vier Pakete. Steht nach etwa
 fünf Sekunden noch kein Prompt da, beendet den Mitschnitt mit `Strg+C` und
-schickt den Ping noch einmal.
+schickt den Ping noch einmal. Wartet vorher, bis frühere Pings fertig sind:
+Eine Zeile `ICMP ip reassembly time exceeded` im Mitschnitt stammt von einem
+früheren Ping, dessen Fragmente nicht vollständig ankamen.
 
 ![Zwei Terminalfenster: oben "Node: h1" mit tcpdump-Mitschnitt von vier Paketen, zwei Fragmente pro Echo-Anfrage und Echo-Antwort (offset 0 mit flags [+], offset 512 mit flags [none]); unten "Mininet" mit dem erfolgreichen Ping über 1008 Byte](../../assets/screenshots/02-subnetting-arp/teil3-fragmente-tcpdump.png)
 *Ein Ping mit 1000 Byte Nutzlast über die Leitung mit MTU 536: Anfrage und
@@ -851,17 +864,25 @@ den Mitschnitt; schickt die Datei danach aus dem Fenster `Node: h1` –
 mindestens fünfmal hintereinander:
 
 ```bash
-h2$ nc -u -l -k 5000 > /tmp/nc.out &
+h2$ rm -f /tmp/nc.out
+h2$ nc -u -l -k 5000 < /dev/null > /tmp/nc.out &
 h2$ tcpdump -n -v -i h2-eth0 udp
 h1$ nc -u -w1 10.0.0.2 5000 < MehrAls1500ByteText.txt
 ```
+
+Das `< /dev/null` ist nötig: Ein Hintergrundprozess darf nicht von der
+Tastatur lesen. Ohne die Umleitung liest `nc` von der Tastatur, wird vom
+Terminal angehalten (`Stopped (tty input)` in `jobs -l`) und empfängt nichts;
+`/tmp/nc.out` bleibt dann leer. Das `rm -f` davor entfernt eine Datei aus
+einem früheren Versuch.
 
 !!! danger "Nie `pkill` oder `killall` benutzen"
     Die Mininet-Knoten teilen sich die Prozessliste mit eurem Desktop.
     `pkill nc` beendet euren ganzen Desktop und meldet euch ab. Beendet
     Prozesse mit `Strg+C` oder `kill <PID>` (die PID steht in der Ausgabe von
     `jobs -l` bzw. `ps`). Den Empfänger mit `&` beendet ihr also in `Node: h2`
-    mit `jobs -l` und `kill <PID>`.
+    mit `jobs -l` und `kill <PID>`. Ein angehaltener Job (`Stopped`) reagiert
+    erst auf `kill -CONT <PID>`.
 
 Bei der 1638-Byte-Datei zeigt der Mitschnitt auf `h2` je Sendung bis zu vier
 Fragmente der UDP-Nachricht (`offset 0`, `512`, `1024` mit `flags [+]`,
