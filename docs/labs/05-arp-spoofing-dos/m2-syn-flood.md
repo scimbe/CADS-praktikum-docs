@@ -126,7 +126,9 @@ annehmen kann (Denial-of-Service). Nutzt weiterhin die aus [Teil B](m1-arp-spoof
         Speicher eures Desktops voll, und der **ganze Desktop** wird beendet
         (ihr verliert offene Fenster und Topologie). Schneidet deshalb nur
         wenige Sekunden und nur eine begrenzte Paketzahl mit und schaut die
-        Datei erst danach an:
+        Datei erst danach an. Startet den Mitschnitt auf `h1`, **bevor** ihr
+        den Flood auf `h0` startet (bzw. während er läuft) – nach dem Flood
+        gibt es nichts mehr mitzuschneiden:
 
         ```bash
         h1$ tcpdump -i h1-eth0 -n -c 50 -w /tmp/syn.pcap tcp port 80
@@ -174,7 +176,7 @@ ein SYN-Flood von einer einzelnen, festen Quell-IP, und welche Gegenmaßnahme
 
     - Ein SYN-Flood erschöpft Ressourcen des Servers durch viele halboffene Verbindungen im TCP-Drei-Wege-Handshake.
     - Mit hping3 lässt sich ein solcher Flood gegen einen eigenen Server erzeugen.
-    - Legitime Clients bekommen während des Angriffs keine Verbindung mehr, der Dienst ist für sie praktisch nicht erreichbar.
+    - Ohne Schutz bekommen legitime Clients während des Angriffs keine Verbindung mehr. Sind SYN-Cookies aktiv (die Voreinstellung auf euren Desktops), bleibt der Dienst trotz Flood erreichbar – den Unterschied messt ihr in Meilenstein 3.
 
     **Was Meilenstein 3 verspricht:** Der nächste Meilenstein wechselt die Seite: Ihr erkennt beide Angriffe als Verteidiger, messt ihren Schaden in Zahlen und prüft Gegenmaßnahmen wie SYN-Cookies und feste ARP-Einträge auf ihre tatsächliche Wirkung.
 

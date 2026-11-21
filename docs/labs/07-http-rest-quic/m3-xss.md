@@ -125,6 +125,11 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     h2$ tcpdump -n -r /tmp/teil8-xss.pcap -A | grep -E 'script|sammler'
     ```
 
+    Ruft ihr die Seite im Browser auf, kodiert er Sonderzeichen in der URL:
+    Aus `<script>` wird `%3Cscript%3E`. Mit `curl` geht der Text so über die
+    Leitung, wie ihr ihn tippt. Sucht im Mitschnitt deshalb ggf. auch nach der
+    kodierten Form.
+
     Wartet nach dem Start des Mitschnitts, bis `listening on h2-eth0`
     erscheint, bevor ihr weitertippt; sonst geht der Anfang eurer Eingabe
     verloren. Die `<PID>` lest ihr aus der Ausgabe von `jobs -l` ab (Zahl
@@ -146,6 +151,10 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     h2$ httrack "http://10.0.1.2:8080/" -O ~/rn-practice/topo01/clone-uebungsziel -%v -r1
     h2$ ls ~/rn-practice/topo01/clone-uebungsziel
     ```
+
+    `httrack` braucht etwa eine halbe Minute; tippt den `ls`-Befehl erst, wenn
+    der Prompt zurück ist. Die Warnung, dass `httrack` als `root` läuft, könnt
+    ihr hier ignorieren.
 
     **Aufgabe (Gegenprobe):** Versucht denselben Befehl gegen ein Ziel
     außerhalb der Topologie, z. B. `httrack "http://1.1.1.1/" -O /tmp/clone-extern`.

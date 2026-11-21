@@ -53,7 +53,9 @@ Fenster, `dig` und `curl` laufen parallel in einem zweiten. Öffnet es mit
     `tshark -r /tmp/dns_plain.pcap`). Beachtet: Der Resolver in `h1` ist
     `dnsmasq`. `dig` fragt ihn (Adresse `10.0.1.2`), und er leitet die
     Anfrage selbst weiter (Absender `10.0.5.2`). Deshalb seht ihr für eine
-    Abfrage vier statt zwei DNS-Pakete; bei `-i any` erscheinen dieselben
+    Abfrage vier statt zwei DNS-Pakete (sofern der Name noch nicht in
+    `dnsmasq` zwischengespeichert ist; sonst antwortet er direkt, und es
+    bleiben zwei); bei `-i any` erscheinen dieselben
     Pakete ggf. zusätzlich auf mehreren Schnittstellen. Was ist bei der klassischen
     DNS-Anfrage im Klartext sichtbar (Anfragename, Antwort), was ist bei der
     DoH-Anfrage nur noch als TLS-Record erkennbar? Wie unterscheidet sich
