@@ -10,7 +10,7 @@ Auf dieser Seite zeichnet ihr echten Netzwerkverkehr mit Wireshark auf und ordne
 <div style="padding:.2em .7em;border-radius:3px;background:#3f51b5;color:#fff;font-weight:600;border:1px solid #3f51b5">Anwendungsschicht · Schwerpunkt</div>
 <div style="padding:.2em .7em;border-radius:3px;background:#3f51b5;color:#fff;font-weight:600;border:1px solid #3f51b5">Transportschicht · Schwerpunkt</div>
 <div style="padding:.2em .7em;border-radius:3px;background:#3f51b5;color:#fff;font-weight:600;border:1px solid #3f51b5">Netzwerkschicht · Schwerpunkt</div>
-<div style="padding:.2em .7em;border-radius:3px;background:#3f51b5;color:#fff;font-weight:600;border:1px solid #3f51b5">Verbindungsschicht · Schwerpunkt</div>
+<div style="padding:.2em .7em;border-radius:3px;background:#3f51b5;color:#fff;font-weight:600;border:1px solid #3f51b5">Netzzugriffsschicht · Schwerpunkt</div>
 </div>
 </div>
 
@@ -19,7 +19,7 @@ Auf dieser Seite zeichnet ihr echten Netzwerkverkehr mit Wireshark auf und ordne
 !!! abstract "Auf einen Blick"
     **Lernziel:** Ihr zeichnet echten Netzwerkverkehr mit Wireshark auf, findet
     darin eure eigene DNS-Anfrage und eure eigene Web-Anfrage wieder und
-    benennt in einem Paket die vier Schichten (Verbindung, Netzwerk,
+    benennt in einem Paket die vier Schichten (Netzzugriff, Netzwerk,
     Transport, Anwendung).
 
     **Wozu?** Wenn im Firmennetz „das Internet langsam ist" oder ein Dienst
@@ -80,7 +80,7 @@ folgenden Schritte offen.
     **Was es tut:** Wireshark schneidet den Verkehr auf einer oder mehreren
     Netzwerkschnittstellen mit und zeigt jedes einzelne Paket samt aller
     enthaltenen Protokollschichten an. Es sieht alle Schichten, von der
-    Verbindungsschicht bis zur Anwendung.
+    Netzzugriffsschicht bis zur Anwendung.
 
     **Aufruf und wichtige Stellen:**
 
@@ -343,12 +343,12 @@ einzelnen Zeilen auf. Ordnet die Schichten zu:
 - **Anwendungsschicht:** HTTP (bzw. TLS-Record bei HTTPS)
 - **Transportschicht:** TCP-Segment (Ports, Sequenznummern, Flags)
 - **Netzwerkschicht:** IP-Header (IPv4 oder IPv6, Quell-/Zieladresse)
-- **Verbindungsschicht:** *siehe Hinweis direkt darunter – hier nicht der
+- **Netzzugriffsschicht:** *siehe Hinweis direkt darunter – hier nicht der
   klassische Ethernet-Header*
 
-!!! info "Verbindungsschicht bei „any": „Linux cooked capture" statt Ethernet-Header"
+!!! info "Netzzugriffsschicht bei „any": „Linux cooked capture" statt Ethernet-Header"
     Weil ihr auf der Pseudo-Schnittstelle `any` mitschneidet (Schritt 1),
-    zeigt die Verbindungsschicht hier **„Linux cooked capture v1"** (kurz
+    zeigt die Netzzugriffsschicht hier **„Linux cooked capture v1"** (kurz
     SLL) statt eines echten Ethernet-Headers – `any` kapselt mehrere,
     unterschiedliche Schnittstellen einheitlich in dieses Pseudo-Format, das
     keinen vollständigen Ethernet-Header (mit Ziel-MAC) kennt, aber
@@ -451,11 +451,11 @@ wenige Sekunden.)
 Filtert in Wireshark auf `icmp` und identifiziert erneut die vier Schichten
 in einem der Pakete.
 
-!!! info "Verbindungsschicht bei „any": Loopback statt Ethernet"
+!!! info "Netzzugriffsschicht bei „any": Loopback statt Ethernet"
     ![Aufgeklappter Detailbaum-Eintrag „Linux cooked capture v1" eines ICMP-Pakets auf 127.0.0.1: Packet type „Unicast to us (0)", Link-layer address type „Loopback (772)", Source „00:00:00_00:00:00 (00:00:00:00:00:00)", Protocol „IPv4 (0x0800)"](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-linklayer-loopback.png)
     *„Linux cooked capture v1" für den Loopback-Verkehr: „Link-layer address type: Loopback (772)" und eine Adresse aus lauter Nullen als „Source".*
 
-    Auch hier zeigt die Verbindungsschicht "Linux cooked capture v1" (wie in
+    Auch hier zeigt die Netzzugriffsschicht "Linux cooked capture v1" (wie in
     Schritt 5, ein Merkmal der Pseudo-Schnittstelle `any`). Der Unterschied liegt in denselben zwei Feldern wie eben:
     **"Link-layer address type"** steht auf `Loopback (772)` statt
     `Ethernet (1)`, und **"Source"** ist `00:00:00:00:00:00` – eine
@@ -493,7 +493,7 @@ braucht ihr nicht.
     **Das habt ihr gelernt:**
 
     - Eigene DNS- und Web-Anfragen in einem Wireshark-Mitschnitt finden.
-    - In einem einzelnen Paket die vier Schichten (Verbindung, Netzwerk, Transport, Anwendung) benennen.
+    - In einem einzelnen Paket die vier Schichten (Netzzugriff, Netzwerk, Transport, Anwendung) benennen.
     - DNS als Hilfsdienst zur Namensauflösung von Anwendungsprotokollen wie HTTP unterscheiden, die Nutzdaten transportieren.
 
     **Was Meilenstein 2 verspricht:** Als Nächstes startet ihr ein kleines emuliertes Netz mit zwei Endgeräten und zwei Routern und untersucht es mit ping, traceroute, dig, whois, nmap und Wireshark. Das Schichtenwissen hilft euch, die Ausgaben einzuordnen.

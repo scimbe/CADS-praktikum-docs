@@ -10,7 +10,7 @@ Hier startet ihr die emulierte Topologie topo01 und untersucht sie mit den gäng
 <div style="padding:.2em .7em;border-radius:3px;background:#3f51b5;color:#fff;font-weight:600;border:1px solid #3f51b5">Anwendungsschicht · Schwerpunkt</div>
 <div style="padding:.2em .7em;border-radius:3px;background:#3f51b5;color:#fff;font-weight:600;border:1px solid #3f51b5">Transportschicht · Schwerpunkt</div>
 <div style="padding:.2em .7em;border-radius:3px;background:#3f51b5;color:#fff;font-weight:600;border:1px solid #3f51b5">Netzwerkschicht · Schwerpunkt</div>
-<div style="padding:.2em .7em;border-radius:3px;color:#9e9e9e;border:1px dashed #9e9e9e">Verbindungsschicht</div>
+<div style="padding:.2em .7em;border-radius:3px;color:#9e9e9e;border:1px dashed #9e9e9e">Netzzugriffsschicht</div>
 </div>
 </div>
 
@@ -340,7 +340,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     ![Wireshark-Fenster mit laufendem Capture auf h2-eth0, Anzeigefilter icmp gesetzt, Paketliste mit abwechselnden Echo-Request/-Reply zwischen 10.0.1.2 und 10.0.6.2, Detailbereich mit aufgeklappten Ethernet-, IP- und ICMP-Headern und Hex-Dump](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-icmp-layers.png)
     *Echter Mitschnitt auf `h2-eth0`, während `h1` per `ping` Verkehr zu `h2`
     erzeugt. Der Detailbereich zeigt genau die in [Teil 1](m1-schichten-im-echten-verkehr.md#teil-1-das-tcpip-schichtenmodell-in-echtem-verkehr-auerhalb-von-mininet) gesuchten Schichten:
-    Ethernet II (Verbindungsschicht), Internet Protocol Version 4
+    Ethernet II (Netzzugriffsschicht), Internet Protocol Version 4
     (Netzwerkschicht) und das ICMP-Paket selbst. Die Anfragen tragen
     `ttl=62`, die Antworten `ttl=64`.*
 
