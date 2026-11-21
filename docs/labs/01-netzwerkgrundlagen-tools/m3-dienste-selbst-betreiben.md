@@ -91,8 +91,8 @@ h2.			60	IN	A	10.0.6.2
 
 Vergleicht die Adresse, die euer Server für `becke.net` liefert
 (`185.199.108.153`), mit der Antwort von `dig becke.net` (ohne `@`, also über
-den DNS-Dienst der Topologie). Was folgt daraus für das Vertrauen in
-DNS-Antworten?
+den DNS-Dienst der Topologie; `dig becke.net +short` zeigt nur die
+Adresse). Was folgt daraus für das Vertrauen in DNS-Antworten?
 
 ??? success "Lösung"
     `dig becke.net` liefert über den DNS-Dienst der Topologie eine andere
@@ -132,7 +132,10 @@ h2$ dig @10.0.1.2 -p 5353 gibtsnicht.invalid +noall +comments
         Adresse zum Namen, ist der Statuscode 3 (`NXDOMAIN`), sonst 0
         (`NOERROR`). Findet beides mit `grep -n -E "flags|rcode" dns-server.py`.
 
-Beendet den DNS-Server auf `h1` mit `Strg+C`.
+Beendet den DNS-Server auf `h1` mit `Strg+C`. Der Server läuft im
+Vordergrund und belegt das Fenster „Node: h1"; weitere Befehle tippt ihr in
+„Node: h2" (die Fensterliste oben links hilft beim Wechseln). Zum Beenden
+wechselt ihr zurück in „Node: h1" und drückt dort `Strg+C`.
 
 !!! quote "Hintergrund: DNS ist kaum jünger als das Internet-Protokoll selbst"
     Paul Mockapetris entwarf das DNS 1983 am Information Sciences Institute der
@@ -197,7 +200,8 @@ selbst einen Dienst und findet ihn wieder.
     Adressen dieses Rechners", `10.0.1.2` nur auf dieser. `Peer` bleibt leer
     (`0.0.0.0:*`), weil noch niemand verbunden ist. `Process` nennt Programm
     und Prozessnummer. Die erste Zeile ist der DNS-Dienst der Topologie, die
-    zweite euer `socat`.
+    zweite euer `socat`. Prozessnummern und `fd=` weichen bei euch ab, und
+    in einem schmalen Fenster brechen lange Zeilen um.
 
     **Typische Fehlermeldung:** `socat: E bind(…, {AF=2 0.0.0.0:8080}):
     Address already in use` – der Port ist schon belegt (oft von einem
@@ -306,7 +310,8 @@ h1$ socat TCP-LISTEN:8080,reuseaddr,fork EXEC:/bin/cat &
 ```
 
 Startet dann auf `h1` einen Mitschnitt auf der Schnittstelle Richtung `r1` (`h1-eth1`; über
-`h1-eth0` läuft nur der Internet-Uplink) und schickt von `h2` eine Zeile durch:
+`h1-eth0` mit `10.0.5.2` läuft nur der Verkehr Richtung Internet-Router, der
+NAT-Uplink) und schickt von `h2` eine Zeile durch:
 
 ```bash
 h1$ mkdir -p ~/rn-practice/pcaps
@@ -317,7 +322,9 @@ h2$ printf 'GEHEIM: passwort123\n' | socat -T2 - TCP:10.0.1.2:8080
 Der Echo-Dienst schickt dieselbe Zeile zurück. Beendet den Mitschnitt auf
 `h1` wie mit `Strg+C`: `jobs -l` zeigt die Prozessnummer von `tcpdump`,
 `kill -INT <PID>` beendet ihn sauber (ein hartes Abbrechen kann die Datei
-beschädigen). Sucht dann euren Text darin:
+beschädigen). `tcpdump` meldet dann „N packets captured" (die Zeilen
+erscheinen ggf. erst nach einem Druck auf Enter; leert den Bildschirm nicht
+vorher). Sucht dann euren Text darin:
 
 ```bash
 h1$ jobs -l
@@ -337,7 +344,8 @@ stehen ein paar unlesbare Bytes aus den Paketköpfen:
 	Uc..,.tGEHEIM: passwort123
 ```
 
-Der Mitschnitt liegt in eurem Home-Verzeichnis und bleibt über das Ende der
+Der Mitschnitt liegt in eurem Home-Verzeichnis (in den Knoten-Terminals
+`/config`) und bleibt über das Ende der
 Sitzung hinaus erhalten. Löscht ihn, sobald ihr die Aufgabe beantwortet habt –
 er enthält das „Passwort" im Klartext:
 
@@ -350,8 +358,12 @@ beendet ihn.
 
 !!! question "Aufgabe: Klartext oder nicht?"
     Der Text `GEHEIM: passwort123` steht unverschlüsselt im
-    Mitschnitt. Vergleicht das mit dem SCP/SSH-Verkehr aus Aufgabe 9 ([Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01)):
-    Warum ist dort der Inhalt **nicht** lesbar, hier aber schon? Was bedeutet das
+    Mitschnitt. Vergleicht das mit dem SCP/SSH-Verkehr aus Aufgabe 9 ([Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01)).
+    Habt ihr den SSH-Mitschnitt von dort nicht mehr, erzeugt ihn neu:
+    Startet `sshd` und führt `scp` wie in Aufgabe 9 aus, während auf `h1`
+    `tcpdump -i h1-eth1 -w ~/rn-practice/pcaps/01-ssh.pcap tcp port 22 &`
+    läuft (beenden wie oben mit `kill -INT <PID>`, lesen mit
+    `tcpdump -r … -A`; löscht die Datei danach). Warum ist dort der Inhalt **nicht** lesbar, hier aber schon? Was bedeutet das
     für Anwendungsprotokolle, die – wie klassisches HTTP, Telnet oder FTP – ohne
     Transportverschlüsselung arbeiten?
 
@@ -364,6 +376,10 @@ beendet ihn.
         übertragen Zugangsdaten und Inhalte im Klartext und gelten daher
         als unsicher; ihre verschlüsselten Nachfolger sind HTTPS, SSH und
         SFTP/FTPS.
+
+Beendet zum Schluss das Netz auf der Mininet-Konsole mit `quit`. Die dabei
+erscheinende Zeile `*** Schnappschuss …` ist eine interne Meldung des
+Startskripts; ihr könnt sie ignorieren.
 
 --8<-- "issue-feedback.md"
 

@@ -114,7 +114,7 @@ folgenden Schritte offen.
     device":
 
     ![Wireshark-Fehlerdialog „Promiscuous mode not supported on the 'any' device" mit OK-Knopf, im Hintergrund eine bereits laufende, noch leere Aufzeichnung auf „any"](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-promiscuous-error.png)
-    *Der Dialog erscheint, wenn beim Start der Haken „Promiscuous mode" noch gesetzt ist.*
+    *Der Dialog erscheint, wenn beim Start der Haken „Promiscuous mode" gesetzt ist. Im Desktop-Image ist er schon abgewählt; ihr seht den Dialog dann normalerweise nicht.*
 
     Der Promiscuous-Modus lässt eine einzelne Netzwerkkarte auch Verkehr
     mitschneiden, der nicht an sie adressiert ist. Die Sammel-Schnittstelle
@@ -136,8 +136,9 @@ folgenden Schritte offen.
     Aufzeichnung zusammen – genau das braucht ihr hier: Schritt 2 und 6
     erzeugen nämlich teils rein lokalen Verkehr, der `eth0` nie erreicht) und
     öffnet über `Capture → Options…` (oder `Strg+K`) die
-    Aufzeichnungsoptionen. Wählt dort unten links den Haken
-    **"Enable promiscuous mode on all interfaces" ab**, bevor ihr startet:
+    Aufzeichnungsoptionen. Prüft dort unten links, dass der Haken
+    **"Enable promiscuous mode on all interfaces" abgewählt** ist, bevor ihr
+    startet (im Image ist er es bereits – setzt ihn nicht):
 
     ![Wireshark Capture Options: Zeile „any" ausgewählt, Spalte „Link-layer Header" zeigt „Linux cooked v1" für any und „Ethernet" für eth0/lo, der Haken „Enable promiscuous mode on all interfaces" unten links ist abgewählt](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-interfaces-promiscuous.png)
     *Die Einstellung vor dem Start: „any" ausgewählt, Promiscuous-Modus abgewählt.*
@@ -198,8 +199,12 @@ folgenden Schritte offen.
     `connection timed out; no servers could be reached`, antwortet der
     Resolver gar nicht.
 
-1. Öffnet ein **zweites** Terminal (Wireshark läuft im ersten weiter) und
-    führt aus:
+1. Öffnet ein **zweites** Terminal (Wireshark läuft im ersten weiter), am
+    einfachsten mit `Strg+Umschalt+N` im Terminalfenster, und führt dort aus.
+    Das neue Fenster erscheint manchmal erst nach einigen Sekunden und kann
+    hinter Wireshark liegen; holt es dann über die Fensterliste oben links
+    nach vorn (siehe
+    [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen)):
 
     ```bash
     nslookup becke.net
@@ -229,8 +234,11 @@ folgenden Schritte offen.
         `10.43.0.10`) statt der im Bild. Manchmal seht ihr auch deutlich
         mehr DNS-Pakete, weil zusätzlich Suchdomänen abgefragt werden, und
         `nslookup` meldet vorab Zeilen wie `Got recursion not available`.
+        Die Zusatzanfragen kommen von `search` und `options ndots:` in
+        `/etc/resolv.conf`; Antworten wie „No such name" darauf sind normal.
         Sucht dann die Zeile mit `A becke.net` oder filtert mit
-        `dns.qry.name == "becke.net"`.
+        `dns.qry.name == "becke.net"`. Ruft ihr in Schritt 3 `curl` auf,
+        kommen für denselben Namen noch einmal DNS-Zeilen hinzu.
 
     ![Wireshark mit Anzeigefilter „dns": Paketliste zeigt „Standard query ... A becke.net" und die Antwort „Standard query response ... A becke.net A 81.169.145.66" zwischen 172.17.0.11 und dem Resolver 141.22.192.100, darunter der Detailbaum mit Linux cooked capture, IPv4, UDP und DNS](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-dns-filter.png)
     *Die DNS-Anfrage (Protokollspalte „DNS") und ihre Antwort, direkt nach `nslookup becke.net`.
@@ -280,7 +288,8 @@ folgenden Schritte offen.
     (`200` = alles in Ordnung, `404` = Seite nicht gefunden). Darunter stehen
     Kopfzeilen: wann die Seite zuletzt geändert wurde, wie groß sie ist
     (422 Bytes), welchen Typ sie hat und welche Server-Software antwortet.
-    Eure Werte weichen ab (Serverversion, Zeiten).
+    Eure Werte weichen ab (Serverversion, Zeiten). Die 422 Bytes sind bei
+    `becke.net` derzeit eine kleine Weiterleitungsseite, keine Startseite.
 
     **Typische Fehlermeldung:** `curl: (6) Could not resolve host:
     gibtsnicht.invalid` – der Name ließ sich nicht in eine Adresse auflösen
@@ -292,8 +301,12 @@ Tippt im zweiten Terminal:
 curl https://becke.net
 ```
 
-Die Ausgabe ist der HTML-Quelltext der Seite; für diesen Schritt zählt nur
-der erzeugte Netzwerkverkehr.
+Die Ausgabe ist der HTML-Quelltext der Seite. Bei `becke.net` ist das eine
+kurze Weiterleitungsseite: Ihr seht unter anderem `<title>Weiterleitung</title>`,
+einen `meta`-Eintrag mit `http-equiv="refresh"`, der auf eine andere Adresse
+verweist, und den Satz „Sie werden automatisch in
+0 Sekunden weitergeleitet." `curl` folgt dieser Weiterleitung nicht; für diesen
+Schritt zählt nur der erzeugte Netzwerkverkehr.
 
 --8<-- "issue-feedback.md"
 
@@ -307,14 +320,18 @@ ip.addr == <eure ermittelte IP-Adresse>
 ```
 
 Macht anschließend einen Rechtsklick auf eines der gefilterten TCP-Pakete und
-wählt "Follow → TCP Stream". Wireshark zeigt dann die gesamte Übertragung
+wählt "Follow → TCP Stream" (im Untermenü „Follow" steht daneben auch „TLS
+Stream"; nehmt „TCP Stream"). Wireshark zeigt dann die gesamte Übertragung
 dieser einen Verbindung am Stück. Weil Schritt 3 die Seite über HTTPS abruft,
 seht ihr nach dem Beginn des TLS-Handshakes nur verschlüsselte, nicht lesbare
 Bytes; in [Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01) folgt ihr auf demselben Weg einem unverschlüsselten Strom.
 Dabei öffnet sich ein zusätzliches Fenster „Follow TCP Stream". Schließt es
 mit **Close** (oder **Back**). Im Hauptfenster steht jetzt der Filter
 `tcp.stream eq <Nummer>` anstelle eures Anzeigefilters – tragt für Schritt 5
-wieder den Filter von oben ein.
+wieder den Filter von oben ein. Klickt dazu ins Filterfeld und löscht den alten
+Text vollständig (Text markieren und Entf, oder der X-Knopf rechts im Feld),
+bevor ihr tippt: Sonst hängt sich der neue Text an den alten an, und das Feld
+wird rot.
 
 --8<-- "issue-feedback.md"
 
@@ -336,8 +353,9 @@ wieder den Filter von oben ein.
     Zeile ist die unterste Schicht (Übertragung), die innerste die oberste
     (Anwendung).
 
-Wählt eines der TCP-Pakete dieser Kommunikation aus (ein Klick in der
-Paketliste) und klappt im Detailbaum von außen/unten nach innen/oben die
+Wählt eines der TCP-Pakete dieser Kommunikation aus, das euer Desktop
+**gesendet** hat (ein Klick in der Paketliste; als `Source` steht eure eigene
+Adresse, z. B. beim „Client Hello"), und klappt im Detailbaum von außen/unten nach innen/oben die
 einzelnen Zeilen auf. Ordnet die Schichten zu:
 
 - **Anwendungsschicht:** HTTP (bzw. TLS-Record bei HTTPS)
@@ -361,6 +379,9 @@ einzelnen Zeilen auf. Ordnet die Schichten zu:
     (1)` – das Paket lief tatsächlich über eine echte, Ethernet-artige
     Schnittstelle) und **"Source"** (eine echte Hardware-MAC-Adresse). Beide
     kommen in Schritt 6 wieder vor, mit einem auffälligen Unterschied.
+    Wählt ihr stattdessen ein **empfangenes** Paket (Source ist der Server),
+    steht dort „Unicast to us (0)" und als „Source" die MAC-Adresse des
+    Gateways, über das die Antwort hereinkam – nicht die eurer Schnittstelle.
 
 !!! question "Nachgedacht: Welche Schnittstelle war das?"
     Auf welcher tatsächlichen Schnittstelle (nicht `any`) lief dieses Paket
@@ -448,8 +469,11 @@ ping 127.0.0.1
 (`Strg+C` beendet `ping`, falls es weiterläuft – für den Mitschnitt reichen
 wenige Sekunden.)
 
-Filtert in Wireshark auf `icmp` und identifiziert erneut die vier Schichten
-in einem der Pakete.
+Filtert in Wireshark auf `icmp` und seht euch den Detailbaum eines der Pakete
+an. Hier findet ihr nur **zwei** der vier Schichten: die Netzzugriffsschicht
+(„Linux cooked capture") und die Netzwerkschicht (IPv4 samt ICMP – ICMP gehört
+zur Netzwerkschicht). Eine Transport- und eine Anwendungsschicht gibt es
+nicht, weil `ping` weder TCP/UDP noch Anwendungsdaten verwendet.
 
 !!! info "Netzzugriffsschicht bei „any": Loopback statt Ethernet"
     ![Aufgeklappter Detailbaum-Eintrag „Linux cooked capture v1" eines ICMP-Pakets auf 127.0.0.1: Packet type „Unicast to us (0)", Link-layer address type „Loopback (772)", Source „00:00:00_00:00:00 (00:00:00:00:00:00)", Protocol „IPv4 (0x0800)"](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-linklayer-loopback.png)
@@ -484,10 +508,10 @@ in einem der Pakete.
     `mousepad ~/rn-practice/notizbuch.md &` im normalen Terminal.
 
 Schließt zum Abschluss dieses Teils Wireshark und das Terminal und öffnet für
-[Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01) ein neues Terminal. Beim Schließen fragt Wireshark, ob der Mitschnitt
-gespeichert werden soll: Wählt **„Continue without Saving"** (je nach
-Zustand der Aufzeichnung steht dort „Quit without Saving"); den Mitschnitt
-braucht ihr nicht.
+[Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01) ein neues Terminal. Beim Schließen (`Strg+Q`) fragt Wireshark, ob der Mitschnitt
+gespeichert werden soll: Wählt bei laufender Aufzeichnung **„Stop and Quit
+without Saving"** (steht die Aufzeichnung, heißt der Knopf „Quit without
+Saving" bzw. „Continue without Saving"); den Mitschnitt braucht ihr nicht.
 
 !!! success "Meilenstein 1 geschafft"
     **Das habt ihr gelernt:**

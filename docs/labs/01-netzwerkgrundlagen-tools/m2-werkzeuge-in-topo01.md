@@ -87,6 +87,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     mininet> pingall
     ```
 
+    (Fehlt nach einem Fensterwechsel der erste Buchstabe, z. B. `ingall`,
+    klickt zuerst ins Fenster, wartet kurz und tippt erneut – siehe
+    [Umgebungsreferenz](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).)
+
     ![Drei Terminalfenster nach dem Start von topo01: oben die Mininet-Konsole mit der Ausgabe von pingall (h1 -> h2 r1 X; h2 -> h1 r1 r2; r1 -> h1 h2 r2; r2 -> X h2 r1; 16% dropped (10/12 received)), unten links „Node: h1" und unten rechts „Node: h2" mit leerem Prompt](../../assets/screenshots/01-netzwerkgrundlagen-tools/topo01-start-pingall.png)
     *Oben die Mininet-Konsole nach `pingall`, unten die Knoten-Terminals von `h1` und `h2`.*
 
@@ -107,10 +111,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
 
         ??? success "Lösung"
             Es fehlen `h1 → r2` und `r2 → h1`. Alle anderen zehn Paare
-            antworten (auch `h1` ↔ `h2`). Die Tabelle von `h1` kennt nur drei
-            Einträge: das eigene Netz `10.0.1.0/24`, den Uplink `10.0.5.0/24`
-            und `10.0.6.0/24` über `r1` – dazu die Standardroute (`default`)
-            ins Internet. Das Transitnetz `10.0.4.0/24` zwischen `r1` und `r2`
+            antworten (auch `h1` ↔ `h2`). Die Tabelle von `h1` hat vier
+            Zeilen: das eigene Netz `10.0.1.0/24`, den Uplink `10.0.5.0/24`
+            und `10.0.6.0/24` über `r1` – dazu als vierte die Standardroute
+            (`default`) ins Internet. Das Transitnetz `10.0.4.0/24` zwischen `r1` und `r2`
             fehlt. Ein Ping von `r2` kommt bei `h1` an, aber `h1` findet für
             die Antwort an `10.0.4.2` keine passende Route und schickt sie
             über die Standardroute Richtung Internet – dort geht sie verloren.
@@ -204,7 +208,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         Seht zuerst nach, welcher Fall bei euch vorliegt. Gibt es bei euch
         keinen Verlust, ist ICMP an eurem Standort nicht gefiltert; die
         folgenden Fragen sind dann ein Gedankenexperiment, und die Beobachtung
-        zeigt, dass solche Filter standortabhängig sind. Weist (bei 100 %
+        zeigt, dass solche Filter standortabhängig sind. (Auch dann kann
+        `traceroute` schon nach wenigen Stationen in `* * *` enden, obwohl
+        `ping` antwortet.) Weist (bei 100 %
         Verlust) nach, woran das liegt:
 
         ```bash
@@ -269,9 +275,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
                unterscheidet (ICMP gesperrt, TCP erlaubt).
             3. Hop 1 (`10.0.5.1`) und Hop 2 (das Gateway eures Containers, die
                Adresse sieht bei euch evtl. anders aus) liegen in eurem
-               Container bzw. an dessen Gateway, Hop 3 im Hostnetz; ab
-               Hop 4 kommt nichts mehr. Der Filter sitzt also **weiter
-               draußen**, nicht in eurem Container.
+               Container bzw. an dessen Gateway; Hop 3 liegt im Hostnetz.
+               Danach kommt nichts mehr (je nach Standort endet die Liste
+               schon bei Hop 3). Der Filter sitzt also **weiter draußen**,
+               nicht in eurem Container.
             4. (a) Viele Firewalls sperren ICMP, obwohl der Rechner läuft und
                Webseiten ausliefert (so wie hier). (b) Auch ein Rechner kann
                Echo-Anfragen bewusst ignorieren; umgekehrt beweist ein
@@ -329,7 +336,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
 
     Im Startfenster **doppelklickt ihr auf die Zeile `h2-eth0`**; damit
     beginnt der Mitschnitt (alternativ: Zeile markieren und in der Symbolleiste
-    auf die Haifischflosse klicken).
+    auf die Haifischflosse klicken). Wireshark öffnet maximiert und verdeckt
+    dabei die Terminalfenster; zurück zu den Terminals kommt ihr über die
+    Fensterliste oben links (siehe
+    [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen)).
 
     Wechselt zum Terminal von `h1` und sendet einen einzelnen Ping:
 
@@ -350,8 +360,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     (`ping -c 1 h2`) – welche Pakettypen wiederholen sich, welche nicht?
     Führt anschließend `ping -c 1 10.0.2.3` aus (eine nicht existierende
     Adresse) und beobachtet den Unterschied. Schließt danach das
-    Wireshark-Fenster von `h2` (bei der Frage nach dem Speichern: „Continue
-    without Saving", ggf. „Quit without Saving"), startet Wireshark stattdessen
+    Wireshark-Fenster von `h2` (bei der Frage nach dem Speichern: „Stop and
+    Quit without Saving"; steht die Aufzeichnung, „Quit without Saving" bzw.
+    „Continue without Saving"), startet Wireshark stattdessen
     auf `h1` (`h1$ wireshark &` – mit `&`, damit das Terminal weiter benutzbar
     bleibt –, Doppelklick auf `h1-eth0`) und wiederholt `ping -c 1 10.0.2.3`.
     Vergleicht, was auf beiden Seiten sichtbar ist, und formuliert eine These,
@@ -361,9 +372,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     ??? success "Lösung"
         Ohne Filter erscheinen ICMP (Echo-Request und Echo-Reply im Wechsel;
         jeder weitere Ping wiederholt genau dieses Paar, nur die
-        Sequenznummer steigt) und, vor allem beim ersten Ping, **ARP** („Wer
-        hat 10.0.6.2?" und die Antwort). ARP wiederholt sich nicht, solange der
-        Eintrag im Cache steht. Mit dem Filter `icmp` seht ihr nur die
+        Sequenznummer steigt) und gelegentlich **ARP** („Wer
+        hat 10.0.6.2?" und die Antwort), meist beim ersten Ping oder wenn ein
+        Cache-Eintrag neu ermittelt werden muss. ARP wiederholt sich nicht,
+        solange der Eintrag im Cache steht. Mit dem Filter `icmp` seht ihr nur die
         ICMP-Pakete (im Bild 6 von 12). Auf `h2-eth0` sieht man bei `ping 10.0.2.3` **nichts**, auf
         `h1-eth0` dagegen Echo-Requests **ohne** Antwort. These: `10.0.2.3`
         liegt in keinem Netz, das `h1` kennt; `h1` schickt das Paket deshalb
@@ -532,8 +544,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     und Betreiber des Netzes.
 
     Vergleicht das Ergebnis mit dem Aufruf derselben Abfrage im Browser
-    **auf dem normalen Desktop** (Firefox über das Anwendungsmenü, nicht
-    `runSimpleBrowser.sh`; `h2` hat kein Internet) unter
+    **auf dem normalen Desktop** (Firefox ESR über das Anwendungsmenü unter „Internet", nicht
+    `runSimpleBrowser.sh`; der Eintrag „Web Browser" startet Chromium, das für
+    diese Aufgabe ebenso geht; `h2` hat kein Internet) unter
     `https://ip-api.com/#<ermittelte-IP-Adresse>`. Welche Darstellung eignet
     sich für die automatische Weiterverarbeitung durch ein Programm, welche
     für einen Menschen?
@@ -578,7 +591,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         erwartbar: Je nach Standort (z. B. auf dem ICC-Cluster) kommt sofort
         `connect: Network is unreachable`, oder `whois` hängt etwa eine Minute
         und liefert dann einen Verbindungsfehler (z. B. auch
-        `Network is unreachable` beim IPv6-Versuch). In beiden Fällen ist
+        `Network is unreachable` beim IPv6-Versuch) oder nur `Timeout.`
+        (so oft bei `bundesregierung.de`). Auf anderen Desktops funktioniert
+        `whois` ohne Fehler. In den Fehlerfällen ist
         TCP-Port 43 an eurem Standort nicht erreichbar bzw. gesperrt; das ist
         auf manchen Desktops der Fall. Dann
         hilft RDAP (siehe Vertiefung unten).
@@ -705,10 +720,14 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         ```
 
         OpenSSH läuft also auf `r2`. `nmap -O 10.0.4.1` dagegen findet
-        keinen offenen Port. Zur Betriebssystem-Zeile (`Linux 4.X|5.X, ...`):
-        nmap rät aus dem Verhalten des Netzwerkstapels und nennt mehrere
-        Kandidaten; „Too many fingerprints match this host" heißt, dass es
-        sich nicht festlegen kann. `searchsploit` listet viele alte Einträge
+        keinen offenen Port (alle 1000 Ports `closed`) und meldet
+        `Network Distance: 2 hops`: Von `h2` aus liegt `r1` hinter `r2`.
+        Zur Betriebssystem-Zeile: nmap rät aus dem Verhalten des
+        Netzwerkstapels und nennt je nach Standort mehrere Kandidaten
+        (`Linux 4.X|5.X, ...`) oder meldet `No exact OS matches for host`
+        mit einem langen „TCP/IP fingerprint"-Block; dieser Block ist normal
+        und muss nicht abgetippt werden. „Too many fingerprints match this
+        host" heißt, dass sich nmap nicht festlegen kann. `searchsploit` listet viele alte Einträge
         – ein Treffer in der Liste heißt nicht, dass die hier installierte
         Version betroffen ist; dazu müsst ihr die Versionsnummer vergleichen.
         `nmap -sV -p 22 10.0.4.2` zeigt sie in der Spalte `VERSION`, z. B.
@@ -788,6 +807,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     öffentlichen Teil als vertrauenswürdig ein:
 
     ```bash
+    h2$ rm -f ~/.ssh/rn-practice-key*
     h2$ mkdir -p ~/.ssh
     h2$ ssh-keygen -t ed25519 -N "" -f ~/.ssh/rn-practice-key -q
     h2$ cat ~/.ssh/rn-practice-key.pub >> ~/.ssh/authorized_keys
@@ -801,9 +821,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         Das Home-Verzeichnis von `cads` (`/config`) ist auch das
         Home-Verzeichnis von `root` in den Knoten-Terminals; deshalb liest
         der Server `~/.ssh/authorized_keys` aus demselben Ordner, in den ihr
-        den Schlüssel schreibt. Wiederholt ihr diese Aufgabe, löscht vorher
-        den alten Schlüssel (`rm -f ~/.ssh/rn-practice-key*`), sonst fragt
-        `ssh-keygen` nach dem Überschreiben. Der Fingerabdruck im Beispiel
+        den Schlüssel schreibt. Das `rm -f` am Anfang löscht einen alten Schlüssel
+        aus einem früheren Versuch (euer Home-Verzeichnis bleibt erhalten);
+        ohne diesen Schritt fragt `ssh-keygen` „Overwrite (y/n)?" und
+        verschluckt den nächsten Befehl. Der Fingerabdruck im Beispiel
         oben ist nur ein Beispiel; euer Wert weicht ab.
 
     Kopiert anschließend von `h2` aus eine Datei von `h1`. Beim ersten
@@ -990,7 +1011,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     (Firefox öffnet beim ersten Start evtl. eine Willkommensseite und einen
     Tab von mozilla.org, der nie lädt, weil `h2` kein Internet hat; beides
     könnt ihr ignorieren.) Ruft `http://h1` auf. Vergleicht in Wireshark ("Follow → TCP
-    Stream") den HTTP/HTML-Inhalt mit der im Browser sichtbaren Seite bzw.
+    Stream" auf einem Paket zwischen `10.0.6.2` und `10.0.1.2`; die
+    Streamnummer ist bei euch eine andere) den HTTP/HTML-Inhalt mit der im Browser sichtbaren Seite bzw.
     mit "View Page Source".
 
     Beendet den HTTP-Server auf `h1` (er läuft im Hintergrund, `Strg+C`
@@ -1030,7 +1052,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         company"). Das eigentliche
         Lernziel ist, als Nutzer:in *ohne* IT-Hintergrund zu erkennen und zu
         benennen, was daran nicht stimmt. Klickt dazu auf „View the site's
-        certificate" und beschreibt, warum der Browser nicht vertraut.
+        certificate" (das öffnet einen neuen Tab; die Warnseite bleibt im
+        vorigen Tab) und beschreibt, warum der Browser nicht vertraut.
 
         ??? success "Lösung"
             (1) Es ist **selbstsigniert**: Aussteller und Inhaber sind
@@ -1046,8 +1069,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     !!! warning "Warnung hier bewusst akzeptieren"
         Damit die Seite trotzdem lädt, müsst ihr das Zertifikat **in dieser
         Übung ausdrücklich akzeptieren**: Klickt auf der Warnseite auf
-        **„Advanced…“** und dann auf **„Accept the Risk and Continue“**.
-        Erst danach erscheint die Seite von `h1`. Das ist nur hier in
+        **„Advanced…“** und dann auf den Knopf **„Proceed to h1 (Risky)“**
+        (in anderen Firefox-Versionen heißt er **„Accept the Risk and
+        Continue“**). Er steht unten im aufgeklappten Bereich; scrollt ggf.
+        nach unten. Erst danach erscheint die Seite von `h1`. Das ist nur hier in
         Ordnung, weil ihr wisst, dass `h1` euer eigener Testserver mit einem
         absichtlich selbst gebauten Zertifikat ist – bei einer echten Webseite
         würdet ihr an dieser Stelle abbrechen.
@@ -1055,7 +1080,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Beobachtet nun erneut in Wireshark, dass der Inhalt diesmal nicht mehr
     im Klartext sichtbar ist.
 
-    Beendet den HTTPS-Server auf `h1` mit `Strg+C`.
+    Beendet den HTTPS-Server auf `h1` mit `Strg+C`. Es erscheint ein
+    Python-Traceback mit `KeyboardInterrupt`; das ist normal und kein Fehler.
 
 11. **Netz beenden.** Auf der Mininet-Konsole:
 
@@ -1063,7 +1089,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     mininet> quit
     ```
 
-    Nach `quit` erscheint evtl. eine Zeile `*** Schnappschuss …`: Das
+    Nach `quit` erscheint evtl. eine Zeile `*** Schnappschuss …` mit einer
+    internen Kennung (ihr könnt sie ignorieren): Das
     Startskript sichert den Endzustand der Routingtabellen; die Meldung ist
     harmlos.
 
