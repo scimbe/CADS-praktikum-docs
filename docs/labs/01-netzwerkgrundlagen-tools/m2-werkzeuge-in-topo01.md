@@ -1,514 +1,18 @@
-# 01 · Netzwerkgrundlagen & Tools
-
-[:material-file-pdf-box: Als PDF herunterladen](../../pdf/01-netzwerkgrundlagen-tools.pdf){ .md-button }
-
-![Desktop direkt nach dem Login: am linken Rand die Symbole "Home", "File System", "Terminal", "Praktikumsaufgaben" und "Datenschutz-Hinweis.txt", oben rechts der Logout-Knopf, in der Mitte das CaDS-Logo, unten die Statusleiste](../assets/screenshots/01-netzwerkgrundlagen-tools/desktop-default.png)
-*Der Desktop nach dem Login. Das Terminal startet ihr per Doppelklick auf das Symbol "Terminal" am linken Rand, abmelden könnt ihr euch oben rechts.*
-
-## Lernziele
-
-- Das TCP/IP-Schichtenmodell nicht nur benennen, sondern in echtem, mit
-  Wireshark aufgezeichnetem Verkehr wiedererkennen (Verbindungs-, Netzwerk-,
-  Transport- und Anwendungsschicht).
-- Grundlegende Netzwerkwerkzeuge sicher anwenden: `ping`, `traceroute`,
-  `nslookup`, `netcat`, `dig`, `curl`, `whois`, `nmap`, `scp`, `tcpdump`,
-  `netstat`, `ss` und `socat`.
-- Den Unterschied zwischen numerischer IP-Adresse und Namensauflösung (DNS)
-  erklären und DNS (ein Hilfsdienst, der Namen in Adressen übersetzt) von
-  Anwendungsprotokollen wie HTTP unterscheiden, die Nutzdaten transportieren.
-- Verschlüsselte und unverschlüsselte Kommunikation im Wireshark-Mitschnitt
-  unterscheiden (Klartext-Netcat/HTTP vs. SSH/SCP/HTTPS) und die Grenzen von
-  Verschlüsselung benennen (Metadaten bleiben sichtbar, auch wenn der Inhalt
-  es nicht ist).
-- Einen fehlerhaften TLS-Zertifikat-Zustand im Browser erkennen und
-  begründen können, statt ihn wegzuklicken.
-- Nachvollziehen, warum in einer gerouteten Topologie nicht jeder Rechner
-  jeden anderen direkt erreicht (asymmetrisches Routing).
-- Namensauflösung nicht nur benutzen, sondern selbst betreiben: einen kleinen,
-  lesbaren DNS-Server starten und an `dig`/`nslookup`/`host` sehen, wie eine
-  DNS-Antwort aus Header, Flags, Frage- und Antwortabschnitt entsteht.
-- Offene Ports und lauschende Dienste mit `ss` (dem Nachfolger von `netstat`)
-  ermitteln und den Klartext-Charakter einfacher TCP-Verbindungen im
-  Mitschnitt erkennen.
-
---8<-- "issue-feedback.md"
-
-## Aufgaben
-
-### Teil 1 – Das TCP/IP-Schichtenmodell in echtem Verkehr (außerhalb von Mininet)
-
-!!! abstract "Auf einen Blick"
-    **Lernziel:** Ihr zeichnet echten Netzwerkverkehr mit Wireshark auf, findet
-    darin eure eigene DNS-Anfrage und eure eigene Web-Anfrage wieder und
-    benennt in einem Paket die vier Schichten (Verbindung, Netzwerk,
-    Transport, Anwendung).
-
-    **Wozu?** Wenn im Firmennetz „das Internet langsam ist" oder ein Dienst
-    nicht antwortet, hilft Raten nicht weiter: Ein Netzwerkadmin schneidet den
-    Verkehr mit und sieht nach, in welcher Schicht etwas schiefgeht – ob die
-    Namensauflösung klemmt, der Verbindungsaufbau scheitert oder der Server
-    eine Fehlerseite liefert. Dieselbe Technik nutzen auch
-    Sicherheitsteams, um verdächtige Verbindungen zu untersuchen.
-
-    **Vorwissen:** keines. Ihr könnt ein Terminal öffnen und Befehle abtippen;
-    alles Weitere wird hier erklärt.
-
-Dieser erste Teil läuft **nicht** in der Mininet-Emulation, sondern direkt auf
-eurem Desktop, um reale Kommunikation ins Internet zu beobachten, bevor wir
-uns die kontrollierte, emulierte Topologie von `topo01` ansehen.
-
-#### Das Terminal öffnen
-
-Das Terminal auf diesem Desktop ist `xfce4-terminal`. Ihr startet es per
-**Doppelklick** auf das Symbol "Terminal" am linken Bildschirmrand (ein Fenster
-mit schwarzem Hintergrund). Es öffnet sich im Ordner `~/rn-practice`; `~` heißt
-euer Home-Verzeichnis. Tippt hier Befehle ein und bestätigt jede Zeile mit
-Enter.
-
-!!! info "Werkzeug: `xfce4-terminal` und `xterm`"
-    `xfce4-terminal` ist ein Terminalemulator mit Tabs, eigenen
-    Einstellungen und Kopieren/Einfügen per Maus – Doku:
-    [docs.xfce.org/apps/xfce4-terminal/getting-started](https://docs.xfce.org/apps/xfce4-terminal/getting-started).
-    Der Mininet-Befehl `mininet> xterm <node>` (z. B. `mininet> xterm h1` in
-    Teil 2) öffnet auf diesem Desktop ebenfalls ein `xfce4-terminal`-Fenster.
-
-**Übung:** Öffnet ein Terminal über das Symbol und lasst es für die
-folgenden Schritte offen.
-
-!!! info "Wie die Befehle in diesem Blatt gekennzeichnet sind"
-    Auf diesem Desktop gibt es zwei Arten von Terminalfenstern. Ihr müsst sie
-    auseinanderhalten:
-
-    - **Normales Terminal** (Symbol „Terminal"): Die Eingabeaufforderung
-      beginnt mit `cads@…`. Befehle ohne Präfix, wie `wireshark &` in Teil 1,
-      tippt ihr hier.
-    - **Knotenfenster** der emulierten Topologie (ab Teil 2): Der Fenstertitel
-      lautet „Node: h1" bzw. „Node: h2", die Eingabeaufforderung
-      `root@…:~/rn-practice/topo01#`. Sie sieht in **allen** Knotenfenstern
-      gleich aus – achtet auf den **Fenstertitel**.
-
-    `h1$ ping -c 4 10.0.6.2` heißt: Tippt nur `ping -c 4 10.0.6.2` (ohne das
-    `h1$`) in das Fenster „Node: h1". Entsprechend steht `h2$` für „Node: h2".
-    `mininet> pingall` heißt: Tippt `pingall` in das Terminal, in dem ihr
-    `./start-topo01.sh` gestartet habt; dort bleibt der Prompt `mininet>`
-    stehen, solange das Netz läuft.
-
---8<-- "issue-feedback.md"
-
-#### Schritt 1: Wireshark starten und aufzeichnen
-
-!!! info "Werkzeug: Wireshark"
-    **Was es tut:** Wireshark schneidet den Verkehr auf einer oder mehreren
-    Netzwerkschnittstellen mit und zeigt jedes einzelne Paket samt aller
-    enthaltenen Protokollschichten an. Es sieht alle Schichten, von der
-    Verbindungsschicht bis zur Anwendung.
-
-    **Aufruf und wichtige Stellen:**
-
-    - `wireshark &` – startet das Programm; das `&` am Ende hält das Terminal
-      frei für weitere Befehle. Ihr braucht dafür keine Administratorrechte.
-    - Schnittstelle `any` – fasst alle Schnittstellen in einer Aufzeichnung
-      zusammen.
-    - Zeile „Apply a display filter…" – der **Anzeigefilter**, z. B. `dns`
-      oder `icmp`: blendet alles andere nur aus (aufgezeichnet wird weiter).
-    - Rechtsklick auf ein Paket → „Follow → TCP Stream" – zeigt eine ganze
-      Verbindung am Stück.
-    - Rotes Quadrat in der Symbolleiste – beendet die Aufzeichnung.
-
-    **Beispiel, Zeile für Zeile gelesen** (Anzeigefilter `dns`, aus Schritt 2):
-
-    ```text
-    No. Time      Source          Destination     Protocol Length Info
-    1   0.000000  172.17.0.11     141.22.192.100  DNS      71     Standard query 0xb669 A becke.net
-    2   0.000283  141.22.192.100  172.17.0.11     DNS      87     Standard query response 0xb669 A becke.net A 81.169.145.66
-    ```
-
-    `No.` ist die laufende Paketnummer, `Time` die Sekunden seit dem Start
-    der Aufzeichnung, `Source`/`Destination` sind Absender und Empfänger
-    (eure Adresse und die des Resolvers), `Protocol` das erkannte
-    Anwendungsprotokoll, `Length` die Paketgröße in Bytes. In `Info` steht die
-    Frage „A becke.net" (Adresse zu diesem Namen?) und in Zeile 2 die Antwort
-    mit der IPv4-Adresse. Die zusammengehörige Antwort trägt dieselbe
-    Kennung (`0xb669`).
-
-    **Typische Fehlermeldung:** „Promiscuous mode not supported on the `any`
-    device":
-
-    ![Wireshark-Fehlerdialog „Promiscuous mode not supported on the 'any' device" mit OK-Knopf, im Hintergrund eine bereits laufende, noch leere Aufzeichnung auf „any"](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-promiscuous-error.png)
-    *Der Dialog erscheint, wenn beim Start der Haken „Promiscuous mode" noch gesetzt ist.*
-
-    Der Promiscuous-Modus lässt eine einzelne Netzwerkkarte auch Verkehr
-    mitschneiden, der nicht an sie adressiert ist. Die Sammel-Schnittstelle
-    `any` kann das nicht. Bestätigt mit OK; Wireshark zeichnet dann ohne
-    Promiscuous-Modus weiter auf. Offizielle Doku:
-    [wireshark.org/docs](https://www.wireshark.org/docs/).
-
-1. Tippt im offenen Terminal:
-
-    ```bash
-    wireshark &
-    ```
-
-    Es öffnet sich das Wireshark-Hauptfenster mit der Willkommensseite. Im Bereich "Capture"
-    seht ihr eine Liste der Schnittstellen, unter anderem `eth0`, `any` und
-    `Loopback: lo`.
-
-2. Wählt die Zeile **`any`** aus (sie fasst alle Schnittstellen in einer
-    Aufzeichnung zusammen – genau das braucht ihr hier: Schritt 2 und 6
-    erzeugen nämlich teils rein lokalen Verkehr, der `eth0` nie erreicht) und
-    öffnet über `Capture → Options…` (oder `Strg+K`) die
-    Aufzeichnungsoptionen. Wählt dort unten links den Haken
-    **"Enable promiscuous mode on all interfaces" ab**, bevor ihr startet:
-
-    ![Wireshark Capture Options: Zeile „any" ausgewählt, Spalte „Link-layer Header" zeigt „Linux cooked v1" für any und „Ethernet" für eth0/lo, der Haken „Enable promiscuous mode on all interfaces" unten links ist abgewählt](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-interfaces-promiscuous.png)
-    *Die Einstellung vor dem Start: „any" ausgewählt, Promiscuous-Modus abgewählt.*
-
-3. Klickt "Start". Die Aufzeichnung läuft jetzt auf `any`. (Ohne die
-    Optionen geht es auch schneller: Ein **Doppelklick** auf die
-    Schnittstellenzeile im Startfenster beginnt sofort mit dem Mitschnitt.)
-
-    !!! note "Die Paketliste füllt sich laufend"
-        Ihr seht den gesamten Verkehr aller Schnittstellen, auch den des
-        Desktop-Streamings, über das ihr diesen Desktop im Browser seht.
-        Drei Fensterbereiche sind wichtig:
-
-        - oben die **Paketliste** (eine Zeile pro Paket),
-        - in der Mitte der **Detailbaum** (Schicht für Schicht aufklappbar –
-          genau den braucht ihr in Schritt 5),
-        - unten die **Hex-/ASCII-Rohdaten** des gerade ausgewählten Pakets.
-
-        Gefiltert wird über die Zeile "Apply a display filter…" (Anzeigefilter,
-        nicht zu verwechseln mit dem Aufzeichnungsfilter in den
-        Capture-Optionen), siehe Schritt 4.
-
---8<-- "issue-feedback.md"
-
-#### Schritt 2: `nslookup` – die IP-Adresse ermitteln
-
-!!! info "Werkzeug: `nslookup`"
-    **Was es tut:** `nslookup` fragt einen DNS-Server nach der IP-Adresse, die
-    zu einem Domainnamen gehört (Namensauflösung, Anwendungsschicht) –
-    grundsätzlich das, was ein Browser vor jedem Seitenaufruf automatisch im
-    Hintergrund erledigt. Hier ermittelt es die IPv4-Adresse von `becke.net`,
-    damit ihr den Mitschnitt gezielt auf diese Adresse filtern könnt.
-
-    **Aufruf:**
-
-    - `nslookup <name>` – fragt den Resolver, der in `/etc/resolv.conf` steht.
-    - `nslookup <name> <server>` – fragt stattdessen den genannten Server.
-
-    **Beispielausgabe, Zeile für Zeile gelesen:**
-
-    ```text
-    $ nslookup becke.net
-    Server:		<Adresse eures Resolvers>
-    Address:	<Adresse eures Resolvers>#53
-
-    Non-authoritative answer:
-    Name:	becke.net
-    Address: 81.169.145.66
-    ```
-
-    `Server`/`Address` nennen den befragten Resolver samt Port (`#53` ist der
-    DNS-Port). „Non-authoritative answer" heißt: Der Resolver hat die Antwort
-    von einem anderen Server übernommen und ist selbst nicht für `becke.net`
-    zuständig. `Name` und `Address` sind das Ergebnis.
-
-    **Typische Fehlermeldung:** `** server can't find gibtsnicht.invalid:
-    NXDOMAIN` bedeutet: Der Name existiert nicht. Kommt stattdessen
-    `connection timed out; no servers could be reached`, antwortet der
-    Resolver gar nicht.
-
-1. Öffnet ein **zweites** Terminal (Wireshark läuft im ersten weiter) und
-    führt aus:
-
-    ```bash
-    nslookup becke.net
-    ```
-
-    Merkt euch die ausgegebene IPv4-Adresse – ihr braucht sie gleich für den
-    Wireshark-Filter. (Bei euch kann die Adresse abweichen.)
-
-    !!! note "Welcher DNS-Server ist das bei euch?"
-        Die Adresse hinter `Server:` hängt von der Umgebung ab. Lest nach,
-        welche bei euch gilt, statt sie zu raten:
-
-        ```bash
-        cat /etc/resolv.conf
-        ```
-
-        Die Zeile `nameserver …` nennt den Resolver, den `nslookup` benutzt.
-        Notiert die Adresse; gleich in Punkt 2 seht ihr in Wireshark, dass
-        die DNS-Anfrage genau an sie geht.
-
-2. Wechselt zu Wireshark und tippt in die Anzeigefilter-Zeile oben `dns`,
-    dann Enter, um die soeben erzeugte DNS-Abfrage wiederzufinden:
-
-    !!! note "Eure Anzeige kann abweichen"
-        Je nach Standort stehen bei `Source`/`Destination` andere Adressen
-        (z. B. der Docker-Resolver `127.0.0.11` oder der Cluster-DNS
-        `10.43.0.10`) statt der im Bild. Manchmal seht ihr auch deutlich
-        mehr DNS-Pakete, weil zusätzlich Suchdomänen abgefragt werden, und
-        `nslookup` meldet vorab Zeilen wie `Got recursion not available`.
-        Sucht dann die Zeile mit `A becke.net` oder filtert mit
-        `dns.qry.name == "becke.net"`.
-
-    ![Wireshark mit Anzeigefilter „dns": Paketliste zeigt „Standard query ... A becke.net" und die Antwort „Standard query response ... A becke.net A 81.169.145.66" zwischen 172.17.0.11 und dem Resolver 141.22.192.100, darunter der Detailbaum mit Linux cooked capture, IPv4, UDP und DNS](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-dns-filter.png)
-    *Die DNS-Anfrage (Protokollspalte „DNS") und ihre Antwort, direkt nach `nslookup becke.net`.
-    Je zweimal, weil `nslookup` die Adresse (A) und die IPv6-Adresse (AAAA) abfragt.
-    Die Adressen in Source und Destination sind die eures Desktops und eures Resolvers.*
-
-    Ihr seht die Anfrage ("Standard query … A becke.net") und die Antwort
-    ("Standard query response … A becke.net A …") als eigene Zeilen mit
-    Protokoll "DNS".
-
-    !!! note "Warum die Pakete an euren Resolver gehen, nicht an `becke.net`"
-        Die DNS-Anfrage geht an den Resolver aus `/etc/resolv.conf`, nicht
-        direkt an den für `becke.net` zuständigen Server. Der Resolver
-        reicht die Anfrage weiter; diese Weiterleitung seht ihr in eurem
-        Mitschnitt nicht. Das ist mit ein Grund, warum in Schritt 1 auf der
-        Pseudo-Schnittstelle `any` mitgeschnitten wird: `any` erfasst alle
-        Schnittstellen, auch rein lokalen Verkehr.
-
---8<-- "issue-feedback.md"
-
-#### Schritt 3: `curl` – Verkehr zur ermittelten Adresse erzeugen
-
-!!! info "Werkzeug: `curl`"
-    **Was es tut:** `curl` schickt eine Anfrage an einen Server und gibt die
-    Antwort aus – wie ein Browser, nur ohne grafische Darstellung
-    (Anwendungsschicht: HTTP/HTTPS). Hier erzeugt es gezielt echten Verkehr
-    zu der eben ermittelten Adresse.
-
-    **Aufruf:**
-
-    - `curl <url>` – ruft die Adresse ab und gibt den Inhalt aus.
-    - `curl -I <url>` – zeigt nur die Kopfzeilen der Antwort.
-    - `curl -k <url>` – ignoriert ein ungültiges Zertifikat (nur zum
-      Experimentieren, nie im Alltag).
-
-    **Beispielausgabe** von `curl -I https://becke.net`, Zeile für Zeile:
-
-    ```text
-    HTTP/2 200
-    last-modified: Mon, 12 Feb 2024 11:37:58 GMT
-    content-length: 422
-    content-type: text/html
-    server: Apache/2.4.69 (Unix)
-    ```
-
-    `HTTP/2 200` ist die Statuszeile: Protokollversion und Statuscode
-    (`200` = alles in Ordnung, `404` = Seite nicht gefunden). Darunter stehen
-    Kopfzeilen: wann die Seite zuletzt geändert wurde, wie groß sie ist
-    (422 Bytes), welchen Typ sie hat und welche Server-Software antwortet.
-    Eure Werte weichen ab (Serverversion, Zeiten).
-
-    **Typische Fehlermeldung:** `curl: (6) Could not resolve host:
-    gibtsnicht.invalid` – der Name ließ sich nicht in eine Adresse auflösen
-    (also ein DNS-Problem, kein Webserver-Problem).
-
-Tippt im zweiten Terminal:
-
-```bash
-curl https://becke.net
-```
-
-Die Ausgabe ist der HTML-Quelltext der Seite; für diesen Schritt zählt nur
-der erzeugte Netzwerkverkehr.
-
---8<-- "issue-feedback.md"
-
-#### Schritt 4: Auf den erzeugten Verkehr filtern
-
-Filtert in Wireshark auf genau diesen Verkehr, damit ihr nicht im restlichen
-Hintergrundrauschen des Betriebssystems sucht:
-
-```text
-ip.addr == <eure ermittelte IP-Adresse>
-```
-
-Macht anschließend einen Rechtsklick auf eines der gefilterten TCP-Pakete und
-wählt "Follow → TCP Stream". Wireshark zeigt dann die gesamte Übertragung
-dieser einen Verbindung am Stück. Weil Schritt 3 die Seite über HTTPS abruft,
-seht ihr nach dem Beginn des TLS-Handshakes nur verschlüsselte, nicht lesbare
-Bytes; in Teil 2 folgt ihr auf demselben Weg einem unverschlüsselten Strom.
-Dabei öffnet sich ein zusätzliches Fenster „Follow TCP Stream". Schließt es
-mit **Close** (oder **Back**). Im Hauptfenster steht jetzt der Filter
-`tcp.stream eq <Nummer>` anstelle eures Anzeigefilters – tragt für Schritt 5
-wieder den Filter von oben ein.
-
---8<-- "issue-feedback.md"
-
-#### Schritt 5: Die vier Schichten im Detailbaum identifizieren
-
-!!! info "Was ist überhaupt eine „Schicht"?"
-    Das TCP/IP-Modell teilt Netzwerkkommunikation in mehrere **Schichten**
-    auf. Jede Schicht löst dabei ein eigenes, abgegrenztes Teilproblem
-    (z. B. "wie kommen Bits über ein Kabel/Funk" oder "wie findet ein Paket
-    den richtigen Rechner im Internet") und verpackt dafür die Daten der
-    jeweils darüberliegenden Schicht in ihren eigenen Umschlag (Header) –
-    von den Anwendungsdaten ganz oben bis zu den elektrischen/optischen
-    Bits ganz unten. Diese Unterteilung gibt es, damit jede Schicht
-    unabhängig von den anderen ausgetauscht oder verstanden werden kann:
-    Ethernet lässt sich durch WLAN ersetzen, ohne dass HTTP davon etwas
-    merkt. Im Wireshark-Detailbaum (mittlerer Fensterbereich, siehe
-    Schritt 1) seht ihr das ganz konkret: Die eingerückten Zeilen SIND die
-    Schichten, von außen/unten nach innen/oben aufgeklappt – die äußerste
-    Zeile ist die unterste Schicht (Übertragung), die innerste die oberste
-    (Anwendung).
-
-Wählt eines der TCP-Pakete dieser Kommunikation aus (ein Klick in der
-Paketliste) und klappt im Detailbaum von außen/unten nach innen/oben die
-einzelnen Zeilen auf. Ordnet die Schichten zu:
-
-- **Anwendungsschicht:** HTTP (bzw. TLS-Record bei HTTPS)
-- **Transportschicht:** TCP-Segment (Ports, Sequenznummern, Flags)
-- **Netzwerkschicht:** IP-Header (IPv4 oder IPv6, Quell-/Zieladresse)
-- **Verbindungsschicht:** *siehe Hinweis direkt darunter – hier nicht der
-  klassische Ethernet-Header*
-
-!!! info "Verbindungsschicht bei „any": „Linux cooked capture" statt Ethernet-Header"
-    Weil ihr auf der Pseudo-Schnittstelle `any` mitschneidet (Schritt 1),
-    zeigt die Verbindungsschicht hier **„Linux cooked capture v1"** (kurz
-    SLL) statt eines echten Ethernet-Headers – `any` kapselt mehrere,
-    unterschiedliche Schnittstellen einheitlich in dieses Pseudo-Format, das
-    keinen vollständigen Ethernet-Header (mit Ziel-MAC) kennt, aber
-    trotzdem nützliche Link-Layer-Informationen mitbringt:
-
-    ![Aufgeklappter Detailbaum-Eintrag „Linux cooked capture v1" eines TCP-Pakets Richtung becke.net: Packet type „Sent by us (4)", Link-layer address type „Ethernet (1)", Source „96:20:bb:b0:7a:56", Protocol „IPv4 (0x0800)"](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-linklayer-real.png)
-    *„Linux cooked capture v1" für den Verkehr zu becke.net: „Link-layer address type: Ethernet (1)" und die echte MAC-Adresse eurer Schnittstelle als „Source".*
-
-    Achtet auf zwei Felder: **"Link-layer address type"** (hier `Ethernet
-    (1)` – das Paket lief tatsächlich über eine echte, Ethernet-artige
-    Schnittstelle) und **"Source"** (eine echte Hardware-MAC-Adresse). Beide
-    kommen in Schritt 6 wieder vor, mit einem auffälligen Unterschied.
-
-!!! question "Nachgedacht: Welche Schnittstelle war das?"
-    Auf welcher tatsächlichen Schnittstelle (nicht `any`) lief dieses Paket
-    vermutlich – und woran im Detailbaum könnt ihr das festmachen, obwohl
-    `any` selbst kein echter Ethernet-Header ist?
-
-    ??? success "Lösung"
-        Vermutlich auf `eth0`, der einzigen echten Netzwerkkarte des
-        Desktops (`lo` ist die Loopback-Schnittstelle). Festmachen lässt sich
-        das an „Link-layer address type: Ethernet (1)" und der echten
-        MAC-Adresse in „Source": Beides gibt es nur bei einer
-        Ethernet-artigen Schnittstelle. „Packet type: Sent by us" sagt
-        zusätzlich, dass das Paket euer Rechner abgeschickt hat.
-
-Wenn der Bildschirm zu voll wird, könnt ihr das Terminalfenster mit
-`nslookup`/`curl` schließen. **Wireshark lasst ihr laufen**, ihr braucht es in
-Schritt 6.
-
---8<-- "issue-feedback.md"
-
-#### Vom externen zum lokalen Verkehr: Wechsel zu Schritt 6
-
-Bisher habt ihr Verkehr zu einem echten Server im Internet (`becke.net`)
-untersucht. Schritt 6 wechselt bewusst zu rein lokalem Verkehr: Ihr
-schickt Pakete an euch selbst (`127.0.0.1`, die Loopback-Adresse), die nie
-eine echte Netzwerkkarte durchlaufen. Die neue Frage lautet: Wie sieht
-dieselbe Schichten-Analyse aus Schritt 5 aus, wenn gar keine echte Hardware
-beteiligt ist? Der Aufbau bleibt dabei gleich – ihr filtert wieder in
-derselben laufenden Wireshark-Aufzeichnung auf `any`, diesmal nur mit einem
-anderen Anzeigefilter (`icmp` statt der IP-Adresse von eben).
-
-#### Schritt 6: `ping 127.0.0.1` – dasselbe Experiment rein lokal
-
-!!! info "Werkzeug: `ping`"
-    **Was es tut:** `ping` schickt kleine Testpakete (ICMP „Echo Request",
-    Netzwerkschicht) an eine Zieladresse und misst, ob und wie schnell eine
-    Antwort („Echo Reply") zurückkommt – der klassische erste Test, ob ein
-    Rechner erreichbar ist. Hier zielt ihr bewusst auf euch selbst
-    (`127.0.0.1`).
-
-    **Aufruf:**
-
-    - `ping <ziel>` – schickt Pakete, bis ihr mit `Strg+C` abbrecht.
-    - `ping -c 4 <ziel>` – schickt genau vier Pakete.
-    - `ping -W 2 <ziel>` – wartet höchstens 2 Sekunden auf jede Antwort.
-
-    **Beispielausgabe, Zeile für Zeile gelesen:**
-
-    ```text
-    $ ping -c 3 127.0.0.1
-    PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
-    64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.072 ms
-    64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.053 ms
-    64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.051 ms
-
-    --- 127.0.0.1 ping statistics ---
-    3 packets transmitted, 3 received, 0% packet loss, time 2040ms
-    rtt min/avg/max/mdev = 0.051/0.058/0.072/0.009 ms
-    ```
-
-    `56(84) bytes`: 56 Byte Nutzdaten, 84 Byte als IP-Paket (20 Byte
-    IP-Kopf + 8 Byte ICMP-Kopf + 56 Byte Daten). Wireshark zeigt hier
-    100 Byte, weil bei der Schnittstelle `any` der 16 Byte lange „Linux
-    cooked"-Kopf mitgezählt wird (auf einer echten Ethernet-Schnittstelle
-    wären es 98). In jeder
-    Antwortzeile ist `icmp_seq` die laufende Nummer, `ttl` die verbleibende
-    Lebensdauer des Pakets (jeder Router auf dem Weg zählt sie um 1 herunter;
-    64 ist der Startwert, hier also kein Router dazwischen) und `time` die
-    Umlaufzeit (Round-Trip-Time, RTT) in Millisekunden. Die Statistik fasst
-    zusammen: gesendet, empfangen, Verlust, kleinste/mittlere/größte RTT.
-
-    **Typische Fehlermeldungen:**
-
-    - `ping: gibtsnicht.invalid: Name or service not known` – der Name ließ
-      sich nicht auflösen.
-    - `100% packet loss` ohne weitere Meldung – es kommt keine Antwort (Ziel
-      aus, falsche Adresse, oder jemand verwirft die Pakete still).
-    - `From 10.0.6.1 icmp_seq=1 Destination Net Unreachable` – ein Router
-      meldet ausdrücklich, dass er keinen Weg zum Ziel kennt.
-
-```bash
-ping 127.0.0.1
-```
-
-(`Strg+C` beendet `ping`, falls es weiterläuft – für den Mitschnitt reichen
-wenige Sekunden.)
-
-Filtert in Wireshark auf `icmp` und identifiziert erneut die vier Schichten
-in einem der Pakete.
-
-!!! info "Verbindungsschicht bei „any": Loopback statt Ethernet"
-    ![Aufgeklappter Detailbaum-Eintrag „Linux cooked capture v1" eines ICMP-Pakets auf 127.0.0.1: Packet type „Unicast to us (0)", Link-layer address type „Loopback (772)", Source „00:00:00_00:00:00 (00:00:00:00:00:00)", Protocol „IPv4 (0x0800)"](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-linklayer-loopback.png)
-    *„Linux cooked capture v1" für den Loopback-Verkehr: „Link-layer address type: Loopback (772)" und eine Adresse aus lauter Nullen als „Source".*
-
-    Auch hier zeigt die Verbindungsschicht "Linux cooked capture v1" (wie in
-    Schritt 5, ein Merkmal der Pseudo-Schnittstelle `any`). Der Unterschied liegt in denselben zwei Feldern wie eben:
-    **"Link-layer address type"** steht auf `Loopback (772)` statt
-    `Ethernet (1)`, und **"Source"** ist `00:00:00:00:00:00` – eine
-    Adresse aus lauter Nullen, weil hier keine echte Netzwerkkarte beteiligt
-    war, die eine eigene MAC-Adresse mitbringen könnte.
-
-!!! question "Nachgedacht: Was sagt eine Null-MAC-Adresse?"
-    Vergleicht die beiden Felder "Link-layer address type" und "Source" aus
-    Schritt 5 und Schritt 6 direkt gegenüber. Was sagt eine
-    Null-MAC-Adresse über den Weg aus, den ein Paket zurückgelegt hat – und
-    welche Erwartung leitet ihr daraus für künftige Mitschnitte ab, wenn ihr
-    eine Adresse wie `00:00:00:00:00:00` seht?
-
-    ??? success "Lösung"
-        Das Paket hat den Rechner nie verlassen: Es lief nur über die
-        Loopback-Schnittstelle, ohne echte Netzwerkkarte, und deshalb gibt es
-        keine Hardware-Adresse. Sieht man in einem Mitschnitt
-        `00:00:00:00:00:00` (Typ „Loopback"), handelt es sich also um
-        rein lokalen Verkehr zwischen Programmen desselben Rechners – er
-        taucht auf keinem Kabel auf und ist von außen nicht beobachtbar.
-
-!!! tip "Euer eigenes Notizbuch"
-    Legt euch unter `~/rn-practice/notizbuch.md` eine eigene Datei an und
-    tragt dort Befehle und Wireshark-Filter ein, die ihr euch merken wollt.
-    Im Image ist dafür der Editor `mousepad` vorhanden:
-    `mousepad ~/rn-practice/notizbuch.md &` im normalen Terminal.
-
-Schließt zum Abschluss dieses Teils Wireshark und das Terminal und öffnet für
-Teil 2 ein neues Terminal. Beim Schließen fragt Wireshark, ob der Mitschnitt
-gespeichert werden soll: Wählt **„Continue without Saving"** (je nach
-Zustand der Aufzeichnung steht dort „Quit without Saving"); den Mitschnitt
-braucht ihr nicht.
+# Meilenstein 2 von 3 · Werkzeuge in der emulierten Topologie
+
+*01 · Netzwerkgrundlagen & Tools* · [Übersicht des Blatts](index.md)
+
+Hier startet ihr die emulierte Topologie topo01 und untersucht sie mit den gängigen Netzwerkwerkzeugen.
+
+<div class="schichtenbild" style="max-width:20rem;margin:0 0 1.2em 0;font-size:.72rem;line-height:1.5">
+<div style="margin-bottom:.3em;color:#757575">In diesen Schichten des TCP/IP-Modells bewegt ihr euch hier:</div>
+<div style="display:grid;gap:3px">
+<div style="padding:.2em .7em;border-radius:3px;background:#3f51b5;color:#fff;font-weight:600;border:1px solid #3f51b5">Anwendungsschicht · Schwerpunkt</div>
+<div style="padding:.2em .7em;border-radius:3px;background:#3f51b5;color:#fff;font-weight:600;border:1px solid #3f51b5">Transportschicht · Schwerpunkt</div>
+<div style="padding:.2em .7em;border-radius:3px;background:#3f51b5;color:#fff;font-weight:600;border:1px solid #3f51b5">Netzwerkschicht · Schwerpunkt</div>
+<div style="padding:.2em .7em;border-radius:3px;color:#9e9e9e;border:1px dashed #9e9e9e">Verbindungsschicht</div>
+</div>
+</div>
 
 ### Teil 2 – Werkzeuge in der emulierten Topologie `topo01`
 
@@ -526,7 +30,7 @@ braucht ihr nicht.
     Dienst, ist der Port offen?). Und wer Sicherheit ernst nimmt, muss wissen,
     was ein Angreifer im Mitschnitt sieht.
 
-    **Vorwissen:** Teil 1 (Wireshark, `ping`, Schichten).
+    **Vorwissen:** [Teil 1](m1-schichten-im-echten-verkehr.md#teil-1-das-tcpip-schichtenmodell-in-echtem-verkehr-auerhalb-von-mininet) (Wireshark, `ping`, Schichten).
 
 Ab hier arbeitet ihr in der Mininet-Emulation. Die Topologie `topo01` besteht
 aus zwei Endgeräten `h1` (`10.0.1.2`) und `h2` (`10.0.6.2`) und zwei Routern
@@ -567,7 +71,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     links in der Leiste: Klickt auf den Eintrag „Xfce4-terminal"; die Liste
     nennt jedes Fenster mit Titel („Node: h1", „Node: h2", „Terminal").
     Alternativ zieht ihr die Fenster am Titelbalken auseinander. Mehr dazu in
-    der [Umgebungsreferenz](../reference/umgebung.md#fenster-wiederfinden-und-tippen). Für die Router
+    der [Umgebungsreferenz](../../reference/umgebung.md#fenster-wiederfinden-und-tippen). Für die Router
     `r1`/`r2` oder ein versehentlich geschlossenes Fenster öffnet ihr auf der
     Mininet-Konsole ein weiteres Terminal:
 
@@ -583,7 +87,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     mininet> pingall
     ```
 
-    ![Drei Terminalfenster nach dem Start von topo01: oben die Mininet-Konsole mit der Ausgabe von pingall (h1 -> h2 r1 X; h2 -> h1 r1 r2; r1 -> h1 h2 r2; r2 -> X h2 r1; 16% dropped (10/12 received)), unten links „Node: h1" und unten rechts „Node: h2" mit leerem Prompt](../assets/screenshots/01-netzwerkgrundlagen-tools/topo01-start-pingall.png)
+    ![Drei Terminalfenster nach dem Start von topo01: oben die Mininet-Konsole mit der Ausgabe von pingall (h1 -> h2 r1 X; h2 -> h1 r1 r2; r1 -> h1 h2 r2; r2 -> X h2 r1; 16% dropped (10/12 received)), unten links „Node: h1" und unten rechts „Node: h2" mit leerem Prompt](../../assets/screenshots/01-netzwerkgrundlagen-tools/topo01-start-pingall.png)
     *Oben die Mininet-Konsole nach `pingall`, unten die Knoten-Terminals von `h1` und `h2`.*
 
     `pingall` braucht etwa eine Minute, weil die fehlgeschlagenen Pings auf
@@ -611,7 +115,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
             die Antwort an `10.0.4.2` keine passende Route und schickt sie
             über die Standardroute Richtung Internet – dort geht sie verloren.
             Die Rechenaufgabe zu dieser Topologie steht in
-            [Aufgabenblatt 02, Teil 11](02-subnetting-arp.md).
+            [Aufgabenblatt 02, Teil 11](../02-subnetting-arp/index.md).
 
     !!! info "Werkzeug: `ip`"
         **Was es tut:** `ip` zeigt und verändert die Netzwerkeinstellungen
@@ -649,8 +153,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
 
 2. **Konnektivität mit Ping prüfen.** Wechselt in das Fenster „Node: h1"
     und führt dort nacheinander aus – ohne das Präfix `h1$`, siehe die Box
-    „Wie die Befehle in diesem Blatt gekennzeichnet sind" in Teil 1 (zu `ping`
-    siehe Box „Werkzeug: `ping`" in Teil 1, Schritt 6):
+    „Wie die Befehle in diesem Blatt gekennzeichnet sind" in [Teil 1](m1-schichten-im-echten-verkehr.md#teil-1-das-tcpip-schichtenmodell-in-echtem-verkehr-auerhalb-von-mininet) (zu `ping`
+    siehe Box „Werkzeug: `ping`" in [Teil 1](m1-schichten-im-echten-verkehr.md#teil-1-das-tcpip-schichtenmodell-in-echtem-verkehr-auerhalb-von-mininet), Schritt 6):
 
     ```bash
     h1$ ping -c 4 10.0.6.2        # Ping mit numerischer IPv4-Adresse (h2)
@@ -833,9 +337,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     h1$ ping -c 1 h2
     ```
 
-    ![Wireshark-Fenster mit laufendem Capture auf h2-eth0, Anzeigefilter icmp gesetzt, Paketliste mit abwechselnden Echo-Request/-Reply zwischen 10.0.1.2 und 10.0.6.2, Detailbereich mit aufgeklappten Ethernet-, IP- und ICMP-Headern und Hex-Dump](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-icmp-layers.png)
+    ![Wireshark-Fenster mit laufendem Capture auf h2-eth0, Anzeigefilter icmp gesetzt, Paketliste mit abwechselnden Echo-Request/-Reply zwischen 10.0.1.2 und 10.0.6.2, Detailbereich mit aufgeklappten Ethernet-, IP- und ICMP-Headern und Hex-Dump](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-icmp-layers.png)
     *Echter Mitschnitt auf `h2-eth0`, während `h1` per `ping` Verkehr zu `h2`
-    erzeugt. Der Detailbereich zeigt genau die in Teil 1 gesuchten Schichten:
+    erzeugt. Der Detailbereich zeigt genau die in [Teil 1](m1-schichten-im-echten-verkehr.md#teil-1-das-tcpip-schichtenmodell-in-echtem-verkehr-auerhalb-von-mininet) gesuchten Schichten:
     Ethernet II (Verbindungsschicht), Internet Protocol Version 4
     (Netzwerkschicht) und das ICMP-Paket selbst. Die Anfragen tragen
     `ttl=62`, die Antworten `ttl=64`.*
@@ -1320,7 +824,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     `test30M.txt 100% 196`, und im `h1`-Terminal steht
     `Accepted publickey for cads from 10.0.6.2`.
 
-    ![Drei Terminalfenster: unten links „Node: h1" mit den Meldungen des SSH-Servers (Server listening on 10.0.1.2 port 22, Accepted publickey for cads from 10.0.6.2, Starting session: subsystem sftp), unten rechts „Node: h2" mit den Befehlen mkdir, ssh-keygen, cat und scp, der Frage nach dem Fingerabdruck mit der Antwort yes und der Zeile test30M.txt 100% 196, oben die Mininet-Konsole](../assets/screenshots/01-netzwerkgrundlagen-tools/sshd-scp-anmeldung.png)
+    ![Drei Terminalfenster: unten links „Node: h1" mit den Meldungen des SSH-Servers (Server listening on 10.0.1.2 port 22, Accepted publickey for cads from 10.0.6.2, Starting session: subsystem sftp), unten rechts „Node: h2" mit den Befehlen mkdir, ssh-keygen, cat und scp, der Frage nach dem Fingerabdruck mit der Antwort yes und der Zeile test30M.txt 100% 196, oben die Mininet-Konsole](../../assets/screenshots/01-netzwerkgrundlagen-tools/sshd-scp-anmeldung.png)
     *Links der SSH-Server auf `h1`, rechts die Schlüsselerzeugung und der `scp`-Aufruf auf `h2`.*
 
     Beendet nun den SSH-Server im Terminal von `h1` mit `Strg+C`: `sshd -D`
@@ -1330,7 +834,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     SSH-Verhandlungsphase und danach durchgehend verschlüsselten Verkehr –
     der Dateiinhalt selbst ist nicht einsehbar.
 
-    ![Wireshark-Mitschnitt auf h2-eth0 mit Anzeigefilter ssh: Paketliste mit SSHv2-Paketen zwischen 10.0.6.2 und 10.0.1.2 – zuerst die Protokollversion (SSH-2.0-OpenSSH), dann Key Exchange Init, Diffie-Hellman Key Exchange, danach nur noch „Encrypted packet"; im Detailbereich TCP-Header, rechts die unleserlichen Rohdaten](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-ssh-verschluesselt.png)
+    ![Wireshark-Mitschnitt auf h2-eth0 mit Anzeigefilter ssh: Paketliste mit SSHv2-Paketen zwischen 10.0.6.2 und 10.0.1.2 – zuerst die Protokollversion (SSH-2.0-OpenSSH), dann Key Exchange Init, Diffie-Hellman Key Exchange, danach nur noch „Encrypted packet"; im Detailbereich TCP-Header, rechts die unleserlichen Rohdaten](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-ssh-verschluesselt.png)
     *Mitschnitt der SSH-Verbindung: Sichtbar bleiben Adressen, Ports, Paketgrößen und die Verhandlung; der Inhalt steht nur als „Encrypted packet".*
 
     !!! warning "`test30M.txt` ist ein Shell-Skript"
@@ -1388,7 +892,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Kommunikation in Wireshark rekonstruieren – anders als bei SCP/SSH war
     dieser Kanal zu keinem Zeitpunkt verschlüsselt.
 
-    ![Wireshark-Fenster „Follow TCP Stream" (tcp.stream eq 1) auf h2-eth0: im Klartext die eingetippten Befehle „ifconfig" und „cat key.pem" samt Ausgabe mit dem Interface h2-eth0 (inet 10.0.6.2) und dem Beginn des privaten Schlüssels „-----BEGIN ENCRYPTED PRIVATE KEY-----"](../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-reverse-shell-klartext.png)
+    ![Wireshark-Fenster „Follow TCP Stream" (tcp.stream eq 1) auf h2-eth0: im Klartext die eingetippten Befehle „ifconfig" und „cat key.pem" samt Ausgabe mit dem Interface h2-eth0 (inet 10.0.6.2) und dem Beginn des privaten Schlüssels „-----BEGIN ENCRYPTED PRIVATE KEY-----"](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-reverse-shell-klartext.png)
     *Der Strom der Bind-Shell im Klartext: Befehle und Antworten sind lesbar.*
 
     Beendet die Bind-Shell mit `exit` (endet `netcat` auf `h1` nicht von
@@ -1402,7 +906,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     !!! info "Werkzeug: `netstat` und `ss`"
         **Was es tut:** Beide zeigen, welche Programme auf welchen Ports
         lauschen oder verbunden sind (Transportschicht). `netstat` ist das
-        ältere Werkzeug, `ss` der Nachfolger; beide siehe Teil 4.
+        ältere Werkzeug, `ss` der Nachfolger; beide siehe [Teil 4](m3-dienste-selbst-betreiben.md#teil-4-offene-ports-finden-ss-statt-netstat-topo01).
 
         **Aufruf:** `netstat -tulnp` – `t` TCP, `u` UDP, `l` nur
         Lauschende, `n` Zahlen statt Namen, `p` zugehöriges Programm.
@@ -1516,7 +1020,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Browser zuerst eine Zertifikatswarnung – das ist hier **gewollt** und kein
     Fehler eurer Umgebung:
 
-    ![Firefox-Warnseite „Warning: Security Risk" für die Adresse h1: „Be careful. Something doesn't look right." Im aufgeklappten Bereich „Advanced" steht, dass das Zertifikat selbst signiert ist und nicht von einer anerkannten Zertifizierungsstelle stammt; unten der Fehlercode MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT. Links dahinter das Terminal mit „Serving TLS"](../assets/screenshots/01-netzwerkgrundlagen-tools/firefox-zertifikatswarnung.png)
+    ![Firefox-Warnseite „Warning: Security Risk" für die Adresse h1: „Be careful. Something doesn't look right." Im aufgeklappten Bereich „Advanced" steht, dass das Zertifikat selbst signiert ist und nicht von einer anerkannten Zertifizierungsstelle stammt; unten der Fehlercode MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT. Links dahinter das Terminal mit „Serving TLS"](../../assets/screenshots/01-netzwerkgrundlagen-tools/firefox-zertifikatswarnung.png)
     *Die Warnung beim Aufruf von `https://h1`. Der Fehlercode lautet `MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT`.*
 
     !!! question "Nachgedacht: Was stimmt an diesem Zertifikat nicht?"
@@ -1576,365 +1080,24 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Cipher-Suiten sowie die TLS-Erweiterungen. Diese Unterschiede sind kein
     Zufall, sondern der Fingerabdruck der jeweiligen TLS-Bibliothek – genau
     das Prinzip, auf dem Verfahren wie JA3-Fingerprinting beruhen (siehe
-    [Aufgabenblatt 06, Teil 5](06-advanced-covert-channels.md)).
+    [Aufgabenblatt 06, Teil 5](../06-advanced-covert-channels/index.md)).
 
 !!! note "Subnetz-Rechenaufgabe zu dieser Topologie"
     Die Rechenaufgabe zu dieser Topologie (warum `pingall` Verluste meldet)
-    steht in [Aufgabenblatt 02, Teil 11](02-subnetting-arp.md). Bearbeitet
+    steht in [Aufgabenblatt 02, Teil 11](../02-subnetting-arp/index.md). Bearbeitet
     sie, nachdem IP-Adressierung und Subnetting in der Vorlesung eingeführt
     wurden.
 
 --8<-- "issue-feedback.md"
 
-### Teil 3 – Namensauflösung selbst betreiben: ein lesbarer DNS-Server (`topo01`)
+!!! success "Meilenstein 2 geschafft"
+    **Das habt ihr gelernt:**
 
-!!! abstract "Auf einen Blick"
-    **Lernziel:** Ihr startet einen eigenen kleinen DNS-Server, fragt ihn mit
-    `dig`, `nslookup` und `host` ab und erklärt anhand der Antwort Flags
-    (`qr aa`) und Statuscode (`NXDOMAIN`).
+    - Mit ping und traceroute prüfen, wer wen erreicht, und erklären, warum in einer gerouteten Topologie nicht jeder jeden direkt erreicht.
+    - Namensauflösung mit dig/nslookup, Registrierungsdaten mit whois und Netzscans mit nmap einsetzen.
+    - Im Mitschnitt unverschlüsselte Verbindungen von verschlüsselten (SSH, SCP, HTTPS) unterscheiden und benennen, was trotz Verschlüsselung sichtbar bleibt.
+    - Einen fehlerhaften TLS-Zustand im Browser erkennen und begründen.
 
-    **Wozu?** DNS ist das Telefonbuch des Internets – und ein beliebtes
-    Angriffsziel: Wer falsche Antworten einschleust, leitet Nutzer auf
-    gefälschte Seiten um. Admins, die in einem Störfall „der Name geht
-    nicht" hören, müssen eine DNS-Antwort lesen können, um zu sehen, ob der
-    Server nicht antwortet, den Namen nicht kennt oder eine falsche Adresse
-    liefert. Wer selbst einen Server gebaut hat, versteht diese Ausgaben.
+    **Was Meilenstein 3 verspricht:** Als Nächstes betreibt ihr selbst einen kleinen DNS-Server, sucht offene Ports mit ss und baut eine TCP-Verbindung von Hand auf. So seht ihr von der anderen Seite, was die Werkzeuge bisher nur abgefragt haben.
 
-    **Vorwissen:** Teil 2, Aufgabe 5 (`dig`) und die Topologie `topo01`.
-
-In Teil 2 habt ihr `dig` benutzt, um Namen aufzulösen. In diesem Teil betreibt
-ihr selbst einen kleinen, lesbaren DNS-Server (`dns-server.py`, nur
-Standardbibliothek: `socketserver` und `struct`) und seht, wie eine
-DNS-Antwort aufgebaut ist.
-
-Das Netz `topo01` muss laufen. Habt ihr es in Teil 2 mit `quit` beendet,
-startet es wie dort (`cd ~/rn-practice/topo01`, dann `./start-topo01.sh`;
-zwei Knoten-Fenster öffnen sich); läuft es noch, macht ihr einfach weiter.
-Beendet vor jedem Start einer *anderen* Topologie die laufende mit
-`exit`/`quit`. Wechselt in das Fenster „Node: h1" und werft zuerst einen Blick
-in das Skript:
-
-```bash
-h1$ cd ~/rn-practice/topo01
-h1$ cat dns-server.py
-```
-
-Achtet auf die Funktion `encode_name` (ein Label = ein Längen-Byte plus die
-Zeichen, abgeschlossen mit einem Null-Byte) und auf den Header mit seinen
-Flags (`QR`, `AA`). Port 53 auf `h1` ist bereits vom DNS-Dienst der Topologie
-belegt; startet den eigenen Server deshalb auf Port 5353:
-
-```bash
-h1$ python3 dns-server.py 5353
-```
-
-Der Server meldet sich:
-
-```text
-Autoritativer Mini-DNS-Server laeuft auf UDP-Port 5353.
-Zone: becke.net, example.com, h1, h2
-```
-
-Fragt den Server von `h2` aus mit allen drei Standard-Werkzeugen ab (`dig`
-kennt ihr aus Teil 2; `nslookup` aus Teil 1; `host` ist die Kurzform für
-dasselbe):
-
-```bash
-h2$ dig @10.0.1.2 -p 5353 h2
-h2$ nslookup -port=5353 h1 10.0.1.2
-h2$ host -p 5353 becke.net 10.0.1.2
-```
-
-So sieht die Antwort (gekürzt) auf die erste Frage aus; zum Vergleich mit Aufgabe 5
-steht diesmal `flags: qr aa` ohne `rd`/`ra`:
-
-```text
-;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 8028
-;; flags: qr aa; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
-
-;; ANSWER SECTION:
-h2.			60	IN	A	10.0.6.2
-
-;; SERVER: 10.0.1.2#5353(10.0.1.2) (UDP)
-```
-
-`nslookup` meldet `Name: h1`, `Address: 10.0.1.2`; `host` meldet
-`becke.net has address 185.199.108.153`.
-
-Vergleicht die Adresse, die euer Server für `becke.net` liefert
-(`185.199.108.153`), mit der Antwort von `dig becke.net` (ohne `@`, also über
-den DNS-Dienst der Topologie). Was folgt daraus für das Vertrauen in
-DNS-Antworten?
-
-??? success "Lösung"
-    `dig becke.net` liefert über den DNS-Dienst der Topologie eine andere
-    Adresse (bei uns `81.169.145.66`). Euer Server hat **eine selbst
-    erfundene Antwort** gegeben, und `dig`/`nslookup`/`host` haben sie
-    anstandslos angezeigt: DNS prüft in der Grundform nicht, ob eine Antwort
-    echt ist. Wer euren Resolver (oder die Verbindung dorthin) kontrolliert,
-    kann euch falsche Adressen unterschieben. Schutz bieten erst
-    Erweiterungen wie DNSSEC.
-
-Fragt zuletzt einen Namen ab, den der Server nicht kennt, und schaut euch
-den Statuscode an:
-
-```bash
-h2$ dig @10.0.1.2 -p 5353 gibtsnicht.invalid +noall +comments
-```
-
-```text
-;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 1353
-;; flags: qr aa; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
-```
-
-!!! question "Aufgabe: Flags und Statuscode"
-    In der `dig`-Ausgabe stehen die Flags `qr aa`. Was bedeuten sie
-    (Antwort? autoritativ?), und wo im Skript werden sie gesetzt? Welchen
-    `status`-Wert liefert die letzte, unbekannte Abfrage (`NOERROR` oder
-    `NXDOMAIN`?), und welche Zeile im Skript (`rcode = ...`) entscheidet darüber?
-
-    ??? success "Lösung"
-        `qr` (Query/Response) = „das ist eine Antwort, keine Frage"; `aa`
-        (Authoritative Answer) = „ich bin für diese Zone zuständig und
-        antworte aus eigenen Daten". Beide werden im Skript in der Zeile
-        `flags = 0x8400 | rcode` gesetzt (`0x8000` ist `QR`, `0x0400` ist
-        `AA`). Der unbekannte Name liefert **`NXDOMAIN`** (Name existiert
-        nicht); darüber entscheidet die Zeile
-        `rcode = 0 if (ip or qtype != 1) else 3`: Findet der Server keine
-        Adresse zum Namen, ist der Statuscode 3 (`NXDOMAIN`), sonst 0
-        (`NOERROR`). Findet beides mit `grep -n -E "flags|rcode" dns-server.py`.
-
-Beendet den DNS-Server auf `h1` mit `Strg+C`.
-
-!!! quote "Hintergrund: DNS ist kaum jünger als das Internet-Protokoll selbst"
-    Paul Mockapetris entwarf das DNS 1983 am Information Sciences Institute der
-    USC, weil die zentrale Datei `HOSTS.TXT` nicht mehr skalierte. Die
-    Erstfassung steht in RFC 882 und RFC 883 (November 1983); 1987 ersetzten
-    RFC 1034 und RFC 1035 sie (Kopf: „Obsoletes: RFCs 882, 883, 973").
-
-    - RFC 1035 (rfc-editor): <https://www.rfc-editor.org/rfc/rfc1035.html>
-    - Internet Hall of Fame, Paul Mockapetris: <https://www.internethalloffame.org/inductee/paul-mockapetris/>
-
-### Teil 4 – Offene Ports finden: `ss` statt `netstat` (`topo01`)
-
-!!! abstract "Auf einen Blick"
-    **Lernziel:** Ihr öffnet selbst einen Dienst, findet ihn mit `ss` als
-    lauschenden Port wieder und lest Zustand, Adresse, Port und Prozess aus
-    der Ausgabe.
-
-    **Wozu?** „Läuft der Dienst überhaupt, und auf welchem Port?" ist die
-    erste Frage bei fast jeder Serverstörung. Ebenso wichtig für die
-    Sicherheit: Jeder offene Port ist eine Tür; wer Server betreibt, prüft
-    regelmäßig mit `ss`, ob nur die Dienste lauschen, die dort hingehören
-    (und nicht ein vergessener Testdienst oder Schlimmeres).
-
-    **Vorwissen:** Teil 2, Aufgabe 9 (`netstat`).
-
-Das Netz `topo01` muss laufen (Start wie in Teil 2, Aufgabe 1: `cd ~/rn-practice/topo01`,
-`./start-topo01.sh`; läuft es schon, macht ihr einfach weiter). Alle Befehle
-mit `h1$` tippt ihr im Fenster „Node: h1".
-
-In Teil 2 (Aufgabe 9) habt ihr `netstat -tulnp` benutzt. `netstat` gilt als
-veraltet und ist auf vielen Distributionen nicht mehr vorinstalliert; sein
-Nachfolger aus dem `iproute2`-Paket ist `ss`. In diesem Teil öffnet ihr
-selbst einen Dienst und findet ihn wieder.
-
-!!! info "Werkzeug: `ss` und `socat`"
-    **Was sie tun:** `ss` listet Netzwerkverbindungen und lauschende Ports
-    (Transportschicht). `socat` (*SOcket CAT*) ist ein vielseitigeres
-    Werkzeug als `netcat`: Es verbindet zwei beliebige Datenströme, hier ein
-    TCP-Port mit dem Programm `cat`, das alles Empfangene zurückschickt – ein
-    einfacher Echo-Dienst.
-
-    **Aufruf:**
-
-    - `ss -tlnp` – `t` TCP, `l` nur Lauschende, `n` Zahlen statt Namen,
-      `p` zugehöriges Programm.
-    - `ss -tlnp 'sport = :8080'` – nur Einträge mit lokalem Port 8080.
-    - `socat TCP-LISTEN:8080,reuseaddr,fork EXEC:/bin/cat &` – Echo-Dienst auf
-      Port 8080; `fork` bedient mehrere Verbindungen, `&` schickt ihn in den
-      Hintergrund.
-
-    **Beispielausgabe auf `h1`, Zeile für Zeile gelesen:**
-
-    ```text
-    h1$ ss -tlnp
-    State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process
-    LISTEN 0      32          10.0.1.2:53        0.0.0.0:*    users:(("dnsmasq",pid=51907,fd=5))
-    LISTEN 0      5            0.0.0.0:8080      0.0.0.0:*    users:(("socat",pid=56649,fd=7))
-    ```
-
-    `State` ist der Zustand (`LISTEN` = wartet auf Verbindungen). `Local
-    Address:Port` ist die lauschende Adresse: `0.0.0.0` heißt „auf allen
-    Adressen dieses Rechners", `10.0.1.2` nur auf dieser. `Peer` bleibt leer
-    (`0.0.0.0:*`), weil noch niemand verbunden ist. `Process` nennt Programm
-    und Prozessnummer. Die erste Zeile ist der DNS-Dienst der Topologie, die
-    zweite euer `socat`.
-
-    **Typische Fehlermeldung:** `socat: E bind(…, {AF=2 0.0.0.0:8080}):
-    Address already in use` – der Port ist schon belegt (oft von einem
-    vorherigen, noch laufenden Start).
-
-Öffnet auf `h1` einen einfachen TCP-Echo-Dienst auf Port 8080:
-
-```bash
-h1$ socat TCP-LISTEN:8080,reuseaddr,fork EXEC:/bin/cat &
-```
-
-Findet den lauschenden Port einmal mit `ss` und einmal mit `netstat` und
-vergleicht die Ausgaben:
-
-```bash
-h1$ ss -tlnp
-h1$ ss -tlnp 'sport = :8080'
-h1$ netstat -tlnp 2>/dev/null | grep 8080 || echo "netstat nicht verfuegbar"
-```
-
-!!! question "Aufgabe: Spalten lesen"
-    Welche Spalten zeigt `ss` (Zustand, lokale Adresse:Port, Prozess)? Was
-    bedeutet `LISTEN`? Beendet den Dienst danach wieder (`jobs -l` zeigt die
-    Prozessnummer, `kill <PID>` beendet ihn) und prüft mit `ss -tlnp`, dass der
-    Port verschwunden ist.
-
-    ??? success "Lösung"
-        `ss` zeigt `State`, `Recv-Q`/`Send-Q` (Warteschlangen), `Local
-        Address:Port`, `Peer Address:Port` und `Process`. `LISTEN` bedeutet:
-        Ein Programm wartet auf eingehende Verbindungen. Nach dem `kill` fehlt
-        die `8080`-Zeile; es bleibt nur der DNS-Dienst auf Port 53. `netstat
-        -tlnp` zeigt dieselbe Information in anderen Spalten
-        (`0.0.0.0:8080 … LISTEN 56649/socat`).
-
-### Teil 5 – Eine Verbindung von Hand aufbauen und ihren Klartext sehen (`topo01`)
-
-!!! abstract "Auf einen Blick"
-    **Lernziel:** Ihr baut eine TCP-Verbindung von Hand auf, schneidet sie mit
-    `tcpdump` mit und findet euren Text im Klartext im Mitschnitt wieder.
-
-    **Wozu?** So sieht ein Angreifer (oder ein neugieriger Betreiber eines
-    WLANs) Passwörter und Formulareingaben mit, wenn eine Anwendung keine
-    Transportverschlüsselung nutzt. Wer verstanden hat, wie leicht das
-    geht, bestellt künftig HTTP nur noch mit „s" und versteht, warum
-    Telnet und FTP aus dem Betrieb verschwunden sind.
-
-    **Vorwissen:** Teil 2, Aufgaben 4 (`netcat`) und 9 (SSH/SCP), Teil 4
-    (`socat`, `ss`).
-
-!!! quote "Hintergrund: das „TCP/IP swiss army knife""
-    `netcat` wurde 1995 von einem Autor unter dem Pseudonym „Hobbit"
-    veröffentlicht, die letzte Originalfassung („v1.10") stammt vom
-    20. März 1996. Hobbit nannte das Werkzeug „my tcp/ip swiss army knife".
-    `socat` greift dieselbe Idee auf und erweitert sie.
-
-    - Original-README von „Hobbit" (nc110): <https://nc110.sourceforge.io/>
-    - SecTools.org (Nmap-Projekt), Eintrag Netcat: <https://sectools.org/tool/netcat/>
-
-In Teil 2 (Aufgabe 4) habt ihr mit `netcat` einen UDP-Listener angesprochen.
-Hier baut ihr eine TCP-Verbindung zwischen den beiden Hosts auf und weist
-nach, dass ihr Inhalt im Klartext übertragen wird, im Gegensatz zur
-SSH-Verbindung aus Aufgabe 9.
-
-!!! info "Werkzeug: `tcpdump`"
-    **Was es tut:** `tcpdump` ist das Kommandozeilen-Gegenstück zu Wireshark:
-    Es schneidet Pakete auf einer Schnittstelle mit und schreibt sie auf den
-    Bildschirm oder in eine Datei. Es braucht Administratorrechte – in den
-    Knoten-Terminals seid ihr `root`.
-
-    **Aufruf:**
-
-    - `-i h1-eth1` – auf dieser Schnittstelle mitschneiden.
-    - `-w <datei>` – in eine Datei schreiben (später lesbar mit `-r`).
-    - `-A` – Paketinhalt als lesbaren Text (ASCII) anzeigen (beim Lesen
-      mit `-r`; beim Schreiben mit `-w` hat es keine Wirkung).
-    - `tcp port 8080` – nur TCP-Pakete mit Port 8080 (der **Aufzeichnungsfilter**).
-    - `-r <datei>` – eine gespeicherte Datei anzeigen.
-
-    **Beispielausgabe** nach dem Beenden eines Mitschnitts:
-
-    ```text
-    tcpdump: listening on h1-eth1, link-type EN10MB (Ethernet), snapshot length 262144 bytes
-    10 packets captured
-    10 packets received by filter
-    0 packets dropped by kernel
-    ```
-
-    `listening on …` bestätigt den Start (`EN10MB` = Ethernet). Danach: Wie
-    viele Pakete der Filter erfasst hat (`captured`), wie viele den Filter
-    erreicht haben (`received by filter`) und wie viele der Kernel
-    verworfen hat (`dropped`, idealerweise 0).
-
-    **Typische Fehlermeldungen:** `tcpdump: h2-eth9: No such device exists` –
-    die Schnittstelle gibt es nicht (Tippfehler; `ip -br a` listet die
-    vorhandenen). `You don't have permission to perform this capture on that
-    device` – ihr seid nicht `root` (z. B. in einem normalen Terminal statt
-    im Knoten-Terminal).
-
-Das Netz `topo01` muss laufen (Start wie in Teil 2, Aufgabe 1; läuft es schon,
-macht ihr einfach weiter). Startet auf `h1` den Echo-Dienst aus Teil 4 erneut,
-falls er nicht mehr läuft (ihr habt ihn dort beendet; läuft er noch, überspringt
-den Befehl):
-
-```bash
-h1$ socat TCP-LISTEN:8080,reuseaddr,fork EXEC:/bin/cat &
-```
-
-Startet dann auf `h1` einen Mitschnitt auf der Schnittstelle Richtung `r1` (`h1-eth1`; über
-`h1-eth0` läuft nur der Internet-Uplink) und schickt von `h2` eine Zeile durch:
-
-```bash
-h1$ mkdir -p ~/rn-practice/pcaps
-h1$ tcpdump -i h1-eth1 -w ~/rn-practice/pcaps/01-klartext.pcap tcp port 8080 &
-h2$ printf 'GEHEIM: passwort123\n' | socat -T2 - TCP:10.0.1.2:8080
-```
-
-Der Echo-Dienst schickt dieselbe Zeile zurück. Beendet den Mitschnitt auf
-`h1` wie mit `Strg+C`: `jobs -l` zeigt die Prozessnummer von `tcpdump`,
-`kill -INT <PID>` beendet ihn sauber (ein hartes Abbrechen kann die Datei
-beschädigen). Sucht dann euren Text darin:
-
-```bash
-h1$ jobs -l
-h1$ kill -INT <PID>
-```
-
-
-```bash
-h1$ tcpdump -r ~/rn-practice/pcaps/01-klartext.pcap -A | grep GEHEIM
-```
-
-Die Ausgabe enthält die Zeile (zweimal: Hin- und Rückweg), vor den Zeichen
-stehen ein paar unlesbare Bytes aus den Paketköpfen:
-
-```text
-.,.t	Uc.GEHEIM: passwort123
-	Uc..,.tGEHEIM: passwort123
-```
-
-Der Mitschnitt liegt in eurem Home-Verzeichnis und bleibt über das Ende der
-Sitzung hinaus erhalten. Löscht ihn, sobald ihr die Aufgabe beantwortet habt –
-er enthält das „Passwort" im Klartext:
-
-```bash
-h1$ rm ~/rn-practice/pcaps/01-klartext.pcap
-```
-
-Beendet auch den Echo-Dienst: `jobs -l` zeigt seine Prozessnummer, `kill <PID>`
-beendet ihn.
-
-!!! question "Aufgabe: Klartext oder nicht?"
-    Der Text `GEHEIM: passwort123` steht unverschlüsselt im
-    Mitschnitt. Vergleicht das mit dem SCP/SSH-Verkehr aus Aufgabe 9 (Teil 2):
-    Warum ist dort der Inhalt **nicht** lesbar, hier aber schon? Was bedeutet das
-    für Anwendungsprotokolle, die – wie klassisches HTTP, Telnet oder FTP – ohne
-    Transportverschlüsselung arbeiten?
-
-    ??? success "Lösung"
-        `socat` und der Echo-Dienst schicken die Bytes unverändert über TCP;
-        auf dem Weg sind sie lesbar, und jeder, der an einer Leitung, einem Hub
-        oder einem gespiegelten Switch-Port mitschneidet, sieht sie. SSH dagegen verschlüsselt den
-        Inhalt, bevor er auf die Leitung kommt; im Mitschnitt stehen nur
-        „Encrypted packet" und Metadaten. Klassisches HTTP, Telnet und FTP
-        übertragen Zugangsdaten und Inhalte im Klartext und gelten daher
-        als unsicher; ihre verschlüsselten Nachfolger sind HTTPS, SSH und
-        SFTP/FTPS.
-
---8<-- "issue-feedback.md"
+    [Weiter zu Meilenstein 3: Dienste selbst betreiben und belauschen](m3-dienste-selbst-betreiben.md){ .md-button }

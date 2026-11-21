@@ -45,9 +45,10 @@ plugins:
           name: Deutsch
           build: true
           default: true
+        # Englisch aus (CTO 2026-11-21): uebersetzt war nur die Startseite.
         - locale: en
           name: English
-          build: true
+          build: false
           nav_translations:
             Start: Home
             Praktika: Labs
@@ -85,13 +86,45 @@ extra_javascript:
 nav:
   - Start: index.md
   - Praktika:
-      - "01 · Netzwerkgrundlagen & Tools": labs/01-netzwerkgrundlagen-tools.md
-      - "02 · IPv4-Subnetting & ARP": labs/02-subnetting-arp.md
-      - "03 · Routing (RIP/BGP)": labs/03-routing-rip-bgp.md
-      - "04 · TCP/UDP & Congestion Control": labs/04-tcp-udp-congestion.md
-      - "05 · ARP-Spoofing & DoS": labs/05-arp-spoofing-dos.md
-      - "06 · Advanced: Covert Channels": labs/06-advanced-covert-channels.md
-      - "07 · HTTP/REST/QUIC": labs/07-http-rest-quic.md
+      - "01 · Netzwerkgrundlagen & Tools":
+          - labs/01-netzwerkgrundlagen-tools/index.md
+          - "Meilenstein 1 · Schichten im echten Verkehr": labs/01-netzwerkgrundlagen-tools/m1-schichten-im-echten-verkehr.md
+          - "Meilenstein 2 · Werkzeuge in der emulierten Topologie": labs/01-netzwerkgrundlagen-tools/m2-werkzeuge-in-topo01.md
+          - "Meilenstein 3 · Dienste selbst betreiben und belauschen": labs/01-netzwerkgrundlagen-tools/m3-dienste-selbst-betreiben.md
+      - "02 · IPv4-Subnetting & ARP":
+          - labs/02-subnetting-arp/index.md
+          - "Meilenstein 1 · Mininet und die Netzwerkwerkzeuge": labs/02-subnetting-arp/m1-werkzeuge.md
+          - "Meilenstein 2 · Adressplan: VLSM, Konfiguration, MTU, Broadcast": labs/02-subnetting-arp/m2-adressplan.md
+          - "Meilenstein 3 · Switch und ARP": labs/02-subnetting-arp/m3-switch-und-arp.md
+          - "Meilenstein 4 · Vertiefung: Präfixe, IPv6, Flutung, Verschnitt": labs/02-subnetting-arp/m4-vertiefung.md
+      - "03 · Routing (RIP/BGP)":
+          - labs/03-routing-rip-bgp/index.md
+          - "Meilenstein 1 · Manuelles Routing": labs/03-routing-rip-bgp/m1-manuelles-routing.md
+          - "Meilenstein 2 · Dynamisches Routing mit RIP und BGP": labs/03-routing-rip-bgp/m2-rip-und-bgp.md
+          - "Meilenstein 3 · Rekonvergenz und Protokollspuren messen": labs/03-routing-rip-bgp/m3-rekonvergenz-und-spuren.md
+          - "Meilenstein 4 · Tabellen, AS-Pfad, Metrik und Nachrichten lesen": labs/03-routing-rip-bgp/m4-tabellen-und-nachrichten.md
+      - "04 · TCP/UDP & Congestion Control":
+          - labs/04-tcp-udp-congestion/index.md
+          - "Meilenstein 1 · Fehlerrate, MTU und Fragmentierung": labs/04-tcp-udp-congestion/m1-fehlerrate-mtu.md
+          - "Meilenstein 2 · Durchsatz und Staukontrolle": labs/04-tcp-udp-congestion/m2-durchsatz-und-staukontrolle.md
+          - "Meilenstein 3 · Störungen erzeugen und nachmessen": labs/04-tcp-udp-congestion/m3-stoerungen-messen.md
+          - "Meilenstein 4 · UDP, Bufferbloat und Algorithmenvergleich": labs/04-tcp-udp-congestion/m4-udp-bufferbloat-algorithmen.md
+      - "05 · ARP-Spoofing & DoS":
+          - labs/05-arp-spoofing-dos/index.md
+          - "Meilenstein 1 · ARP-Spoofing als Angreifer": labs/05-arp-spoofing-dos/m1-arp-spoofing.md
+          - "Meilenstein 2 · SYN-Flood": labs/05-arp-spoofing-dos/m2-syn-flood.md
+          - "Meilenstein 3 · Erkennen, messen, verteidigen": labs/05-arp-spoofing-dos/m3-verteidigen.md
+      - "06 · Advanced: Covert Channels":
+          - labs/06-advanced-covert-channels/index.md
+          - "Meilenstein 1 · Verkehr inspizieren, erste verdeckte Kanäle": labs/06-advanced-covert-channels/m1-inspektion-und-tunnel.md
+          - "Meilenstein 2 · DoH, TLS-Fingerprints und die Uhr": labs/06-advanced-covert-channels/m2-doh-ja3-zeit.md
+          - "Meilenstein 3 · Kanäle selbst bauen": labs/06-advanced-covert-channels/m3-kanaele-selbst-bauen.md
+          - "Meilenstein 4 · Weitere Träger und Erkennung": labs/06-advanced-covert-channels/m4-weitere-traeger-und-erkennung.md
+      - "07 · HTTP/REST/QUIC":
+          - labs/07-http-rest-quic/index.md
+          - "Meilenstein 1 · HTTP von Hand: lokal, REST, TLS": labs/07-http-rest-quic/m1-http-von-hand.md
+          - "Meilenstein 2 · HTTP/2, HTTP/3 und QUIC": labs/07-http-rest-quic/m2-http2-http3-quic.md
+          - "Meilenstein 3 · Site-Cloning und XSS": labs/07-http-rest-quic/m3-xss.md
   - Referenz:
       - "rn-practice Setup": reference/rn-practice-setup.md
       - "Desktop-/Mininet-Umgebung": reference/umgebung.md

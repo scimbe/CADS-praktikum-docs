@@ -1,5 +1,5 @@
 // Rendert die bereits per `mkdocs build` erzeugten HTML-Seiten der
-// Aufgabenblaetter (docs/labs/*.md -> site/labs/<slug>/index.html) per
+// Aufgabenblaetter (docs/labs/<slug>/index.md -> site/labs/<slug>/index.html) per
 // Playwright zu PDF (site/pdf/<slug>.pdf). Bewusst KEIN zusaetzlicher
 // LaTeX/Pandoc-Toolchain: Playwright ist ohnehin schon fuer die E2E-Tests
 // vorhanden (siehe docs/challenges.md, Abschnitt "PDF-Erzeugung").
@@ -11,7 +11,7 @@
 // Skript rendert daher PDFs fuer JEDE gefundene Sprachwurzel (site/ selbst
 // und jedes Unterverzeichnis von site/, das ein labs/-Verzeichnis enthaelt)
 // und schreibt sie jeweils lokal nach <sprachwurzel>/pdf/<slug>.pdf. Die
-// Knoepfe in docs/labs/*.md zeigen mit "../../pdf/<slug>.pdf" dorthin:
+// Knoepfe in docs/labs/<slug>/index.md zeigen mit "../../pdf/<slug>.pdf" dorthin:
 // die Seite liegt unter /labs/<slug>/, zwei Ebenen hoch ist die
 // Sprachwurzel (bzw. /en/), darunter pdf/. Ein einfaches "../pdf/..."
 // zeigte bis 2026-09-24 auf /labs/pdf/<slug>.pdf und lieferte HTTP 404.
@@ -80,6 +80,7 @@ const PRINT_CSS = `
     break-after: avoid; page-break-after: avoid;
   }
   .md-typeset img { max-width: 100% !important; height: auto !important; }
+  section.meilenstein-druck { break-before: page; page-break-before: always; }
 `;
 
 const FOOTER_TEMPLATE = `
@@ -131,6 +132,76 @@ try {
       if (!existsSync(htmlPath)) continue;
       await page.goto(pathToFileURL(htmlPath).href, { waitUntil: 'networkidle' });
 
+      // Meilenstein-Seiten (seit 2026-11-21): ein Blatt ist eine Uebersicht
+      // labs/<slug>/index.html plus Unterseiten labs/<slug>/<meilenstein>/.
+      // Die Uebersicht verlinkt sie in Reihenfolge mit der Klasse
+      // "meilenstein". Fuer EIN PDF je Blatt wird der Inhalt jeder Unterseite
+      // hinten an die Uebersicht gehaengt. Links und Bilder werden vorher
+      // absolut gemacht (sie sind relativ zur Unterseite, eine Ebene tiefer),
+      // die Umschreibung unten bildet sie dann auf die oeffentliche Adresse ab.
+      const teilseiten = await page.evaluate(() => [
+        ...new Set([...document.querySelectorAll('article a.meilenstein[href]')].map((a) => a.href)),
+      ]);
+      if (teilseiten.length) {
+        const neben = await browser.newPage();
+        try {
+          for (const url of teilseiten) {
+            // file://-Verzeichnis-URLs liefern kein index.html von selbst
+            await neben.goto(url.endsWith('/') ? `${url}index.html` : url, { waitUntil: 'networkidle' });
+            const html = await neben.evaluate(() => {
+              const art = document.querySelector('article.md-content__inner');
+              if (!art) return '';
+              for (const a of art.querySelectorAll('a[href]')) a.setAttribute('href', a.href);
+              for (const img of art.querySelectorAll('img[src]')) {
+                img.setAttribute('src', img.src);
+                img.removeAttribute('srcset');
+              }
+              for (const el of art.querySelectorAll('[id]')) el.removeAttribute('id');
+              return art.innerHTML;
+            });
+            if (!html) throw new Error(`Meilenstein-Seite ohne Inhalt: ${url}`);
+            await page.evaluate((html) => {
+              const art = document.querySelector('article.md-content__inner');
+              const teil = document.createElement('section');
+              teil.className = 'meilenstein-druck';
+              teil.innerHTML = html;
+              art.appendChild(teil);
+            }, html);
+          }
+        } finally {
+          await neben.close();
+        }
+      }
+
+      // Aufklappbare Bloecke (`??? …` -> <details>) fuer den Druck vorbereiten.
+      // Chromium druckt ein geschlossenes <details> nur mit seiner Titelzeile.
+      // - normale Bloecke: oeffnen, damit ihr Inhalt im PDF steht;
+      // - Bloecke mit Klasse "druck-zu" (`??? info druck-zu "Titel"`, z. B. ein
+      //   Erwartungshorizont): bewusst zu lassen, der Titel bekommt nur im
+      //   Druck den Hinweis "Im Online-Blatt aufklappbar".
+      const { opened, kept } = await page.evaluate((hint) => {
+        let opened = 0;
+        let kept = 0;
+        for (const d of document.querySelectorAll('details')) {
+          if (d.classList.contains('druck-zu')) {
+            d.open = false;
+            const summary = d.querySelector(':scope > summary');
+            if (summary && !summary.querySelector('.druck-zu-hinweis')) {
+              const span = document.createElement('span');
+              span.className = 'druck-zu-hinweis';
+              span.style.fontWeight = 'normal';
+              span.textContent = ` – ${hint}`;
+              summary.appendChild(span);
+            }
+            kept += 1;
+          } else if (!d.open) {
+            d.open = true;
+            opened += 1;
+          }
+        }
+        return { opened, kept };
+      }, 'Im Online-Blatt aufklappbar');
+
       // Lazy geladene Bilder wuerden im Druck fehlen, weil nie gescrollt
       // wird: erst eager schalten, dann auf Bilder und Schriften warten.
       await page.evaluate(async () => {
@@ -180,7 +251,9 @@ try {
         footerTemplate: FOOTER_TEMPLATE,
       });
       console.log(
-        `OK  ${relative(siteDir, htmlPath)} -> ${relative(siteDir, pdfPath)}  (${rewritten} Links umgeschrieben)`,
+        `OK  ${relative(siteDir, htmlPath)} -> ${relative(siteDir, pdfPath)}  ` +
+          `(${teilseiten.length} Meilenstein-Seiten, ${rewritten} Links umgeschrieben, ` +
+          `${opened} Bloecke aufgeklappt, ${kept} bewusst zu)`,
       );
     }
   }
