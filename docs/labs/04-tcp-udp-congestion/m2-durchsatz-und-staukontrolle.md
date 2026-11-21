@@ -54,7 +54,11 @@ $ ./start-topo02.sh
 ```
 
 Es öffnen sich Terminals für `r1`, `h0`, `h1`, `h2` und `h3`. Ein weiteres
-Terminal für einen Knoten öffnet ihr mit `mininet> xterm h0`.
+Terminal für einen Knoten öffnet ihr mit `mininet> xterm h0`. Die Fenster
+liegen anfangs übereinander. Prüft vor jeder Eingabe den Fenstertitel, klickt ins
+Fenster und wartet kurz: Eingaben und ++ctrl+c++ wirken nur im fokussierten
+Fenster, und der erste Buchstabe geht nach einem Fensterwechsel leicht verloren
+([Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen)).
 
 **Vorgemacht, Schritt 1: Erwartungswert bilden, dann Durchsatz messen.** Die
 Verbindung erlaubt nominell 10 Mbit/s. In 30 Sekunden sollten sich also
@@ -103,8 +107,8 @@ h0$ iperf -M 536 -t 10 -i 5 -c 10.0.20.10
 ```
 
 ??? success "Erwartung und Lösung"
-    Gemessen mit `-M 536 -l 1`: etwa 4,4 Mbit/s (4,4 bis 4,5), also etwa halb
-    so viel wie vorher. Zwei Ursachen wirken zusammen. Die kleinere
+    Gemessen mit `-M 536 -l 1`: etwa 2,4 bis 4,5 Mbit/s (je nach Rechner),
+    also die Hälfte oder weniger von vorher. Zwei Ursachen wirken zusammen. Die kleinere
     Segmentgröße allein kostet nur wenig: Jedes Segment trägt nur 536 statt
     1448 Byte Nutzlast, aber den gleichen Kopf (rund 52 Byte), rechnerisch
     liefert die Leitung dann noch etwa 8,9 Mbit/s Nutzdaten (536 von 602 Byte
@@ -136,7 +140,8 @@ bis ihr ihn mit ++ctrl+c++ beendet; lasst ihn für Schritt 3 laufen.
 
 ??? success "Erwartung und Lösung"
     Ohne Last: 0,3 bis 0,4 ms (die erste Antwort kann einige Millisekunden
-    länger dauern). Mit dem `iperf`-Strom: **1,4 bis 1,8 Sekunden**, ohne dass ein
+    länger dauern). Mit dem `iperf`-Strom: **etwa 1,4 bis 3 Sekunden** (die Werte
+    wachsen über die Laufzeit, in Messläufen bis etwa 3,1 s), ohne dass ein
     Ping verloren geht. Der TCP-Strom füllt die Warteschlange vor dem
     10-Mbit/s-Link, und die Ping-Pakete warten hinter den Daten. Eine
     Telefonkonferenz wäre in dieser Zeit unmöglich. Den Effekt untersucht
@@ -162,7 +167,9 @@ h0$ iperf -u -b 100M -t 30 -i 10 -c 10.0.20.11
 Beobachtet jeweils Durchsatz und Verlust auf `h3` (Server) sowie die Latenz auf
 `h1`. Bei `-b 100M` überschreitet ihr die Link-Kapazität deutlich. Vergleicht
 das Sendevolumen des Clients mit dem, was beim Server ankommt. Vereinzelte
-„Out of Order“-Pakete bei UDP sind dabei normal.
+„Out of Order“-Pakete bei UDP sind dabei normal. Die Zeile „Server Report“
+des Clients kann auch hier `(0%)` trotz Verlust zeigen (siehe
+[Teil A](m1-fehlerrate-mtu.md#teil-a-fehlerrate-mtu-und-ip-fragmentierung-topop04)); lest den Verlust am Server (`h3`) ab.
 
 ??? success "Erwartung und Lösung"
     Denkt an `M = 1 048 576`: `8.6M` sind 9,02 Mbit/s (unter der Kapazität),
@@ -189,7 +196,9 @@ h0$ iperf -t 40 -i 5 -c 10.0.20.10
 h1$ ping 10.0.20.10
 ```
 
-Deaktiviert dann nach etwa 10 Sekunden für
+Holt vorher das Fenster `Node: r1` in den Vordergrund, denn die Zeit
+läuft: Sonst dauert die Pause länger als geplant (der Ablauf bleibt gleich,
+nur zieht sich die Erholung hin). Deaktiviert dann nach etwa 10 Sekunden für
 20 bis 30 Sekunden das Interface `r1-eth0` des Routers `r1` (Richtung `s1`, also
 zu `h0` und `h1`) und aktiviert es danach wieder:
 
@@ -206,12 +215,14 @@ verhalten.
 ??? success "Erwartung und Lösung"
     Die Übertragung **bricht nicht ab**. Der Client zeigt während der
     Unterbrechung `0.000 Bytes`, der Server ebenfalls. Der `ping` bekommt
-    keine Antworten. Nach einigen Sekunden meldet `ping` unter Umständen
-    `Destination Host Unreachable` von eurem eigenen Host: Er findet das
-    Gateway nicht mehr (ARP). Nach `ifconfig … up` kommen wieder Antworten, und
-    die Daten fließen erst nach einigen Sekunden wieder, denn TCP wartet
+    keine Antworten. Nach einigen Sekunden meldet `ping` mitunter
+    `Destination Host Unreachable` von eurem eigenen Host (er findet das
+    Gateway nicht mehr, ARP); in anderen Läufen bleibt es einfach still. Nach `ifconfig … up` kommen wieder Antworten, und
+    die Daten fließen erst nach einigen Sekunden wieder (in Messläufen
+    nach etwa 15 Sekunden und mehr), denn TCP wartet
     auf seinen Retransmission-Timer, und der verdoppelt sich bei jedem
-    Fehlversuch.
+    Fehlversuch. Die Endzeile des Clients erscheint dadurch deutlich später als
+    nach den angeforderten 40 Sekunden (bis etwa 80 Sekunden); das ist normal.
 
 **Schritt 5: Dieselbe Unterbrechung mit einer Anwendung (SSH) statt einem
 rohen Iperf-Strom.**
@@ -256,7 +267,9 @@ h0$ chown -R cads ~/.ssh
 `authorized_keys` lesen dürfen, deshalb das `chown`.)
 
 Verbindet euch dann von `h0` aus (die Rückfrage zum Host-Schlüssel mit `yes`
-beantworten) und prüft, auf welchem Knoten ihr gelandet seid:
+beantworten; steht dort der Zusatz „known by the following other names“, stammt
+er vom gemeinsamen Home-Verzeichnis und ist harmlos) und prüft, auf welchem
+Knoten ihr gelandet seid:
 
 ```bash
 h0$ ssh -i ~/.ssh/rn-practice-key cads@10.0.20.10
@@ -282,7 +295,9 @@ belegt das Terminal von `h2` weiter, beendet ihn dort mit ++ctrl+c++).
 zuerst in `h2` und `h3` alle noch laufenden Server (++ctrl+c++; auch `sshd` auf
 `h2` und den UDP-Server auf `h3`). Startet dann Iperf-TCP-Server auf `h2` und
 `h3` (`&`, damit ihr das Terminal weiterverwenden könnt). Einen solchen
-Hintergrundjob beendet ihr später mit `kill %1` (`jobs` zeigt die Nummer):
+Hintergrundjob beendet ihr später mit `kill %1` (`jobs` zeigt die Nummer). Seine
+Ausgabe erscheint im selben Terminal mitten zwischen euren Eingaben; das ist
+normal, ein Druck auf ++enter++ bringt den Prompt zurück:
 
 ```bash
 h2$ iperf -i 10 -s
@@ -324,7 +339,9 @@ und wie gegenüber einem unkooperativen UDP-Strom, der keine Rücksicht auf
     sich erst über längere Zeit ein.**
 
     **TCP gegen UDP:** Der UDP-Strom nimmt keine Rücksicht. Der TCP-Strom
-    erreicht nur noch 0 bis 2,4 Mbit/s je Intervall. Der UDP-Client meldet
+    erreicht nur noch 0 bis 2,4 Mbit/s je Intervall (mehrere Intervalle zeigen
+    genau 0), und sein Client endet erst nach etwa 35 bis 60 Sekunden statt
+    nach 30. Der UDP-Client meldet
     ohne Server auf `h3` rund 105 Mbit/s gesendet und am Ende eine
     Fehlermeldung zur abgelehnten Verbindung (`Connection refused`). Das ist
     erwartet, denn es ist kein Server da, der antwortet; die Pakete belegen den
@@ -371,15 +388,18 @@ Prüft zunächst, welche Congestion-Control-Algorithmen der Kernel anbietet:
 h0$ sysctl -A | grep tcp | grep congestion
 ```
 
-Die Ausgabe nennt `net.ipv4.tcp_congestion_control = cubic` (Standard) und
-`net.ipv4.tcp_available_congestion_control = reno cubic`.
+Die Ausgabe nennt unter anderem `net.ipv4.tcp_congestion_control = cubic`
+(Standard) und `net.ipv4.tcp_available_congestion_control = reno cubic` (je nach
+Standort steht dort auch `bbr`). Davor erscheinen Zeilen wie `sysctl: reading
+key "kernel.apparmor_…"`: Das sind Meldungen von `sysctl` über nicht lesbare Schlüssel; sie spielen für
+die Aufgabe keine Rolle.
 
 !!! note "Hinweis: Welche Algorithmen wählbar sind"
     Welche Algorithmen ihr wählen könnt, bestimmt der Kernel des Servers, auf
     dem euer Desktop läuft, nicht euer Container. In diesem Blatt vergleicht
-    ihr `reno` und `cubic`. `bbr` steht nicht in der Liste, lässt sich je nach
-    Standort aber trotzdem mit `-C bbr` wählen (auf manchen Desktops lief es
-    ohne Fehlermeldung, auf anderen kann der Aufruf fehlschlagen). Das gehört
+    ihr `reno` und `cubic`. `bbr` steht je nach Standort in der Liste oder
+    nicht; auf manchen Desktops lief `-C bbr` auch ohne Eintrag ohne
+    Fehlermeldung, auf anderen kann der Aufruf fehlschlagen. Das gehört
     nicht zur Aufgabe. Den Algorithmus einer Verbindung ändert ihr nur mit
     `-C <name>` pro Verbindung ([Teil J](m4-udp-bufferbloat-algorithmen.md#teil-j-zwei-staukontroll-algorithmen-nebeneinander-sichtbar-machen-topo02)), nicht für das ganze System; ändert
     nichts mit `sysctl -w`, in den Knoten ist `/proc/sys` schreibgeschützt.
@@ -401,12 +421,19 @@ Beobachtet den Durchsatzverlauf über die gesamte Laufzeit. Führt danach, wenn
 beide Läufe beendet sind, dieselbe Messung mit `-C cubic` statt `-C reno` durch.
 
 ??? success "Erwartung und Lösung"
-    In diesem verlustfreien Aufbau unterscheiden sich Reno und Cubic kaum:
-    Beide Ströme teilen sich den Link nach etwa 20 Sekunden in zwei Hälften zu
-    je etwa 4,6 Mbit/s (Spannweite über zwei Läufe: 4,1 bis 5,9 Mbit/s für
-    60 Sekunden). Die große Warteschlange verhindert Verluste (`Retr` 0 bis 1),
-    und ohne Verlust greift der Unterschied der Algorithmen nicht. Welcher
-    Strom in den ersten Sekunden mehr bekommt, entscheidet der Zufall.
+    In diesem Aufbau ist kein Unterschied zwischen Reno und Cubic erkennbar.
+    Die Aufteilung entscheidet vor allem der Startvorsprung: In Messläufen auf
+    beiden Clustern erreichte der zuerst gestartete Strom (`h0`) etwa 7,3 bis
+    7,7 Mbit/s, der zweite (`h1`) etwa 3,3 bis 3,6 Mbit/s (am Empfänger,
+    60 Sekunden). Beim Tausch von Reno und Cubic blieb das Ergebnis gleich: Der
+    Vorsprung blieb bei `h0`, gleich welcher Algorithmus dort lief. `Retr` lag
+    meist bei einigen hundert bis über tausend, vor allem beim später
+    gestarteten Strom (in einem früheren Lauf mit gleichmäßiger Aufteilung bei
+    etwa 4,6 Mbit/s je Strom dagegen bei 0 bis 1). Die Fairness zwischen zwei
+    TCP-Strömen hängt also von Startzeit und Warteschlange ab, und mit 60
+    Sekunden ist die Messdauer kurz. Dass Reno und Cubic sich verschieden
+    verhalten, zeigt dieser Versuch nicht; belegt ist nur, dass der
+    Startvorsprung hier den Unterschied überdeckt.
 
 **Aufgabe:** Fasst zusammen, wie TCP auf Konkurrenz durch einen weiteren
 TCP-Strom reagiert (Fairness) und wie es sich gegenüber einem unlimitierten
@@ -534,7 +561,11 @@ h2$ watch -n 1 "ss -ti state established dst 10.0.0.1 | grep -ow -E 'cwnd:[0-9]+
 ```
 
 `watch -n 1` wiederholt den Befehl jede Sekunde, `grep -ow -E` zeigt nur die
-drei Felder `cwnd`, `rto` und `retrans`. Beenden mit Strg+C.
+drei Felder `cwnd`, `rto` und `retrans` (in der Reihenfolge, in der `ss` sie
+ausgibt: `rto`, `cwnd`, `retrans`). Beenden mit Strg+C. Sind die Fenster zu
+schmal, bricht eine Zeile um (aus `rto:` wird dann `to:`); vergrößert das
+Fenster. Ist die Verbindung nicht mehr `ESTAB`, zeigt `watch` nur noch seine
+Kopfzeile; das ist kein Fehler.
 
 ![Zwei Terminalfenster von h2: oben die Ausgabe von iperf mit Zwei-Sekunden-Intervallen, die nach dem ersten Intervall mit 1,39 Mbit/s auf 259 Kbit/s oder 0 bits pro Sekunde fallen; unten watch mit den Zeilen rto:2560, cwnd:1 und retrans:1/146](../../assets/screenshots/04-tcp-udp-congestion/ss-cwnd-topoP04.png)
 *Oben der Client-Durchsatz je Zwei-Sekunden-Intervall, unten `cwnd`, `rto` und
@@ -549,19 +580,28 @@ sobald der erste Paketverlust auftritt, und warum bricht der gemessene
 Durchsatz danach so stark ein?
 
 ??? success "Erwartung und Lösung"
-    Nach den ersten Verlusten fällt `cwnd` auf 1 bis 3 Segmente und bleibt in
-    diesem Bereich. `rto:` wächst dabei von etwa 200 ms bis auf mehrere
+    Nach den ersten Verlusten fällt `cwnd` auf wenige Segmente (meist 1 bis 3,
+    zeitweise bis etwa 6) und bleibt in
+    diesem Bereich; unmittelbar am Anfang kann es noch höher stehen. `rto:`
+    wächst dabei von etwa 200 ms bis auf mehrere
     Sekunden (in Einzelläufen über 10 Sekunden), `retrans:` zählt hoch
-    (in 20 Sekunden 20 bis über 130 Wiederholungen). `iperf` meldet im ersten
+    (in 20 Sekunden 20 bis weit über 130 Wiederholungen). `iperf` meldet im ersten
     Intervall einige hundert Kbit/s bis 1,4 Mbit/s, danach
-    wenig bis gar nichts; mehrere Intervalle zeigen 0 Bit/s. TCP deutet den
+    wenig bis gar nichts; mehrere Intervalle zeigen 0 Bit/s. Die Endzeile
+    des Clients erscheint erst nach etwa 30 bis 40 Sekunden statt nach 20, weil
+    er auf die Bestätigung aller Daten wartet. TCP deutet den
     zufälligen Linkverlust als Überlast und hält sein Sendefenster klein,
     obwohl der Link nicht überlastet, sondern nur fehlerbehaftet ist.
 
 **Vergleich.** Wiederholt die Messung auf einer Verbindung *ohne* die
-10-%-Fehlerrate. Das geht in [Teil G](m3-stoerungen-messen.md#teil-g-das-sendefenster-unter-verlust-im-detail-lesen-ss-ti-topo02) mit `topo02`, dort zeigt `ss -ti` ohne
-Verlustregel ein `cwnd` von mehreren hundert Segmenten. Notiert, wie sich der
-`cwnd`-Verlauf dort unterscheidet.
+10-%-Fehlerrate. Das geht entweder jetzt mit `topo02` (beendet vorher
+`topoP04` mit `mininet> exit`; `iperf` im Hintergrund, `watch` im selben
+Fenster, `iperf -t 20 -c 10.0.20.10 > /dev/null &`) oder später in
+[Teil G](m3-stoerungen-messen.md#teil-g-das-sendefenster-unter-verlust-im-detail-lesen-ss-ti-topo02) (Meilenstein 3). `ss -ti` zeigt dort ohne
+Verlustregel ein `cwnd` von vielen hundert bis zu einigen tausend Segmenten
+(Messwerte etwa 1000 bis 3700). Notiert, wie sich der
+`cwnd`-Verlauf dort unterscheidet. Beendet die Topologie danach mit
+`mininet> exit`.
 
 !!! note "Nachrechnen: Warum wird `cwnd` so groß?"
     Das Bandbreite-Verzögerungs-Produkt von `topo02` ist

@@ -59,6 +59,7 @@ Auf dieser Seite stellt ihr Störungen selbst her und vergleicht Soll mit Ist.
       euch ohne Bedeutung.
 
     Ohne Regel zeigt `tc qdisc show dev h0-eth0` `qdisc noqueue 0: root refcnt 2`.
+    Handle (`8018:`) und `refcnt` weichen bei euch ab; das ist normal.
 
     Typische Fehlermeldungen: `Error: Exclusivity flag on, cannot modify.`
     heißt, dass an der Schnittstelle schon eine Regel hängt. Entfernt sie mit
@@ -86,12 +87,18 @@ $ cd ~/rn-practice/topo02
 $ ./start-topo02.sh
 ```
 
+Die Knotenfenster liegen nach dem Start oft übereinander. Prüft vor jeder
+Eingabe den Fenstertitel (`Node: h0` usw.), klickt ins Fenster und wartet kurz;
+++ctrl+c++ wirkt nur im fokussierten Fenster. Näheres unter
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
+
 **Vorgemacht: der ungestörte Zustand.** Stellt in den Terminals von `h0` und
 `h2` zuerst den ungestörten Zustand fest, als Vergleichswert für alle späteren
 Messungen:
 
 ```bash
 h0$ ping -c 10 10.0.20.10
+h2$ ping -c 10 10.0.10.10
 ```
 
 Erwartet: `rtt min/avg/max` im Bereich von 0,3 bis 0,6 ms (die erste Antwort kann
@@ -134,8 +141,10 @@ Vergleicht `mdev` in der Zusammenfassung von `ping` mit dem Wert aus Aufgabe 1.
 **Aufgabe 3: Verlust, und was er mit TCP macht.** Entfernt die Verzögerung und
 legt stattdessen 5 % Paketverlust an. Messt zuerst ohne Regel (Erwartung etwa
 9,5 Mbit/s) und danach mit Regel, jeweils mit `iperf` wie in [Teil B](m2-durchsatz-und-staukontrolle.md#teil-b-iperfiperf3-in-topo02-durchsatz-latenz-fairness-und-congestion-control). Beendet
-vorher einen noch laufenden `iperf`-Server auf `h2` (++ctrl+c++), damit ihr ihn
-frisch starten könnt:
+vorher einen noch laufenden `iperf`- oder `iperf3`-Server im Fenster `Node: h2`
+(++ctrl+c++), damit ihr ihn frisch starten könnt. Die Endzeile von `iperf` kann
+länger als `-t` sein (etwa 20 bis 23 Sekunden bei `-t 20`), denn der Client
+wartet auf die Bestätigung aller Daten:
 
 ```bash
 h0$ tc qdisc del dev h0-eth0 root
@@ -147,12 +156,13 @@ h0$ iperf -c 10.0.20.10 -t 20            # mit 5 % Verlust
 
 **Bildet vor der Messung eine Erwartung:** Um wie viel bricht der Durchsatz bei
 5 % Verlust ein: um 5 %, um deutlich mehr oder kaum? Messt und vergleicht mit
-[Teil C](m2-durchsatz-und-staukontrolle.md#teil-c-das-tcp-congestion-window-unter-paketverlust-live-beobachten-topop04). Erklärt, warum der Einbruch hier anders ausfällt als auf `topoP04`
+[Teil C](m2-durchsatz-und-staukontrolle.md#teil-c-das-tcp-congestion-window-unter-paketverlust-live-beobachten-topop04) (dort habt ihr den TCP-Durchsatz
+auf `topoP04` gemessen; zieht euren eigenen Wert heran). Erklärt, warum der Einbruch hier anders ausfällt als auf `topoP04`
 (Hinweise: In welche Richtung wirkt der Verlust hier, in welche dort? Wie
 groß ist die RTT?).
 
 ??? success "Erwartung und Lösung"
-    Ohne Regel etwa 9,6 Mbit/s, mit 5 % Verlust **8,8 bis 9,2 Mbit/s**:
+    Ohne Regel etwa 9,6 Mbit/s, mit 5 % Verlust **8,8 bis 9,3 Mbit/s**:
     Der Durchsatz sinkt um weniger als 10 %. Auf `topoP04` sind es rund 99 %
     Einbruch. Dort wirkt der Verlust auf vier Teilstrecken und in beide
     Richtungen, sodass auch Bestätigungen verloren gehen (Round-Trip-Verlust
@@ -173,7 +183,9 @@ h0$ tc qdisc add dev h0-eth0 root tbf rate 1mbit burst 32kbit latency 400ms
 h0$ iperf -c 10.0.20.10 -t 10
 ```
 
-Vergleicht den gemessenen Durchsatz mit den eingestellten 1 Mbit/s. **Warum
+Vergleicht den gemessenen Durchsatz mit den eingestellten 1 Mbit/s. (`tc qdisc
+show` zeigt `burst 4Kb` statt `32kbit`: Es sind dieselben 4 KByte. Die
+iperf-Endzeile kann auch hier länger als 10 Sekunden dauern.) **Warum
 liegt der gemessene Wert darunter und nicht exakt darauf?** Denkt an das, was
 außer den Nutzdaten noch über die Leitung geht.
 
@@ -241,7 +253,9 @@ zwischen den beiden Routern angelegt wird:
 $ grep -n "TCLink" ~/rn-practice/topo02/topo02.py
 ```
 
-Ihr seht drei Treffer; die Zeile mit `bw=10, delay='0.1ms'` legt die
+Ihr seht drei Treffer (der Befehl läuft auch in einem Knotenfenster, das
+Heimatverzeichnis ist gemeinsam): der erste ist der Import, der dritte die
+Netz-Definition mit `link=TCLink`; die Zeile mit `bw=10, delay='0.1ms'` legt die
 Verbindung an. Nur diese Verbindung
 (zwischen `r1` und `r2`) trägt eine Begrenzung. Alle anderen Verbindungen
 sind unbegrenzt.
@@ -256,7 +270,9 @@ Zusicherung zu überprüfen?
     einem echten Netz muss man **über den ganzen Weg** messen, nicht nur
     an einer Teilstrecke, und der Wert gilt für den schwächsten Abschnitt.
 
-Kontrolliert das Soll anschließend dort, wo es wirkt, im Kernel des Routers:
+Kontrolliert das Soll anschließend dort, wo es wirkt, im Kernel des Routers
+(im Fenster `Node: r1`; alternativ in der Mininet-Konsole mit vorangestelltem
+Knotennamen, z. B. `mininet> r1 tc qdisc show dev r1-eth2`):
 
 ```bash
 r1$ tc qdisc show dev r1-eth2
@@ -279,9 +295,10 @@ ist.
 #### Schritt 2: Drei Konfigurationen messen
 
 Für jede der drei Konfigurationen messt ihr **zwei** Größen: die Laufzeit mit
-`ping` und den Durchsatz mit `iperf3`. Beendet in `h2` einen noch laufenden `iperf`-Server (++ctrl+c++) und startet
-dort den Server (meldet er `Address already in use`, läuft schon einer: lasst
-ihn laufen):
+`ping` und den Durchsatz mit `iperf3`. Ein noch laufender `iperf`-Server (Version 2, Port 5001) stört nicht, denn
+`iperf3` nutzt Port 5201. Beendet nur einen noch laufenden `iperf3`-Server im
+Fenster `Node: h2` (++ctrl+c++) und startet dort den Server (meldet er `Address
+already in use`, läuft schon einer: lasst ihn laufen):
 
 ```bash
 h2$ iperf3 -s
@@ -355,7 +372,7 @@ Teil D, Aufgabe 1 – eine `netem`-Regel wirkt nur auf den ausgehenden Verkehr
 liegt außerdem immer auf dem Weg.
 
 Sichert die fertige Tabelle als Datei (in einem normalen Terminal des Desktops,
-nicht im Knoten-Terminal):
+nicht im Knoten-Terminal; ++ctrl+shift+n++ im Mininet-Fenster öffnet eines):
 
 ```bash
 $ mkdir -p ~/rn-practice/snapshots
@@ -402,8 +419,11 @@ Das Fenster ist leer: Schreibt eure Tabelle hinein und speichert mit
        liegen (13,0 Mbit/s bei 10 Mbit/s Soll), weil Puffer die Differenz
        aufnehmen.
     3. Die absolute Abweichung beträgt in den Beispielwerten +0,4 ms, +0,5 ms
-       und +0,3 ms. Sie hängt kaum vom Soll ab: Verarbeitung in Kernel und
-       Switch kostet immer einige Zehntel Millisekunden; bei `rate 2mbit` kommt
+       und +0,3 ms; in weiteren Läufen lag sie zwischen +0,1 und +0,6 ms. Sie
+       bleibt also in der Größenordnung einiger Zehntel Millisekunden und
+       wächst nicht im Verhältnis zum Soll, ist aber auch nicht konstant:
+       Verarbeitung in Kernel und Switch kostet immer einige Zehntel
+       Millisekunden; bei `rate 2mbit` fiel sie am größten aus, denn dort kommt
        dazu, dass das Senden eines 98-Byte-Pakets selbst 0,4 ms dauert, und die
        erste Antwort (Adressauflösung per ARP) kann den Mittelwert nach oben
        ziehen (lasst sie notfalls weg: `ping -c 11` und ab `icmp_seq=2` lesen).
@@ -489,12 +509,14 @@ h2$ nping --icmp -c 20 --delay 100ms 10.0.0.1
 ```
 
 **Selbst.** Wiederholt den Lauf zwei- bis dreimal. Die Prozentzahl schwankt,
-weil 20 Sonden eine kleine Stichprobe sind. Haltet sie gegen den
+weil 20 Sonden eine kleine Stichprobe sind. In der Langausgabe kann die
+`SENT`-Zeile einer Sonde doppelt erscheinen (meist bei der letzten); maßgeblich
+ist die Zusammenfassung mit `Raw packets sent: 20`. Haltet sie gegen den
 Erwartungswert `1 − 0,9⁴ ≈ 34 %` aus [Teil A](m1-fehlerrate-mtu.md#teil-a-fehlerrate-mtu-und-ip-fragmentierung-topop04).
 
 ??? success "Erwartung und Lösung"
-    Gemessen in vier Läufen: 25 %, 40 %, 25 % und 30 %. Üblich sind 15 bis
-    55 %, Erwartungswert 34 %, deutlich über den 10 % einer
+    Gemessen in vier Läufen: 25 %, 40 %, 25 % und 30 %; in weiteren Läufen
+    20 bis 45 %. Üblich sind 15 bis 55 %, Erwartungswert 34 %, deutlich über den 10 % einer
     *einzelnen* Teilstrecke, weil Anfrage und Antwort zusammen vier
     Teilstrecken queren.
 
@@ -555,7 +577,8 @@ h0$ iperf3 -c 10.0.20.10 -t 8 &          # Transfer im Hintergrund
 h0$ sleep 2; ss -ti dst 10.0.20.10       # jetzt etwa alle 3 Sekunden wiederholen (Pfeil hoch, Enter)
 ```
 
-Die Ausgabe von `iperf3` läuft zwischen eure Eingaben; das ist normal.
+Die Ausgabe von `iperf3` läuft zwischen eure Eingaben; das ist normal. Mit
+`ss -ti dst 10.0.20.10 | grep -A1 ESTAB` bleibt die Ausgabe übersichtlicher.
 
 Echte Ausgabe der Messverbindung (zwei Abfragen im Abstand von etwa
 3 Sekunden, gekürzt):
@@ -571,21 +594,24 @@ Beachtet: `cwnd` ist 14, dann 2; die Gesamtzahl hinter `retrans:` steigt von 159
 auf 299. Dazu steht in der Liste die Steuerverbindung von `iperf3`: kaum
 Daten, `cwnd:10`.
 
-Am Ende des Laufs meldet `iperf3` im Beispiel `Retr 340` und 5,9 Mbit/s. Räumt auf:
+Am Ende des Laufs meldet `iperf3` im Beispiel `Retr 340` und 5,9 Mbit/s; in
+anderen Läufen lag der Wert bei etwa 4 bis 7 Mbit/s. Räumt auf:
 
 ```bash
 h0$ tc qdisc del dev h0-eth0 root
 ```
 
 **Selbst.** Wiederholt den Transfer ohne Verlustregel und lest `cwnd` der
-Messverbindung ab.
+Messverbindung ab (nicht der Steuerverbindung: Die Messverbindung erkennt ihr an
+der großen `Send-Q`).
 
 ??? success "Erwartung und Lösung"
     Mit 8 % Verlust liegt `cwnd` der Messverbindung zwischen 2 und etwa 15 und
     springt von Abfrage zu Abfrage. `retrans:` zählt mit jeder Abfrage höher. Der
-    Durchsatz sinkt von 9,6 auf etwa 6 Mbit/s. Ohne Verlustregel wächst `cwnd`
-    derselben Verbindung auf mehrere hundert Segmente (981 im Beispiellauf,
-    `retrans` bleibt aus). Die RTT steigt dabei auf über eine Sekunde, weil das
+    Durchsatz sinkt von 9,6 auf etwa 4 bis 7 Mbit/s. Ohne Verlustregel wächst
+    `cwnd` derselben Verbindung auf viele hundert bis rund tausend Segmente (981
+    im Beispiellauf, in anderen Läufen etwa 1000 bis 1150; `retrans` bleibt
+    aus). Die RTT steigt dabei auf über eine Sekunde, weil das
     Fenster die Warteschlange vor dem Link füllt ([Teil I](m4-udp-bufferbloat-algorithmen.md#teil-i-bufferbloat-warum-eine-schnelle-leitung-trage-werden-kann-topo02)).
 
 !!! question "Nachgedacht: Warum bleibt `cwnd` klein, obwohl der Link nicht überlastet ist?"

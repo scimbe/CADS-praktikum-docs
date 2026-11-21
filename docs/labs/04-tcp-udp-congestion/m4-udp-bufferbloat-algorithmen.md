@@ -32,7 +32,10 @@ In [Teil B](m2-durchsatz-und-staukontrolle.md#teil-b-iperfiperf3-in-topo02-durch
 zusätzlich Jitter und den Anteil verlorener Datagramme aus. Die Beschreibung
 von `iperf3` steht in [Teil B](m2-durchsatz-und-staukontrolle.md#teil-b-iperfiperf3-in-topo02-durchsatz-latenz-fairness-und-congestion-control), Schritt 7. Bei UDP bestimmt ihr die Rate mit
 `-b`, das Protokoll drosselt nicht von selbst. Bei UDP zählt allein die
-`receiver`-Zeile, denn nur sie sagt, was tatsächlich ankam.
+`receiver`-Zeile, denn nur sie sagt, was tatsächlich ankam. Die Ausgabe bricht
+in schmalen Knotenfenstern um; vergrößert das Fenster, wenn die Spalten
+verrutschen. Tippt nur in das Fenster mit dem passenden Titel, ++ctrl+c++ wirkt
+nur im fokussierten Fenster ([Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen)).
 
 **Vorgemacht.** `topo02` läuft. `h0` → `h2` über den 10-Mbit/s-Link, zuerst mit
 einer Rate unter der Kapazität. Läuft der `iperf3`-Server auf `h2` noch aus dem
@@ -52,7 +55,8 @@ Echte Ausgabe (die letzten Zeilen):
 ```
 
 - `Jitter`: beim `sender` steht `0.000 ms`. Den Jitter kann nur der Empfänger
-  messen, er beträgt hier 0,019 ms.
+  messen, er beträgt hier 0,019 ms (wenige Hundertstel Millisekunden, in anderen
+  Läufen auch weniger).
 - `Lost/Total Datagrams`: `0/3454`, also nichts verloren.
 
 **Selbst.** Wiederholt die Messung mit einer Rate über der Link-Kapazität und
@@ -74,7 +78,10 @@ h0$ iperf3 -u -b 12M -t 10 -c 10.0.20.10
     empfangen, 9,4 % der Datagramme fehlen und der Jitter ist auf 0,335 ms
     gestiegen. Ihr habt mehr in die Leitung gedrückt, als sie trägt. Bei sehr
     kurzer Laufzeit (`-t 5`) kann der Verlust noch ausbleiben, weil die
-    Warteschlange vor dem Link den Überschuss zunächst auffängt.
+    Warteschlange vor dem Link den Überschuss zunächst auffängt. Deshalb ist
+    der Gesamtwert (9,4 %) niedriger als der Verlust im eingeschwungenen
+    Zustand: Am Server (`h2`) seht ihr in den Sekundenzeilen zunächst 0 % und
+    danach etwa 19 % je Sekunde.
 
 !!! question "Nachgedacht: Warum gibt es Jitter und Verlust bei UDP, TCP braucht sie nicht?"
     ??? success "Lösung"
@@ -120,7 +127,10 @@ behandelt einen Effekt, der in Heimnetzen häufig auftritt: Eine Leitung wird
 unter Last sekundenlang träge, nicht weil Pakete verloren gehen, sondern weil
 sie in einer zu großen Warteschlange stehen. Der Name dafür ist *Bufferbloat*.
 
-**Vorgemacht.** `topo02` läuft. Ihr braucht zwei Terminals auf `h0`:
+**Vorgemacht.** `topo02` läuft. Ein Terminal auf `h0` genügt, weil `iperf3`
+mit `&` im Hintergrund läuft (ein zweites mit `mininet> xterm h0` ist
+optional). Beachtet, dass die Ausgabe von `iperf3` dann zwischen `ping` und
+`tc` im selben Fenster erscheint:
 
 ```bash
 h0$ tc qdisc add dev h0-eth0 root netem rate 2mbit limit 1000   # kleine Rate, große Queue
@@ -140,8 +150,9 @@ rtt min/avg/max/mdev = 2776.816/2944.185/3084.044/102.236 ms   <- unter Last, 0 
 ```
 
 Der erste Wert unter Last kann kleiner sein, er steigt, während sich die Queue
-füllt; deshalb das `sleep 5`. Die Leerlauf-RTT liegt unter einer Millisekunde. Unter Last steigt sie auf
-**fast drei Sekunden**, ohne dass ein `ping`-Paket verloren geht. Die Pakete
+füllt; deshalb das `sleep 5`. Die Leerlauf-RTT liegt um eine Millisekunde.
+Unter Last steigt sie auf
+**etwa drei Sekunden** (in anderen Läufen 2,8 bis 3,4 s), ohne dass ein `ping`-Paket verloren geht. Die Pakete
 warten in der großen Queue.
 
 **Selbst.** Begrenzt jetzt die Wartezeit in der Queue. `tbf` mit `latency 400ms`
@@ -149,9 +160,12 @@ hält die Warteschlange so kurz, dass ein Paket höchstens 400 ms wartet, mit
 `latency 50ms` nur 50 ms. Messt beide Fälle und zählt danach mit
 `tc -s qdisc show dev h0-eth0` die verworfenen Pakete (`dropped`):
 
-Wartet, bis die Ausgabe von `iperf3` beendet ist (20 s), sonst meldet der
-Server „server is busy“, und räumt die vorherige Regel vorher mit
-`tc qdisc del dev h0-eth0 root` ab.
+Wartet, bis die Ausgabe von `iperf3` beendet ist (20 s, auf dem Server nach
+einer langen Queue bis etwa 30 s), sonst meldet der Server „server is busy“,
+und räumt die vorherige Regel vorher mit
+`tc qdisc del dev h0-eth0 root` ab. Führt `tc -s qdisc show …` erst nach dem
+Ende von `iperf3` aus, damit dessen Zeilen die Ausgabe nicht unterbrechen. Wie
+in Teil H zählt auch hier nur die `receiver`-Zeile.
 
 ```bash
 h0$ tc qdisc add dev h0-eth0 root tbf rate 2mbit burst 32kbit latency 50ms
@@ -165,7 +179,10 @@ h0$ tc qdisc del dev h0-eth0 root
 Wiederholt das mit `latency 400ms`.
 
 ??? success "Erwartung und Lösung"
-    Die Messwerte der drei Queue-Varianten:
+    Die Messwerte der drei Queue-Varianten aus einem Lauf. `dropped` und
+    `Retr` streuen von Lauf zu Lauf stark (bei `latency 400ms` wurden etwa 5 bis
+    20, bei `latency 50ms` etwa 30 bis 55 beobachtet); nehmt die Tabelle als
+    Größenordnung, die Reihenfolge ist stabil:
 
     | Queue | RTT unter Last (min/avg/max) | `dropped` | Durchsatz (receiver) |
     |---|---|---|---|
@@ -174,7 +191,7 @@ Wiederholt das mit `latency 400ms`.
     | `tbf … latency 50ms` | 19 / 28 / 40 ms | 31 | 1,83 Mbit/s |
 
     Je kürzer die Queue, desto kürzer die Wartezeit. Dafür verwirft sie Pakete,
-    sobald sie voll ist, und TCP wiederholt sie (in der `iperf3`-Ausgabe steigt `Retr` von 5 auf 29).
+    sobald sie voll ist, und TCP wiederholt sie (in der `iperf3`-Ausgabe steigt `Retr` im Beispiel von 5 auf 29).
     Der Durchsatz bleibt praktisch gleich.
 
 !!! question "Nachgedacht: Warum hilft eine kleinere Queue, und was kostet sie?"
@@ -216,7 +233,7 @@ anbietet:
 h0$ sysctl -n net.ipv4.tcp_available_congestion_control
 ```
 
-Ausgabe: `reno cubic`. Dann die Messung mit Reno, mit `ss` während der
+Ausgabe: mindestens `reno cubic`, je nach Standort auch `bbr`. Dann die Messung mit Reno, mit `ss` während der
 Übertragung (läuft der Server auf `h2` schon, lasst ihn laufen):
 
 ```bash
@@ -235,17 +252,21 @@ ESTAB 0  0        10.0.10.10:52474  10.0.20.10:5201
 ```
 
 Die Messverbindung (Port 5201, viele Daten in `Send-Q`) trägt `reno`. Die
-Steuerverbindung von `iperf3` daneben, ohne Datenverkehr, `cubic`.
+Steuerverbindung von `iperf3` daneben, ohne Datenverkehr, `cubic`. Wenn die
+Ausgabe umbricht, hilft `ss -ti dst 10.0.20.10 | grep -E "reno|cubic"`.
 
-**Selbst.** Wartet, bis der erste Lauf beendet ist, und wiederholt die Messung
+**Selbst.** Wartet, bis der erste Lauf beendet ist (etwa 10 Sekunden, denn die
+Warteschlange muss sich erst leeren), und wiederholt die Messung
 ohne `-C reno` (System-Standard Cubic). Vergleicht die Algorithmus-Zeile.
 
 ??? success "Erwartung und Lösung"
     Beide Verbindungen zeigen jetzt `cubic`. Der Algorithmus ist also keine
     globale Einstellung, sondern eine Eigenschaft je Verbindung. Das sehr
-    große `cwnd` (hier 2513 Segmente) kommt von der langen Warteschlange vor
-    dem Link (Teil I). Die RTT der Messverbindung liegt dort bei über einer
-    Sekunde.
+    große `cwnd` des Reno-Laufs (hier 2513 Segmente) kommt von der langen
+    Warteschlange vor dem Link (Teil I). Im Cubic-Lauf fiel das `cwnd` in
+    Wiederholungen kleiner aus (etwa 900 bis 950); vermutlich, weil dort
+    schon ein `ssthresh` gesetzt war. In beiden Fällen liegt die RTT der
+    Messverbindung bei etwa einer Sekunde oder mehr.
 
 !!! info "Hintergrund: AIMD, und warum Cubic der Standard wurde"
     Beide Algorithmen folgen dem Grundprinzip *Additive Increase, Multiplicative
