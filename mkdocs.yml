@@ -58,7 +58,10 @@ markdown_extensions:
   - admonition
   - pymdownx.details
   - pymdownx.superfences
-  - pymdownx.highlight
+  # line_spans: jede Codezeile in eigenem <span>, damit copy-strip-prompt.js
+  # je Befehlszeile einen eigenen Kopierknopf anbieten kann.
+  - pymdownx.highlight:
+      line_spans: __span
   - pymdownx.inlinehilite
   # Ohne pymdownx.emoji bleibt ":material-file-pdf-box:" aus den
   # Aufgabenblaettern als roher Text stehen - sichtbar auf allen sieben
