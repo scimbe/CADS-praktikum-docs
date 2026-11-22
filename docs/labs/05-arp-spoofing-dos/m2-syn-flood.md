@@ -46,8 +46,10 @@ Hier erzeugt ihr selbst einen SYN-Flood gegen einen eigenen Server und beobachte
     - `--rand-source` – täuscht für jedes Paket eine andere, zufällige
       Absender-IP vor.
 
-    Echte Ausgabe (Angreifer `h0`, 3 Sekunden Flood gegen `10.0.10.11`,
-    beendet mit `Strg+C`):
+    Beispielausgabe (Angreifer `h0`, 3 Sekunden Flood gegen `10.0.10.11`,
+    beendet mit `Strg+C`; eure Paketzahl hängt von Laufzeit und Last ab,
+    nach einigen Sekunden bis Minuten liegt sie zwischen hunderttausend und
+    mehreren Millionen):
 
     ```
     HPING 10.0.10.11 (h0-eth0 10.0.10.11): S set, 40 headers + 120 data bytes
@@ -65,12 +67,10 @@ Hier erzeugt ihr selbst einen SYN-Flood gegen einen eigenen Server und beobachte
     `h0` nie erreichen.
 
     **Hintergrund:** `--rand-source` ist kein Detail, sondern der Kern des
-    Angriffs. Ohne es käme entweder ein `RST` von der echten festen Quelle
-    zurück (das gäbe den halboffenen Slot sofort wieder frei) oder die Quelle
-    wäre trivial zu sperren. Dass die vorgetäuschten Absender-IPs im
-    Testnetz gar nicht existieren, ist hier unkritisch, zeigt aber zugleich,
-    warum echte Netze IP-Spoofing über Ingress-Filterung an der Netzgrenze
-    (BCP 38) unterbinden.
+    Angriffs – warum, ist die Aufgabe unten. Dass die vorgetäuschten
+    Absender-IPs im Testnetz gar nicht existieren, ist hier unkritisch,
+    zeigt aber zugleich, warum echte Netze IP-Spoofing über
+    Ingress-Filterung an der Netzgrenze (BCP 38) unterbinden.
 
 [Teil A](m1-arp-spoofing.md#teil-a-arp-spoofing-als-aufwarmubung-zwei-netz-routing-topologie) und B haben gezeigt, wie ein Angreifer im selben Segment den
 Datenverkehr eines Opfers umleiten kann (ARP-Spoofing). Dieser Teil
@@ -97,13 +97,16 @@ annehmen kann (Denial-of-Service). Nutzt weiterhin die aus [Teil B](m1-arp-spoof
     In den Knotenfenstern seid ihr `root`; Firefox lässt sich dort nicht direkt
     als `root` starten (Meldung „Running Firefox as root … is not supported“
     bzw. „$HOME is /config which is owned by cads“). Der Aufruf oben startet ihn
-    als normaler Benutzer `cads`. Ohne Browser geht es auch mit
+    als normaler Benutzer `cads`; aus `~/rn-practice/topo02` geht das auch
+    kürzer mit `./user-firefox http://10.0.10.11 &`. Ohne Browser geht es auch mit
     `h3$ curl -s -o /dev/null -w '%{http_code}\n' http://10.0.10.11` (Ausgabe `200`).
 
     Schließt Firefox danach wieder, damit sich der Effekt des Angriffs im
     nächsten Schritt klarer beobachten lässt.
 
-3. **SYN-Flood starten:** Als Angreifer agiert `h0` gegen den HTTP-Server
+3. **SYN-Flood starten:** Notiert vorher eure Vorhersage: Wie viele
+    halboffene Verbindungen entstehen (einstellig, hunderte, tausende)? Kommt
+    ein `curl` von `h3` während des Floods noch durch? Als Angreifer agiert `h0` gegen den HTTP-Server
     auf `h1` (`10.0.10.11`):
 
     ```bash
@@ -114,11 +117,14 @@ annehmen kann (Denial-of-Service). Nutzt weiterhin die aus [Teil B](m1-arp-spoof
     echte Beispielausgabe.
 
 4. **Wirkung beobachten:** Öffnet erneut Firefox auf `h3` (Aufruf wie in
-    Schritt 2) und versucht, `http://10.0.10.11` erneut aufzurufen. Öffnet
+    Schritt 2) oder nutzt `curl` und versucht, `http://10.0.10.11` erneut
+    aufzurufen. Öffnet
     zusätzlich in der Mininet-Konsole ein weiteres Terminal für `h1`
     (`mininet> xterm h1`, siehe [Lab 01](../01-netzwerkgrundlagen-tools/index.md))
     und schaut euch die Quelladressen der eingehenden SYN-Pakete an – das ist
-    IP-Spoofing sichtbar im Mitschnitt.
+    IP-Spoofing sichtbar im Mitschnitt: Jede Zeile hat eine andere
+    Absender-IP, die es im Testnetz gar nicht gibt. Genau daran erkennt man
+    einen solchen Flood.
 
     !!! warning "Wireshark nicht live während des Floods mitlaufen lassen"
         Der Flood erzeugt in kurzer Zeit Millionen Pakete. Wireshark hält
@@ -147,6 +153,15 @@ annehmen kann (Denial-of-Service). Nutzt weiterhin die aus [Teil B](m1-arp-spoof
 ein SYN-Flood von einer einzelnen, festen Quell-IP, und welche Gegenmaßnahme
 (SYN-Cookies) der Linux-Kernel dagegen anbietet.
 
+!!! info "Was ihr seht"
+    Unter dem Flood zeigt `ss -tan state syn-recv | wc -l` nur wenige
+    halboffene Verbindungen (einstellig bis niedrig zweistellig; die Zahl
+    schwankt von Lauf zu Lauf), und euer `curl` von `h3` kommt trotzdem
+    durch: Er ist trotz hunderttausender bis Millionen SYN-Pakete
+    durchgekommen – das ist der SYN-Cookie-Schutz des Kernels in Aktion (in
+    [Teil E](m3-verteidigen.md#teil-e-syn-flood-quantitativ-den-schaden-messen-und-syn-cookies-wirken-sehen-topo02)
+    schaltet ihr ihn ab und messt den Unterschied).
+
 !!! note "Alternative Beobachtung ohne Browser"
     Wer den Effekt lieber quantitativ statt über den Browser beobachten
     möchte, kann zusätzlich auf `h1` mit `ss -tan state syn-recv | wc -l`
@@ -164,7 +179,10 @@ ein SYN-Flood von einer einzelnen, festen Quell-IP, und welche Gegenmaßnahme
     `--rand-source` (also von einer festen Quell-IP) und beobachtet mit
     `ss -tan state syn-recv | wc -l` auf `h1`, wie sich die Zahl
     halboffener Verbindungen im Vergleich zum Angriff mit gefälschten
-    Absendern entwickelt. Kombiniert anschließend [Teil B](m1-arp-spoofing.md#teil-b-arp-spoofing-mit-http-content-swap-topo02) und Teil C: Lasst
+    Absendern entwickelt (sagt sie vorher). Bricht `hping3` gelegentlich
+    mit `[send_ip] sendto: Operation not permitted` ab, startet es einfach
+    erneut. Entstehen dabei kaum halboffene Verbindungen, ist das der
+    erwartete Befund und kein Fehlschlag. Kombiniert anschließend [Teil B](m1-arp-spoofing.md#teil-b-arp-spoofing-mit-http-content-swap-topo02) und Teil C: Lasst
     den ARP-Spoofing-Angriff aus [Teil B](m1-arp-spoofing.md#teil-b-arp-spoofing-mit-http-content-swap-topo02) weiterlaufen, während ihr den
     SYN-Flood aus Teil C startet – bricht dadurch auch der (weiterhin
     funktionierende) Webserver auf `h1` unter der Last zusammen, oder

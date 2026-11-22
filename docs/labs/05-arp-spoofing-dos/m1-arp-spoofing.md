@@ -91,10 +91,39 @@ irreführenderweise — selbst mit einer Antwort beantworten, sodass h4 einen
 scheinbar erfolgreichen Ping von h1 sieht, obwohl h3 geantwortet hat.
 (Hinweis zu den Adressen: `h4` liegt im Netz `20.0.0.0/24` und schickt Pakete
 für `h1` an sein Gateway `r1` (`20.0.0.254`). Zum Umleiten muss `h3` deshalb
-gegenüber `h4` (`20.0.0.2`) so tun, als wäre es `r1` (`20.0.0.254`).)
+gegenüber `h4` (`20.0.0.2`) so tun, als wäre es `r1` (`20.0.0.254`). Anders
+als in Teil B gibt es hier nur diesen einen Router.)
 (Der Teil „h3 antwortet selbst“ ist eine **Vertiefung (optional)**: Das
 Image bringt dafür kein fertiges Werkzeug mit. Der Kern der Aufgabe ist das
 Umleiten per `arpspoof` und der Nachweis in Wireshark.)
+
+Die MAC-Adressen in dieser Topologie vergibt Mininet zufällig; eure
+`arpspoof`-Zeilen sehen deshalb anders aus als das Beispiel aus Teil B.
+
+!!! question "Vorhersage vor dem Versuch"
+    Notiert, bevor ihr `arpspoof` startet: Wird der Ping von `h4` nach `h1`
+    während des Angriffs ausfallen oder durchkommen? Woran würdet ihr
+    erkennen, dass `h3` die Pakete tatsächlich abfängt? Prüft eure Vorhersage
+    anschließend gegen den Ping **und** gegen den Mitschnitt.
+
+!!! info "Was ihr seht: der Ping kommt trotzdem an"
+    Auf euren Knoten ist IP-Forwarding aktiv, und `h3` hat über die Route aus
+    der Tabelle oben einen Weg zu `h1`. Der Angreifer leitet den abgefangenen
+    Verkehr deshalb transparent weiter: Der Ping hat 0 % Verlust, und
+    gelegentlich meldet `h3` ein `Redirect Host(New nexthop: 20.0.0.254)` –
+    ein ICMP-Redirect, der den Umweg verrät. Ein erfolgreicher Ping heißt
+    also **nicht**, dass der Angriff wirkungslos blieb. Den Erfolg belegt der
+    Mitschnitt: die vergifteten ARP-Replies und die bei `h3` ankommenden
+    Echo-Requests von `h4` (die ersten Pings können noch den normalen Weg
+    nehmen, die Vergiftung greift erst nach einigen Sekunden).
+
+!!! tip "Tipp zur Vertiefung „h3 antwortet selbst“"
+    Es geht mit Bordmitteln: Linux beantwortet einen Ping für jede Adresse,
+    die ihm selbst gehört. Überlegt, wie `h3` die Adresse von `h1` zusätzlich
+    als lokale Adresse bekommt (`ip addr add <ip>/32 dev lo`), und vergleicht
+    die TTL der Antworten mit der eines normalen Pings. Dass das Nachbauen
+    einer Antwort deutlich mehr Aufwand ist als das bloße Umleiten, zeigt
+    euch, was ein echter Inhalts-MITM leisten muss.
 
 ### Teil B — ARP-Spoofing mit HTTP-Content-Swap (`topo02`)
 
@@ -241,7 +270,9 @@ Die Rollen und Adressen:
     ```
 
     Startet das Angriffsskript danach noch einmal und schaut mit
-    `ip neigh show`, ob sich der Eintrag noch umbiegen lässt.
+    `ip neigh show`, ob sich der Eintrag noch umbiegen lässt. Notiert vorher
+    eure Vorhersage; bleibt die Umleitung aus, ist das der Erfolg der
+    Maßnahme und kein Fehler eures Angriffs.
 
     Überlegt anschließend, warum diese Abhilfe trotzdem kaum jemand einsetzt:
     Wie viele Einträge wären das in einem Netz mit 500 Rechnern, und was

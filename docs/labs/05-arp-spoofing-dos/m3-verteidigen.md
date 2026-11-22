@@ -43,49 +43,50 @@ cd ~/rn-practice/topo02
 ./start-topo02.sh
 ```
 
-1. **Baseline aufnehmen.** Erzeugt auf `h3` zunächst Verkehr zum Gateway,
-    damit dessen Eintrag im Nachbarschafts-Cache steht, und notiert euch die
-    dabei angezeigte MAC-Adresse:
+**Schritt 1 – Baseline aufnehmen.** Erzeugt auf `h3` zunächst Verkehr zum Gateway,
+damit dessen Eintrag im Nachbarschafts-Cache steht, und notiert euch die
+dabei angezeigte MAC-Adresse:
 
-    ```bash
-    h3$ ping -c 2 10.0.20.1
-    h3$ ip neigh show 10.0.20.1
-    ```
+```bash
+h3$ ping -c 2 10.0.20.1
+h3$ ip neigh show 10.0.20.1
+```
 
-2. **Angriff im Hintergrund starten**, ohne dass `h3` etwas davon "weiß"
-    (in einer echten Übung: bittet eine Kommilitonin/einen Kommilitonen, den
-    Angriff für euch zu starten, während ihr nur auf `h3` schaut):
+**Schritt 2 – Angriff im Hintergrund starten**, ohne dass `h3` etwas davon "weiß"
+(in einer echten Übung: bittet eine Kommilitonin/einen Kommilitonen, den
+Angriff für euch zu starten, während ihr nur auf `h3` schaut):
 
-    ```bash
-    h2$ ./startARP-AttackerOnNodeH2.sh
-    ```
+```bash
+h2$ ./startARP-AttackerOnNodeH2.sh
+```
 
-    (Beendet den Angriff am Ende mit ++ctrl+c++ im Terminal von `h2`.)
+(Beendet den Angriff am Ende mit ++ctrl+c++ im Terminal von `h2`.)
 
-3. **Selbst erkennen, ohne Wireshark.** Prüft auf `h3` erneut denselben
-    Nachbarschafts-Eintrag:
+**Schritt 3 – Selbst erkennen, ohne Wireshark.** Prüft auf `h3` erneut denselben
+Nachbarschafts-Eintrag:
 
-    ```bash
-    h3$ ping -c 1 10.0.20.1
-    h3$ ip neigh show 10.0.20.1
-    ```
+```bash
+h3$ ping -c 1 10.0.20.1
+h3$ ip neigh show 10.0.20.1
+```
 
-    **Aufgabe:** Vergleicht die MAC-Adresse mit eurer Notiz aus Schritt 1.
-    Eine sich ändernde MAC-Adresse für dieselbe Gateway-IP, ohne dass am
-    Gateway selbst etwas getauscht wurde, ist ein starkes Indiz für
-    ARP-Spoofing. Bestätigt euren Verdacht, indem ihr auf `h2` die eigene
-    Interface-MAC abfragt und mit der "neuen" Gateway-MAC vergleicht:
+**Aufgabe:** Vergleicht die MAC-Adresse mit eurer Notiz aus Schritt 1.
+Eine sich ändernde MAC-Adresse für dieselbe Gateway-IP, ohne dass am
+Gateway selbst etwas getauscht wurde, ist ein starkes Indiz für
+ARP-Spoofing. Bestätigt euren Verdacht, indem ihr auf `h2` die eigene
+Interface-MAC abfragt und mit der "neuen" Gateway-MAC vergleicht:
 
-    ```bash
-    h2$ ip link show h2-eth0
-    ```
+```bash
+h2$ ip link show h2-eth0
+```
 
-    Das Fenster `Node: h2` ist noch durch das laufende Skript belegt. Gebt den
-    Befehl dann in der Mininet-Konsole ein: `mininet> h2 ip link show h2-eth0`.
+Das Fenster `Node: h2` ist noch durch das laufende Skript belegt. Gebt den
+Befehl dann in der Mininet-Konsole ein: `mininet> h2 ip link show h2-eth0`.
 
-    Stimmen beide MAC-Adressen überein, habt ihr den Angreifer eindeutig
-    identifiziert – rein aus der Opfer-Perspektive, ohne den Angriffs-Traffic
-    selbst mitgeschnitten zu haben.
+Stimmen beide MAC-Adressen überein, habt ihr den Angreifer eindeutig
+identifiziert – rein aus der Opfer-Perspektive, ohne den Angriffs-Traffic
+selbst mitgeschnitten zu haben. Das ist genau die Beweisführung einer
+Administratorin im Vorfallsbericht: Symptom, Vergleich, Täter.
 
 !!! info "Was ihr seht"
     Vor dem Angriff zeigt `ip neigh show 10.0.20.1` auf `h3`
@@ -105,6 +106,9 @@ mit hunderten Rechnern nicht praktikabel skaliert, und recherchiert
 stichwortartig, wie automatisierte Gegenmaßnahmen wie **Dynamic ARP
 Inspection** (auf verwalteten Switches) oder Tools wie **arpwatch** dasselbe
 Prinzip (Änderung einer IP-zu-MAC-Zuordnung erkennen) automatisieren.
+Startpunkte: [ARP-Spoofing und Gegenmaßnahmen](https://de.wikipedia.org/wiki/ARP-Spoofing),
+[arpwatch](https://en.wikipedia.org/wiki/Arpwatch), und als Suchbegriff für
+DAI die „DHCP-Snooping-Bindungstabelle“.
 
 --8<-- "issue-feedback.md"
 
@@ -163,11 +167,21 @@ legitimer Client ist `h3`.
     Sicht läuft — bestätigen lässt sich das mit einem anschließenden einfachen
     `sysctl net.ipv4.tcp_syncookies` (ohne `unshare`), das den neuen Wert zeigt.
 
+    Diesen Umweg braucht ihr nur in der Übungsumgebung; auf einem echten
+    Server genügt ein einzelnes `sysctl -w` als `root`. Ihr müsst den Befehl
+    nicht im Detail verstehen, nur abtippen.
+
+Haltet vor dem Messen eure Vorhersage fest: Wie viele halboffene Verbindungen
+zeigt `ss` unter Flood (einstellig, hunderte, tausende)? Wie viele SYN zählt
+der Kernel als verworfen? Was liefert `curl` ohne SYN-Cookies, was mit?
+
 **Schritte:**
 
 ```bash
 # 1. Legitimer Zugriff im Normalzustand:
 h3$ curl -s -o /dev/null -w '%{http_code}\n' http://10.0.10.11/
+# 1b. Zaehler VOR dem Flood notieren (Wert aufschreiben!):
+h1$ nstat -az TcpExtListenDrops
 # 2. SYN-Cookies AUS, dann fluten und waehrenddessen messen:
 h1$ unshare -m sh -c 'mount -o remount,rw /proc/sys && sysctl -w net.ipv4.tcp_syncookies=0'
 h0$ hping3 -S -p 80 --flood --rand-source 10.0.10.11 &
@@ -181,9 +195,9 @@ h3$ curl -s -o /dev/null -m 3 -w '%{http_code}\n' http://10.0.10.11/
 Beendet den Flood danach mit `h0$ jobs -l` und `h0$ kill <PID>` (oder holt
 ihn mit `fg` zurück und drückt ++ctrl+c++).
 
-Zusätzlich zählt der Kernel verworfene SYN mit. Lest den Zähler auf `h1` vor
-dem Flood (vor dem `hping3`-Aufruf) und nach dem Flood ab. Notiert den Wert
-vorher und nachher; die Differenz zählt:
+Zusätzlich zählt der Kernel verworfene SYN mit. Den Wert **vorher** habt ihr
+in Schritt 1b notiert; lest den Zähler nach dem Flood erneut ab (beendet den
+Flood zuerst, sonst wächst er weiter). Die Differenz zählt:
 
 ```bash
 h1$ nstat -az TcpExtListenDrops
@@ -193,8 +207,9 @@ h1$ nstat -az TcpExtListenDrops
 `nstat -az` zeigt Zählerstände seit dem Start der Topologie; vergleicht deshalb
 immer den Wert vorher mit dem Wert nachher. Unter Flood mit `syncookies=0`
 steht in `ss … syn-recv` nur eine kleine Zahl halboffener Verbindungen (der
-Server-Backlog ist begrenzt) und der Zähler `TcpExtListenDrops` wächst stark
-an.
+Server-Backlog ist begrenzt; einstellig, etwa 5 bis 10) und der Zähler
+`TcpExtListenDrops` wächst stark an (Größenordnung: Millionen, je nach
+Dauer des Floods).
 
 !!! warning "Das Ergebnis von `curl` hängt vom Kernel ab"
     Ob der legitime `curl` unter Flood tatsächlich mit `000` scheitert, hängt
@@ -209,8 +224,8 @@ an.
 !!! info "Was ihr seht"
     Der legitime `curl` von `h3` liefert vor dem Angriff `200`. Unter Flood mit
     `net.ipv4.tcp_syncookies=0` zählt `ss … syn-recv` nur wenige halboffene
-    Verbindungen (so viele wie der kleine Listen-Backlog des Python-Servers)
-    und `TcpExtListenDrops` steigt. Je nach Kernel scheitert der legitime
+    Verbindungen (so viele wie der kleine Listen-Backlog des Python-Servers,
+    etwa 5 bis 10) und `TcpExtListenDrops` steigt um Millionen. Je nach Kernel scheitert der legitime
     `curl` dabei mit `000` oder liefert trotzdem `200` (siehe Kasten oben).
     Das Prinzip der SYN-Cookies: Sie halten für die Flut keinen Zustand vor,
     sondern kodieren ihn in die Sequenznummer – der Backlog läuft gar nicht
@@ -258,7 +273,12 @@ sein kann.
 dass sie den Angriff nicht entschärft – und begründen, warum.
 
 **Vorbedingung:** wie Teil E; `syncookies` zunächst wieder auf `0` setzen, damit
-ihr die Wirkung der Firewall-Regel isoliert seht.
+ihr die Wirkung der Firewall-Regel isoliert seht. Der Zähler `TcpExtListenDrops`
+wächst weiter, solange noch ein Flood läuft; beendet jeden alten Flood und lest
+den Wert unmittelbar vor dem neuen Flood ab.
+
+Sagt vorher, bevor ihr misst: Rettet die Regel den legitimen `curl`? Wie
+verändert sich `TcpExtListenDrops` gegenüber Teil E?
 
 **Schritte:**
 
@@ -281,7 +301,9 @@ h1$ unshare -m sh -c 'mount -o remount,rw /proc/sys && sysctl -w net.ipv4.tcp_sy
 **Erwartete Ausgabe:** Die Firewall-Regel ändert nichts Entscheidendes: Der
 legitime `curl` verhält sich wie ohne Regel (je nach Kernel `000` oder `200`,
 siehe Hinweis in Teil E). Vergleicht auch den Zähler `TcpExtListenDrops` mit
-dem aus Teil E und haltet fest, ob die Regel etwas daran ändert.
+dem aus Teil E und haltet fest, ob die Regel etwas daran ändert. Liefert
+`curl` hier `000`, habt ihr alles richtig gemacht: Der Fehlschlag der Regel
+ist das Messergebnis.
 
 !!! info "Was ihr seht"
     Der legitime `curl` von `h3` verhält sich unter Flood auch mit der
@@ -292,6 +314,12 @@ dem aus Teil E und haltet fest, ob die Regel etwas daran ändert.
     legitime SYN von `h3` an die Reihe kommt – die Regel trifft Freund und Feind
     gleich. Erst SYN-Cookies (Teil E), die nichts verwerfen, sondern ohne
     Zustand auskommen, lösen das Problem.
+
+    Der Zähler `TcpExtListenDrops` wächst mit der Regel viel weniger (Größenordnung
+    Hunderte bis wenige Tausend statt Millionen wie in Teil E): Die Drops wandern
+    in die Regel, denn `nft` verwirft die SYN schon vor dem Listen-Socket. Der
+    legitime `curl` bleibt trotzdem bei `000` (je nach Kernel, siehe Teil E).
+    `ListenDrops` allein ist also kein Maß dafür, ob eine Abwehr funktioniert.
 
 !!! question "Zum Weiterdenken"
     Überlegt, unter welchen Umständen die Ratenbegrenzung *doch* helfen würde –
@@ -348,6 +376,11 @@ Ein im Hintergrund (`&`) gestartetes Skript holt ihr mit `fg` in den
 Vordergrund und beendet es dann mit ++ctrl+c++. Ein `kill -INT <PID>` reicht bei
 diesem Skript nicht: Es läuft danach weiter. Beendet den Angriff immer, sonst
 bleibt die Vergiftung für alle folgenden Versuche bestehen.
+
+Tippt ihr `fg` und die laufende Skript-Ausgabe schiebt sich dazwischen, ist das
+harmlos: Trotzdem `fg` und Enter eingeben. Nach dem `Strg+C` meldet das Skript
+noch „Please stop by strg+c“, obwohl es schon beendet ist; das ist ebenfalls
+harmlos.
 
 **Erwartete Ausgabe:** Nach dem `permanent`-Eintrag bleibt die MAC-Adresse für
 `10.0.20.1` trotz laufendem `arpspoof` unverändert die **echte** MAC des
@@ -427,9 +460,15 @@ h3$ editcap -r "$P" ~/rn-practice/pcaps/05-teilh-auszug.pcap 1-3   # Beweis-Auss
 
 **Erwartete Ausgabe:** `capinfos` nennt die Gesamtzahl der ARP-Pakete;
 `grep -c is-at` zählt alle Replies – überwiegend die gefälschten, dazu
-einige wenige mit der **echten** Gateway-MAC, die das Skript beim Beenden
-sendet, um die Caches wieder zu reparieren. Die Beispielzeile zeigt eine
-`is-at`-Zuordnung auf die MAC des Angreifers `h2`.
+einige echte mit der **echten** Gateway-MAC (etwa drei bis fünf), die das
+Skript beim Beenden sendet, um die Caches wieder zu reparieren. Bei einem
+kurzen Mitschnitt von rund zehn Sekunden sind gefälschte und echte Replies
+etwa gleich viele. Die Beispielzeile zeigt eine `is-at`-Zuordnung auf die MAC
+des Angreifers `h2`.
+
+**Aufgabe:** Sagt vorher, wie viele der Replies gefälscht sind, und zählt dann
+getrennt nach MAC (`grep -c 'is-at <MAC von h2>'` und
+`grep -c 'is-at <echte Gateway-MAC>'`).
 
 !!! info "Was ihr seht"
     `capinfos -c` meldet die Zahl der mitgeschnittenen ARP-Pakete, `grep -c
@@ -437,7 +476,9 @@ sendet, um die Caches wieder zu reparieren. Die Beispielzeile zeigt eine
     `ARP, Reply 10.0.20.1 is-at <MAC von h2>`, und `editcap -r … 1-3` schneidet
     daraus ein kleines Beweis-Artefakt heraus (per `capinfos` prüfbar). Eure
     Zahlen hängen davon ab, wie lange ihr aufzeichnet – die Zahl der gefälschten
-    Replies wächst mit der Angriffsdauer.
+    Replies wächst mit der Angriffsdauer. Mit dem Ausschnitt habt ihr ein
+    Beweisstück von wenigen hundert Byte, das ihr einer Kollegin schicken
+    könntet.
 
 !!! quote "Hintergrund: woher `tcpdump` und `pcap` stammen"
     `tcpdump` – und damit das `pcap`-Dateiformat, das alle diese Werkzeuge lesen
