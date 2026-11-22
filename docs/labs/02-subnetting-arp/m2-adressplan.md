@@ -135,7 +135,9 @@ vorher eine noch laufende andere Topologie mit `mininet> quit`) auf `h1`
 einen Ping zu `h3` und `h4`. Öffnet dafür mit `mininet> xterm h1` ein
 Terminal (die Fenster liegen oft übereinander: [Fenster wiederfinden und
 tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen); das
-Fenster `Terminal` in der Fensterliste ist die Mininet-Konsole):
+Fenster `Terminal` in der Fensterliste ist die Mininet-Konsole). `xterm …`
+tippt ihr immer in der Mininet-Konsole, nie in einem Knotenfenster; dort
+erscheint sonst nur eine Xfconf-Warnung und kein Fenster:
 
 ```bash
 h1$ ping -c 4 128.155.224.2   # h3
@@ -146,7 +148,12 @@ h1$ ping -c 4 128.155.240.2   # h4
 *Ping von `h1` über drei Router (`r1`→`r2`→`r3`) zu `h3` und `h4`. Die
 TTL von 61 (Startwert 64) zeigt die drei Router-Hops.*
 
-Beide Pings müssen ohne Verlust ankommen. Prüft jetzt, ob **alle** Rechner in
+Beide Pings müssen ohne Verlust ankommen. Geschafft: Ihr habt gerade ein Paket
+durch drei Router geschickt, und die TTL von 61 verrät euch, wie viele es waren
+(64 − 3). Tippt in der Mininet-Konsole erst weiter, wenn der Prompt `mininet>`
+zurück ist: Ein früh eingetippter Befehl landet sonst später in der falschen
+Shell (`bash: r2: command not found`), und die Ausgaben laufen um einen Befehl
+versetzt. Hilft nichts mehr, beendet mit `quit` und startet neu. Prüft jetzt, ob **alle** Rechner in
 **allen** Netzen erreichbar sind. Es gibt vier Hosts, also sind sechs
 Paarungen zu testen (`h1`↔`h2`, `h1`↔`h3`, `h1`↔`h4`, `h2`↔`h3`, `h2`↔`h4`,
 `h3`↔`h4`). Legt euch dafür eine kleine Tabelle an und tragt „ok" oder
@@ -229,7 +236,10 @@ einer einzigen Route über `r2` zusammen.*
 
 **Selbst:** Lest auf `r2` und `r3` die Tabellen ab (`ip route`). Notiert für
 jede Zeile, ob sie ein direkt angeschlossenes oder ein entferntes Netz
-beschreibt und welches Zielnetz sie zusammenfasst.
+beschreibt und welches Zielnetz sie zusammenfasst. (Auf `r2` stehen eine `/19`- und eine `/18`-Zeile,
+die sich überdecken. Wie der Router dann entscheidet, klärt der
+Longest-Prefix-Match in [Teil 7](m4-vertiefung.md) (Meilenstein 4); hier lest
+ihr die Zeilen nur ab.)
 
 ??? success "Lösung"
     `r2`: direkt angeschlossen sind `10.0.0.0/30` (`r2-eth1`),
@@ -268,7 +278,8 @@ h1$ traceroute -n 128.155.224.2
 Ihr bekommt eine Zeile je Router: `r1` (`128.155.128.1`) als Hop 1, `r2`
 (`10.0.0.2`) als Hop 2, dann Hop 3 und zuletzt `h3` selbst als Hop 4.
 Auffällig: Hop 3 (`r3`) erscheint nur als `* * *`. Das untersuchen wir
-gleich.
+gleich. Merkt euch den Stern: Er ist kein Fehler im Aufbau, sondern ein Hinweis,
+so wie ein Admin einen stummen Hop als Spur liest.
 
 ![Terminalfenster "Node: h1" mit traceroute -n 128.155.224.2: Hop 1 128.155.128.1, Hop 2 10.0.0.2, Hop 3 nur Sterne, Hop 4 128.155.224.2](../../assets/screenshots/02-subnetting-arp/h1-traceroute-hop3.png)
 *`traceroute` von `h1` zu `h3`: Hop 3 antwortet nicht.*
@@ -285,9 +296,9 @@ zwischengespeichert. Löscht deshalb zuerst die Caches, dann schneidet ihr mit:
 4. Löst von `h1` aus genau eine Übertragung aus: `ping -c 1 128.155.224.2`.
    Drückt danach gleich `Strg+C` in den drei `tcpdump`-Fenstern.
 
-Zu Beginn meldet `tcpdump` vier Zeilen über sich selbst (siehe Steckbrief
-oben: `WARNING: any: …` und `listening on any …`); danach folgen die
-ARP-Pakete.
+Zu Beginn meldet `tcpdump` vier Zeilen über sich selbst (siehe den
+`tcpdump`-Steckbrief in [Meilenstein 1](m1-werkzeuge.md): `WARNING: any: …`
+und `listening on any …`); danach folgen die ARP-Pakete.
 
 **Erwartete Ausgabe** (Zeitstempel und MAC-Adressen weichen ab). Auf `r1`:
 
@@ -317,8 +328,8 @@ je einer Antwort:
 Dieselbe Anfrage taucht also auf zwei Routern auf: einmal beim Absender, einmal
 beim Empfänger. Wartet ihr länger als ein paar Sekunden, kommen auf den
 Routern weitere ARP-Zeilen dazu (die Router frischen ihre Einträge von selbst
-auf) und `tcpdump` meldet `8 packets captured` statt 4; das gehört nicht zur
-Aufgabe.
+auf) und `tcpdump` meldet `8 packets captured` statt 4; diese späteren
+Zeilen dürft ihr ignorieren, sie gehören nicht zur Aufgabe.
 
 **So lest ihr das:** Die IP-Zieladresse des Pakets (`128.155.224.2`) blieb auf
 dem gesamten Weg gleich. Gefragt wurde auf jedem Segment aber nach jeweils
@@ -336,7 +347,7 @@ h1$ ip neigh
 128.155.128.1 dev h1-eth0 lladdr 22:48:82:30:b9:94 REACHABLE
 ```
 
-Auf den Routern stehen daneben auch Einträge im Zustand `DELAY` (der Nachbar,
+Auf den Routern steht daneben mitunter ein Eintrag im Zustand `DELAY` (der Nachbar,
 der die Anfrage gestellt hat): Das ist ein Zwischenzustand, nach wenigen
 Sekunden wird daraus `REACHABLE` oder `STALE`. Welchen Zustand ihr seht,
 hängt davon ab, wie lange der Ping zurückliegt: Schaut ihr erst nach einer
@@ -475,7 +486,8 @@ die ist normal), und `mininet> h1 ping -c 1 128.155.128.1` scheitert mit
     route add default gw <gateway_ip>
     ```
 
-    **Echte Ausgabe:** Alle drei Befehle sind bei Erfolg **stumm**. Ob sie
+    **Echte Ausgabe:** Alle drei Befehle sind bei Erfolg **stumm**. Stumm heißt
+    nicht „nichts passiert“: Linux meldet nur Fehler. Ob sie
     gewirkt haben, zeigt erst eine Kontrolle. Nach
     `h1$ ifconfig h1-eth0 128.155.128.2/18` liefert `ifconfig h1-eth0` die
     Zeile
@@ -601,7 +613,10 @@ Wenn ein Ping nicht ankommt, geht ihr systematisch vor: Zuerst `ip route get
 Konfiguriert nun alle Router und Hosts so, dass sich alle vier Hosts
 gegenseitig erreichen. Die Adressen stehen in der Tabelle oben (Abschnitt
 „Gemeinsam: Die Strecke `r1`–`r2`"); die Routen leitet ihr aus der
-Routingtabelle in Teil 1 ab. Prüft mit Pings und mit `traceroute` von `h1` zu `h4`.
+Routingtabelle in Teil 1 ab. Prüft mit Pings und mit `traceroute` von `h1` zu `h4`. Hop 3 bleibt dabei
+`* * *`, genau wie in Teil 1: Das ist erwartet und kein Fehler in eurer
+Konfiguration (die Erklärung steht im Kasten „Nachgedacht: Hop 3 bleibt
+stumm“ in Teil 1).
 Zum Schluss könnt ihr `mininet> pingall` eingeben: Es meldet wie in Teil 1
 `14% dropped (36/42 received)`. Solange noch Schnittstellen ohne Adresse
 sind, listet `pingall` stattdessen auf, welche noch fehlen (`pingall braucht
@@ -797,8 +812,10 @@ Knoten-Fenstern tippt ihr den Befehl **ohne** den Knotennamen davor
 **Erwartung:** Mit gesetztem DF-Bit verweigert schon `h1` das Senden
 (`ping: sendmsg: Message too long`). Ohne DF-Bit wird jedes Echo in zwei
 Fragmente zerlegt; durch die Verlustrate gehen einzelne Pings verloren
-(gemessen: `4 packets transmitted, 2 received, 50% packet loss`, bei
-anderen Läufen auch 75 % oder mehr; das erste
+(gemessen zum Beispiel: `4 packets transmitted, 2 received, 50% packet loss`;
+die Verluste sind zufällig, die Zahlen schwanken von Lauf zu Lauf: bei euch
+kommen mal 0, mal 4 Antworten an, auch 100 % Verlust kommt vor. Dann wiederholt
+den Ping; Zufall gehört zur Messung. Das erste
 Echo braucht wegen des ARP-Vorlaufs oft über eine Sekunde, bei jedem Lauf
 fallen andere Pings aus). Der Mitschnitt zeigt je Echo zwei Zeilen:
 
@@ -862,13 +879,21 @@ Schickt anschließend die Textdateien per UDP über die Leitung:
 
 Startet im Fenster `Node: h2` zuerst den Empfänger im Hintergrund und dann
 den Mitschnitt; schickt die Datei danach aus dem Fenster `Node: h1` –
-mindestens fünfmal hintereinander:
+mindestens fünfmal hintereinander (am bequemsten mit einer Schleife,
+siehe unten):
 
 ```bash
 h2$ rm -f /tmp/nc.out
 h2$ nc -u -l -k 5000 < /dev/null > /tmp/nc.out &
 h2$ tcpdump -n -v -i h2-eth0 udp
 h1$ nc -u -w1 10.0.0.2 5000 < MehrAls1500ByteText.txt
+```
+
+Statt den letzten Befehl mehrmals zu tippen, sendet eine Schleife die Datei in
+einem Rutsch sechsmal:
+
+```bash
+h1$ for i in 1 2 3 4 5 6; do nc -u -w1 10.0.0.2 5000 < MehrAls1500ByteText.txt; done
 ```
 
 Das `< /dev/null` ist nötig: Ein Hintergrundprozess darf nicht von der

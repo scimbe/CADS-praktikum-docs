@@ -58,7 +58,11 @@ beendet vorher eine andere laufende Topologie mit `mininet> quit`).
 Öffnet ein Terminal auf `r2` (`mininet> xterm r2`; `topoP02` öffnet beim
 Start keine Knotenfenster, anders als `topo02`). Liegen Fenster übereinander,
 hilft [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen);
-das Fenster `Terminal` in der Fensterliste ist die Mininet-Konsole.
+das Fenster `Terminal` in der Fensterliste ist die Mininet-Konsole. In dieser
+Anleitung steht `r2$` als Kürzel für den echten Prompt im Fenster `Node: r2`
+(`root@<Containername>:~/rn-practice/topoP02#`); das `r2$` tippt ihr nie mit.
+`xterm r2` und `mininet> h1 ping …` gehören in die Mininet-Konsole (dort fehlt
+ohne den Knotennamen `h1` die Zuordnung: `*** Unknown command: ping`).
 
 **Vorgemacht:** Ein Paket an `128.155.200.1` (liegt im Verkaufsnetz). Auf `r2`
 passen zwei Routen: `128.155.192.0/19` (Adressen 192.0 bis 223.255) und
@@ -118,19 +122,23 @@ Host im Entwicklungsnetz)? Entscheidet auf Papier und prüft mit
     ICMP-Meldung „Destination Net Unreachable" zurückschicken; mit dieser
     Route schickte `r3` es sofort wieder an `r2` zurück, und das Paket
     pendelte, bis die TTL abläuft (**Routingschleife**). Die längere,
-    spezifischere Route verhindert genau das. Gemessen: Ohne das `/19` zeigt
-    `r2$ ip route get 128.155.192.5` die Route `via 10.0.1.2 dev r2-eth2`, ein
-    Ping von `h1` zu `h2` endet mit `From 10.0.0.2 icmp_seq=1 Time to live
-    exceeded`, und `traceroute` zeigt abwechselnd `10.0.0.2` (`r2`) und
-    `* * *` (`r3` bleibt aus demselben `rp_filter`-Grund stumm wie bei Hop 3;
-    steht die Route aus der Hop-3-Lösung noch, wechseln `10.0.0.2` und
-    `10.0.1.2`). Ab etwa Hop 5 kommen nur noch Sterne, weil die Router ihre
-    ICMP-Meldungen begrenzen. (Zum
-    Ausprobieren: `r2$ ip route del 128.155.192.0/19`; zurück geht es nur mit
-    einem Neustart der Topologie. `h2` hat die Adresse `128.155.192.2`; ihr
-    pingt und verfolgt den Weg aus der Mininet-Konsole mit
-    `mininet> h1 ping -c 2 128.155.192.2` und
-    `mininet> h1 traceroute -n -m 8 128.155.192.2`.)
+    spezifischere Route verhindert genau das.
+
+    **Gemessen** (ohne das `/19`):
+
+    - `r2$ ip route get 128.155.192.5` zeigt die Route `via 10.0.1.2 dev r2-eth2`.
+    - Ein Ping von `h1` zu `h2` endet mit
+      `From 10.0.0.2 icmp_seq=1 Time to live exceeded`.
+    - `traceroute` zeigt abwechselnd `10.0.0.2` (`r2`) und `* * *` (`r3` bleibt
+      aus demselben `rp_filter`-Grund stumm wie bei Hop 3); steht die Route aus
+      der Hop-3-Lösung noch, wechseln `10.0.0.2` und `10.0.1.2`. Ab etwa Hop 5
+      kommen nur noch Sterne, weil die Router ihre ICMP-Meldungen begrenzen.
+
+    **Zum Ausprobieren:** `r2$ ip route del 128.155.192.0/19`. Zurück geht es
+    nur mit einem Neustart der Topologie (`quit`, dann `./start-topoP02.sh`).
+    `h2` hat die Adresse `128.155.192.2`; ihr pingt und verfolgt den Weg aus der
+    Mininet-Konsole mit `mininet> h1 ping -c 2 128.155.192.2` und
+    `mininet> h1 traceroute -n -m 8 128.155.192.2`.
 
 ### Teil 8 – IPv6 nebenher: Link-Local-Adressen und Neighbor Discovery statt ARP (`topo02`)
 
@@ -267,7 +275,7 @@ mitsieht – und in welche Richtung.
 |---|---|---|
 | **A**: `Node: h1` | seit dem Start offen | Lauscher: schneidet den Verkehr mit |
 | **B**: `Node: h0` | seit dem Start offen | Sender: `ping` und `macof` |
-| **C**: Desktop-Terminal | `Terminal`-Symbol auf dem Desktop, sonst `Strg+Umschalt+N` in einem offenen Terminal (nicht die Mininet-Konsole mit `mininet>`) | Switch einstellen und auslesen (mit `sudo`) |
+| **C**: Desktop-Terminal | `Terminal`-Symbol auf dem Desktop; bei maximierten Fenstern ist es verdeckt, dann `Xfce4-terminal` oben links anklicken und in der Fensterliste `Launch New Instance` wählen (nicht `Strg+Umschalt+N` in `Node: h0`/`Node: h1`: Das öffnet eine root-Shell im Netz des Knotens; Prompt `cads@…` ist richtig, `mininet>` nicht) | Switch einstellen und auslesen (mit `sudo`) |
 
 #### Schritt 1 – Lauscher einrichten (Fenster A)
 
@@ -324,9 +332,12 @@ $ sudo ovs-vsctl remove bridge s1 other-config mac-table-size
 **Erwartete Ausgabe:** In der Baseline sieht `h1` nichts. Während `macof`
 läuft, zeigt `fdb/stats-show` eine volle Tabelle (`16/16`) und stark
 steigende `evicted`-Zahlen (fünf- bis sechsstellig, je nach Hardware).
-Gemessen sah `h1` 7 bis 8 **Echo-Antworten** von `r1` an `h0` (oft fehlt die
-erste, weil der Switch `h0` beim ersten Paket noch kennt und per Unicast
-zustellt; `tcpdump` meldet dann `7 packets captured`):
+Gemessen sah `h1` 6 bis 8 **Echo-Antworten** von `r1` an `h0`; einzelne
+Nummern fehlen, und welche, wechselt von Lauf zu Lauf (manchmal die erste,
+weil der Switch `h0` beim ersten Paket noch kennt und per Unicast zustellt;
+`tcpdump` meldet dann je nach Lauf `6 packets captured`, `7 packets captured`
+oder mehr). Bei euch können es also ein paar weniger sein; wichtig ist nur:
+keine einzige Echo-Anfrage von `h0` taucht auf. Das ist euer Messergebnis:
 
 ```text
 21:03:12.405922 IP 10.0.10.1 > 10.0.10.10: ICMP echo reply, id 8886, seq 2, length 64
@@ -334,11 +345,13 @@ zustellt; `tcpdump` meldet dann `7 packets captured`):
 21:03:14.534392 IP 10.0.10.1 > 10.0.10.10: ICMP echo reply, id 8886, seq 8, length 64
 ```
 
-aber **keine** Echo-Anfragen von `h0` an `r1`. Die Zähler `learned` und
+aber **keine** Echo-Anfragen von `h0` an `r1`. Ihr seht live, wie ein Switch
+fremden Verkehr preisgibt, und warum die Aussage „MAC-Flooding macht den Switch
+zum Hub“ nur halb stimmt. Die Zähler `learned` und
 `evicted` in `fdb/stats-show` laufen weiter und bleiben nach den sechs
 Sekunden stehen: Ihr müsst die Statistik nicht in Hektik abfragen.
 
-![Drei Fenster: oben links Node: h1 mit tcpdump, der nur ICMP echo reply von 10.0.10.1 an 10.0.10.10 für seq 1 bis 8 zeigt, oben rechts Node: h0 mit macof im Hintergrund und ping -c 8 ohne Verlust, unten das Desktop-Terminal mit fdb/stats-show s1: 16/16 Einträge und sehr vielen verdrängten](../../assets/screenshots/02-subnetting-arp/teil9-fluten-drei-fenster.png)
+![Drei Fenster: oben links Node: h1 mit tcpdump, der nur ICMP echo reply von 10.0.10.1 an 10.0.10.10 (mit einzelnen Lücken in den seq-Nummern) zeigt, oben rechts Node: h0 mit macof im Hintergrund und ping -c 8 ohne Verlust, unten das Desktop-Terminal mit fdb/stats-show s1: 16/16 Einträge und sehr vielen verdrängten](../../assets/screenshots/02-subnetting-arp/teil9-fluten-drei-fenster.png)
 *Die Messung aus Teil 9: `h1` (links oben) sieht ausschließlich Echo-Antworten,
 `h0` (rechts oben) sendet Ping und `macof`, das Desktop-Terminal (unten) zeigt die
 volle Tabelle `16/16`.*
@@ -408,7 +421,10 @@ mehr `h0` (Antworten an `h0` wurden geflutet).
     **Vorwissen:** Teile 1 und 4.
 
 [Teil 4](m2-adressplan.md#teil-4-broadcast-adressen-selbst-berechnen-bevor-ihr-sie-pruft-topop02) hat euch am Ende gefragt, wie viele gleich große `/19`-Subnetze in das
-`/17` passen. Jetzt rechnet ihr den **Verschnitt** aus – den Adressverlust, den
+`/17` passen; das `/19` war dort die Größe von Verkauf. Für die starre Variante
+hier gilt aber die **größte** Abteilung als Maß (Entwicklung mit 10.000 Hosts):
+Ob ein `/19` dafür reicht oder welches Präfix stattdessen nötig ist, bestimmt
+ihr in Schritt 2 selbst. Jetzt rechnet ihr den **Verschnitt** aus – den Adressverlust, den
 eine starre, gleich große Aufteilung gegenüber VLSM verursacht. Das ist reine
 Handrechnung; ihr braucht keine laufende Topologie.
 
@@ -514,7 +530,9 @@ Startet dann `topo01` in einem Desktop-Terminal mit `cd ~/rn-practice/topo01`
 und `./start-topo01.sh` (nicht mit `python3 topo01.py`). Es öffnen sich die
 Fenster `Node: h1` und `Node: h2`; Zeilen mit `h1$` gehören in `Node: h1`,
 Zeilen mit `h2$` in `Node: h2`. Für `r2$` tippt ihr in der Mininet-Kommandozeile
-`xterm r2`.
+`xterm r2` (nur dort: In einem Knotenfenster erscheint statt des Fensters eine
+Xfconf-Warnung). Auch hier steht `r2$` nur als Kürzel für den echten Prompt
+`root@<Containername>:…#`.
 
 Prüft anschließend jede Zeile eurer Tabelle mit dem Weiterleitungsentscheid
 des Kernels – `ip route get` beantwortet pro Ziel genau die Frage, die ihr

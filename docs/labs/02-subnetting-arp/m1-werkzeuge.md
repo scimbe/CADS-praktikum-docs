@@ -93,7 +93,8 @@ späteren Teilen verweisen wir nur noch darauf.
 
 Startet die Referenztopologie dieses Blatts in einem Desktop-Terminal
 (Doppelklick auf das Symbol `Terminal` auf dem Desktop; ist das Symbol von
-Fenstern verdeckt, öffnet `Strg+Umschalt+N` in einem offenen Terminal ein neues)
+Fenstern verdeckt, klappt ein Klick auf `Xfce4-terminal` oben links die Fensterliste auf,
+und dort öffnet `Launch New Instance` ein neues Terminal)
 und probiert `nodes` und `net` aus. Läuft noch eine andere Topologie (z. B. `topo01` aus Blatt 01),
 beendet sie vorher mit `exit` bzw. `quit` auf ihrer Mininet-Konsole:
 
@@ -103,6 +104,11 @@ $ ./start-topoP02.sh
 ```
 
 Nach einigen Sekunden erscheint der Prompt `mininet>`.
+
+!!! note "Zeilen mit `pkill` und `killall` beim Start"
+    Beim Start (und später bei `quit`) druckt Mininet selbst einige Zeilen mit
+    `killall` und `pkill`: Das ist sein eigenes Aufräumen alter Reste. Das ist
+    normal und kein Fehler. Ihr selbst tippt diese Befehle nie.
 
 ![Terminalfenster "Mininet" mit den Eingaben nodes und net; nodes nennt h1 h2 h3 h4 r1 r2 r3, net zeigt je Knoten seine Schnittstellen und die Gegenstelle, z. B. h1 h1-eth0:r1-eth0](../../assets/screenshots/02-subnetting-arp/topoP02-nodes-net.png)
 *Die Mininet-Kommandozeile von `topoP02` nach dem Start: `nodes` und `net`.*
@@ -122,6 +128,11 @@ mininet> xterm h1
 
 Es erscheint ein Fenster mit dem Titel `Node: h1`. Alles, was ihr dort
 eintippt, läuft im Namensraum von `h1` – als wäre das ein eigener Rechner.
+Der Prompt dort lautet `root@<Containername>:~/rn-practice/topoP02#`; der
+Containername ist der Name eures Desktops und in allen Knotenfenstern
+derselbe, den Knoten erkennt ihr also nur an der Titelzeile `Node: h1`.
+Geht das erste Zeichen nach einem Fensterwechsel verloren, ist das normal:
+ins Fenster klicken, eine Sekunde warten, dann tippen.
 Beendet wird die Topologie mit `mininet> quit`; dabei räumt das Startskript
 auch die Knotenterminals auf.
 
@@ -135,7 +146,12 @@ auch die Knotenterminals auf.
     Fensterwechsel das erste Zeichen verloren gehen kann, steht unter
     [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
     Das Fenster `Terminal` in dieser Liste ist die Mininet-Konsole (Prompt
-    `mininet>`), kein Knotenfenster.
+    `mininet>`), kein Knotenfenster. Namen wie `h1` lösen übrigens nur in der
+    Mininet-Konsole auf (`mininet> h1 ping -c 1 h3`); in einem Knotenfenster
+    meldet `ping h3` `Temporary failure in name resolution`, dort gilt nur die
+    IP-Adresse. Und keine Sorge: Hier kann nichts Echtes kaputtgehen, alles
+    läuft in einer Emulation; ein Befehl im falschen Fenster ist der häufigste
+    Fehler und harmlos. `mininet> clear` gibt es nicht, nutzt `Strg+L`.
 
 ### `ip addr`: Welche Adressen hat dieser Knoten?
 
@@ -186,8 +202,9 @@ auch die Knotenterminals auf.
     `h1-eth0`). Fehlt in der Ausgabe die `inet`-Zeile, hat die Schnittstelle
     keine IPv4-Adresse – so sieht `topoP02-self` in [Teil 2](m2-adressplan.md#teil-2-eigene-konfiguration-uben-topop02-selfpy) am Anfang aus.
 
-**Probiert es:** Lest auf `h4` die Adresse und die Präfixlänge ab
-(`mininet> h4 ip -br addr`). Welche Präfixlänge sollte `h4` haben – und wo in
+**Probiert es:** Schätzt zuerst: Wie viele Adressen braucht das Netz von
+`h4` (ein Lager mit 400 Rechnern), und welche Präfixlänge passt dazu? Lest dann
+die Adresse und die Präfixlänge ab (`mininet> h4 ip -br addr`). Wo in
 [Teil 1](m2-adressplan.md#teil-1-vlsm-subnetting-nachvollziehen-topop02) findet ihr den Beleg dafür?
 
 ### `ip route`: Wohin schickt dieser Knoten ein Paket?
@@ -283,7 +300,9 @@ auch die Knotenterminals auf.
     - `ttl=61`: Der **Time-To-Live**-Wert startet bei 64 und wird von jedem
       Router um 1 verringert. 64 − 61 = **3 Router** lagen auf dem Weg
       (`r1`, `r2`, `r3`). Das ist eine Messung der Weglänge, ohne dass ihr die
-      Topologie kennen müsstet.
+      Topologie kennen müsstet. Euer Paket ist gerade über drei Router
+      gereist, in unter einer Millisekunde, weil alles auf einem Rechner
+      emuliert wird; im Internet wären es zehn Millisekunden und mehr.
     - `4 packets transmitted, 4 received, 0% packet loss` ist, was ihr sehen
       wollt. Die letzte Zeile fasst die Laufzeiten zusammen (kleinste,
       mittlere, größte, Schwankung).
@@ -294,7 +313,7 @@ auch die Knotenterminals auf.
     |---|---|
     | `ping: connect: Network is unreachable` | Der sendende Knoten hat gar keine passende Route. |
     | `From 128.155.128.1 icmp_seq=1 Destination Net Unreachable` | Ein Router (hier `r1`) meldet: „Ich habe keine Route zu diesem Ziel.“ |
-    | `From 10.0.10.10 icmp_seq=1 Destination Host Unreachable` | Der Absender selbst (im Beispiel `h0` aus `topo02`) meldet: Das Ziel liegt im eigenen Netz, antwortet aber auf ARP nicht. Die Meldung kommt erst, wenn die ARP-Auflösung nach etwa 3 Sekunden aufgibt; mit `-W 1` oder `-c 1` beendet sich `ping` vorher und zeigt nur `100% packet loss`. |
+    | `From 10.0.10.10 icmp_seq=1 Destination Host Unreachable` | Der Absender selbst (im Beispiel ein Rechner mit der Adresse `10.0.10.10`; einen solchen Fall erlebt ihr in [Meilenstein 3](m3-switch-und-arp.md), Teil 6) meldet: Das Ziel liegt im eigenen Netz, antwortet aber auf ARP nicht. Die Meldung kommt erst, wenn die ARP-Auflösung nach etwa 3 Sekunden aufgibt; mit `-W 1` oder `-c 1` beendet sich `ping` vorher und zeigt nur `100% packet loss`. |
     | `ping: sendmsg: Message too long` | Das Paket ist größer als die MTU und darf nicht fragmentiert werden ([Teil 3](m2-adressplan.md#teil-3-vertiefung-optional-mtu-und-fragmentierung-topop04)). |
     | `100% packet loss` ohne jede Meldung | Irgendwo auf Hin- oder Rückweg wird das Paket still verworfen (fehlende Rückroute, Firewall, Verlust). |
 
@@ -328,6 +347,7 @@ auch die Knotenterminals auf.
     schickt je Hop drei Pakete. `* * *` heißt: Von diesem Hop kam keine
     Antwort. Das ist nicht automatisch ein Fehler; hier wird Hop 3 (`r3`) in
     [Teil 1](m2-adressplan.md#teil-1-vlsm-subnetting-nachvollziehen-topop02) zur Denkaufgabe. Hop 4 ist das Ziel selbst.
+    Merkt euch den Stern: Wer ihn erklären kann, hat Routing verstanden.
 
     **Typische Meldungen:** Ein angehängtes `!N` (etwa
     `128.155.128.1  0.030 ms !N`) heißt „Network unreachable“: Der Router hat
@@ -350,7 +370,7 @@ auch die Knotenterminals auf.
     | `tcpdump -n -i r1-eth0 arp` | an dieser Schnittstelle mitschneiden, nur ARP zeigen |
     | `-i any` | an allen Schnittstellen mitschneiden |
     | `-n` | Adressen nicht in Namen auflösen (schneller, eindeutiger) |
-    | Filter `arp`, `icmp`, `host 10.0.0.2`, `tcp port 80` | nur passende Pakete; kombinierbar mit `and`/`or` |
+    | Filter `arp`, `icmp`, `host 128.155.224.2`, `tcp port 80` | nur passende Pakete; kombinierbar mit `and`/`or`. `host` filtert nach der Adresse im IP-Kopf: Bei einem Ping `h1` → `h3` passt `host 128.155.224.2`, nicht `host 10.0.0.2` (ohne passende Pakete wartet `tcpdump` endlos) |
     | `-c 4` | nach vier Paketen selbst aufhören |
     | `-v` | ausführlichere Kopfzeilen ([Teil 3](m2-adressplan.md#teil-3-vertiefung-optional-mtu-und-fragmentierung-topop04) braucht sie für Offsets) |
     | `-w datei.pcap` | Mitschnitt speichern, später in Wireshark öffnen |
@@ -360,7 +380,8 @@ auch die Knotenterminals auf.
     (z. B. mit `ping`).
 
     **Echte Ausgabe** (`r1$ tcpdump -n -i any arp`, während `h1` zum ersten
-    Mal `h3` anpingt):
+    Mal `h3` anpingt; im Knotenfenster von `h1` also `ping -c 1 128.155.224.2`,
+in der Mininet-Konsole `mininet> h1 ping -c 1 h3`):
 
     ```text
     tcpdump: WARNING: any: That device doesn't support promiscuous mode
@@ -377,8 +398,13 @@ auch die Knotenterminals auf.
     0 packets dropped by kernel
     ```
 
-    Drückt ihr `Strg+C` nicht gleich nach dem Ping, zeigt eure Bilanz oft 8
-    statt 4 Pakete: Router frischen ihre ARP-Einträge nach einigen Sekunden
+    Die vier Zeilen seht ihr nur, wenn `h1` und `r1` einander noch nicht
+    kennen. Wart ihr vorher schon am Pingen, sind die ARP-Caches warm, und ihr
+    seht nur 2 Zeilen. Das ist kein Fehler: Leert vor dem Ping die Caches mit
+    `ip neigh flush all` auf `h1` und auf `r1` und pingt erneut.
+
+    Drückt ihr `Strg+C` nicht gleich nach dem Ping, zeigt eure Bilanz oft mehr
+    als 4 Pakete: Router frischen ihre ARP-Einträge nach einigen Sekunden
     von selbst auf (etwa `who-has 128.155.128.2 tell 128.155.128.1`). Die vier
     gezeigten Zeilen sind die Auflösung, die der Ping ausgelöst hat.
 
@@ -427,19 +453,23 @@ auch die Knotenterminals auf.
 
     **Typische Meldung:** Pingt ihr eine Adresse im eigenen Netz, die niemandem
     gehört, steht kurz `128.155.128.99 dev h1-eth0 INCOMPLETE` (Anfrage
-    gestellt, keine Antwort) und danach `… FAILED` im Cache; `ping` meldet nach
+    gestellt, keine Antwort) und danach `… FAILED` im Cache. `INCOMPLETE` ist in
+    der Praxis kaum zu sehen: Wer `ip neigh` erst nach dem Ping abfragt, sieht
+    sofort `FAILED`; nur in einem zweiten Fenster während des Pings erwischt
+    ihr es. `ping` meldet nach
     etwa 3 Sekunden `Destination Host Unreachable`. `FAILED` heißt: Auf Schicht 2 antwortet
     niemand – das Problem liegt nicht im Routing.
 
 !!! success "Geschafft: euer Werkzeugkasten"
-    Merkt euch die Zuordnung: **`ip addr`** = „Was bin ich?“, **`ip route`** =
+    Ihr könnt jetzt lesen, was in einem Netz eingestellt ist und ob etwas ankommt. Merkt euch die Zuordnung: **`ip addr`** = „Was bin ich?“, **`ip route`** =
     „Wohin schicke ich?“, **`ping`/`traceroute`** = „Komme ich an, und auf
     welchem Weg?“, **`tcpdump`** = „Was geht wirklich über das Kabel?“,
     **`ip neigh`** = „Wen kenne ich nebenan?“. Mit diesen fünf Fragen lässt
-    sich fast jedes Netzproblem eingrenzen.
+    sich fast jedes Netzproblem eingrenzen. Meldet später jemand
+    `Network is unreachable`, wisst ihr: Es liegt an der Route, nicht am Kabel.
 
 !!! success "Meilenstein 1 geschafft"
-    **Das habt ihr gelernt:**
+    **Kurz zusammengefasst:**
 
     - Die Topologie topoP02 starten und mit einem Terminal je Knoten arbeiten.
     - Adressen mit ip addr und Routen mit ip route auslesen.

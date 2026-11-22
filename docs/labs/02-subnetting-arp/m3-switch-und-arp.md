@@ -108,12 +108,19 @@ Beim Start öffnet `topo02` von selbst Terminalfenster für `r1`, `h0`, `h1`,
 `h2` und `h3` (Titel `Node: <name>`). Sie liegen zunächst übereinander; zieht
 sie mit der Maus an eine Stelle, an der ihr sie nebeneinander seht. Das Fenster
 mit der Mininet-Kommandozeile (`mininet>`) liegt dahinter; in der Fensterliste
-oben links heißt es `Terminal`. Wie ihr verdeckte Fenster wiederfindet, steht
+heißt es `Terminal`. Die Liste klappt auf, wenn ihr oben links auf
+`Xfce4-terminal` oder unten links in der blauen Leiste auf das Symbol klickt;
+ein Klick auf den Namen holt das Fenster nach vorn, das ✕ schließt es. So
+findet ihr die Mininet-Konsole auch unter dem Fensterstapel. Wie ihr verdeckte Fenster wiederfindet, steht
 unter [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
 Ein weiteres Desktop-Terminal (Prompt `cads@…`, nicht `mininet>`) öffnet ihr
 mit dem Symbol `Terminal` auf dem Desktop oder, wenn das Symbol verdeckt ist,
-mit `Strg+Umschalt+N` in einem offenen Terminal. Die `sudo ovs-…`-Befehle
-dieser Seite gehören dorthin, nicht in die Mininet-Konsole.
+über `Launch New Instance` in der Fensterliste oder mit `Strg+Umschalt+N` in
+der Mininet-Konsole. Vorsicht: `Strg+Umschalt+N` in einem *Knotenfenster*
+(`Node: h0` usw.) öffnet kein `cads@`-Terminal, sondern eine root-Shell im Netz
+dieses Knotens (Titel ebenfalls `Terminal`, Prompt `root@…#`). Die
+`sudo ovs-…`-Befehle dieser Seite gehören in ein `cads@`-Terminal, nicht in die
+Mininet-Konsole und nicht in ein Knotenfenster.
 
 ![Desktop mit mehreren übereinanderliegenden Terminalfenstern: Node: h0, Node: h3 und Node: h1, jeweils mit leerem Prompt root@…:~/rn-practice/topo02#](../../assets/screenshots/02-subnetting-arp/topo02-start-fenster.png)
 *Der Bildschirm direkt nach dem Start von `topo02`: Die Knotenfenster öffnen
@@ -227,7 +234,9 @@ zweimal im Abstand einiger Sekunden laufen und achtet darauf, wann `Age` von
 selbst wieder auf einen kleinen Wert springt – und was das über den Verkehr
 aussagt, der in der Zwischenzeit geflossen ist. Ist im Netz gerade völlig
 Ruhe, zählt `Age` einfach weiter und springt nicht; erzeugt dann selbst
-Verkehr (z. B. `h0$ ping -c 1 10.0.10.1`) und schaut noch einmal hin.
+Verkehr (z. B. `h0$ ping -c 1 10.0.10.1`) und schaut noch einmal hin. Ihr
+seht dabei den Switch gerade etwas Neues lernen: Jeder Sprung auf einen kleinen
+Wert ist ein Rahmen, den dieser Host eben gesendet hat.
 
 #### Schritt 4 – Die Alterungszeit messen
 
@@ -244,10 +253,17 @@ $ sudo watch -n 1 ovs-appctl fdb/show s1    # beenden mit Strg+C
 ```
 
 `get` bestätigt die Einstellung, in der Ausgabe steht `mac-aging-time="15"`.
+`watch` überschreibt den Bildschirm: Die Bestätigung verschwindet, sobald
+`watch` läuft. Wollt ihr sie noch einmal sehen, beendet `watch` mit `Strg+C`
+und tippt das `get` erneut.
 
 **Messwert:** Nach wie vielen Sekunden ist der Eintrag für `h0`s MAC-Adresse
 (`00:00:00:00:00:01`) verschwunden? Lest dafür die Spalte `Age`: Der letzte
-Wert, den ihr vor dem Verschwinden seht, ist die Lebensdauer. Wiederholt die
+Wert, den ihr vor dem Verschwinden seht, ist die Lebensdauer. Der Eintrag verschwindet
+im Beobachtungsfenster schnell; notiert euch bei jedem Blick den `Age`-Wert,
+oder lasst alternativ eine Schleife mitschreiben
+(`for i in $(seq 25); do sudo ovs-appctl fdb/show s1 | grep :01; sleep 1; done`).
+Wiederholt die
 Messung zwei- bis dreimal, vergleicht mit den eingestellten 15 Sekunden und
 erklärt die Abweichung. Gemessen wurde: Der Eintrag war nie früher weg (`Age`
 erreichte 14), verschwand aber meist erst etwa 15 bis 20 Sekunden nach dem
@@ -328,22 +344,25 @@ $ sudo ovs-appctl fdb/stats-show s1
 ```
 
 `macof` schreibt fünf Sekunden lang sehr viele Zeilen mit zufälligen
-Adressen in das Fenster von `h0`; das ist normal. (`wc -l` zählt die
+Adressen in das Fenster von `h0`; das ist normal, nach fünf Sekunden kommt der
+Prompt zurück. Ihr habt damit einen echten Angriff nachgestellt, nur in eurer
+Sandbox. (`wc -l` zählt die
 Kopfzeile von `fdb/show` mit; gemessen wurden `8193` Zeilen und
 `Current/maximum MAC entries in the table: 8192/8192`. Die Zähler `learned`
 und `evicted` hängen davon ab, wie schnell `macof` auf eurem Desktop sendet:
-Gemessen wurden fünfstellige bis sechsstellige Werte, im Beispielbild
-unten 158.337 für `evicted`.)
+Gemessen wurden fünfstellige bis sechsstellige Werte, auf verschiedenen
+Desktops etwa zwischen 11.700 und 47.800 für `evicted`, im Beispielbild unten
+158.337.)
 
 ![Desktop-Terminal mit sudo ovs-appctl fdb/show s1 | wc -l (8193) und fdb/stats-show s1: 8192/8192 Einträge, 166529 gelernt, 158337 verdrängt](../../assets/screenshots/02-subnetting-arp/topo02-macof-ueberlauf.png)
 *Nach fünf Sekunden `macof`: Die Lerntabelle ist mit 8192 von 8192 Einträgen
 voll, hier über 150.000 Einträge wurden verdrängt (auf anderen Desktops
-sind es oft nur 20.000 bis 30.000).*
+sind es oft nur 10.000 bis 50.000).*
 
 Verkleinert die Tabelle
 danach absichtlich und wiederholt den Versuch. Das Setzen von `mac-table-size`
-leert die Tabelle sofort (`0/64`) und lässt `expired` um die bisherigen
-Einträge springen; nehmt als Ausgangswert für `evicted` deshalb den Stand
+kürzt die Tabelle sofort auf 64 Einträge (ihr seht gleich `64/64`, nicht `0/64`)
+und lässt `expired` um die überzähligen Einträge springen; nehmt als Ausgangswert für `evicted` deshalb den Stand
 direkt nach dem Setzen:
 
 ```bash
@@ -399,8 +418,8 @@ $ sudo ovs-vsctl remove bridge s1 other-config mac-aging-time
     | Gegenprobe mit bekanntem Ziel (Schritt 3) | `h1` sieht 0 bis 2 Zeilen (erste Anfrage und/oder erste Antwort direkt nach dem Leeren), danach nichts mehr |
     | Alterung bei `mac-aging-time=15` | Eintrag verschwindet frühestens nach 15 s, gemessen meist etwa 15 bis 20 s nach dem letzten Paket (`Age` höchstens 14 zu sehen); der Wert streut, weil der Switch nicht pro Eintrag einen Wecker hält |
     | Obergrenze der Tabelle (Standard) | **8192** Einträge |
-    | `macof` 5 s gegen die Standardtabelle | Tabelle voll: `8192/8192`, `evicted` fünf- bis sechsstellig (im Beispiel 158.337, auf manchen Desktops nur 20.000 bis 30.000) |
-    | `macof` 5 s bei `mac-table-size=64` | genau **64** Einträge (`64/64`, 65 Zeilen mit Kopfzeile), `evicted` steigt um viele Zehntausend (je nach Hardware bis zu mehreren 100.000) |
+    | `macof` 5 s gegen die Standardtabelle | Tabelle voll: `8192/8192`, `evicted` fünf- bis sechsstellig (im Beispiel 158.337, auf anderen Desktops ab etwa 10.000, gemessen bis 48.000) |
+    | `macof` 5 s bei `mac-table-size=64` | genau **64** Einträge (`64/64`, 65 Zeilen mit Kopfzeile), `evicted` steigt um viele Tausend bis Zehntausend (gemessen 16.600 bis 30.900, je nach Hardware auch mehr) |
 
     Der Kontrast „alle Rahmen" gegen „nur der erste" ist der eigentliche
     Befund dieses Teils: derselbe Switch, dieselbe Quelle, derselbe
@@ -467,7 +486,9 @@ danach im Nachbarschafts-Cache über den Nachbarn notiert.
 
     **Typische Meldung:** Fragt ihr nach einer Adresse, die niemandem gehört
     (`nping --arp -c 1 10.0.10.99`), steht dort nur `SENT …`, und die Bilanz
-    lautet `Rcvd: 0 (0B) | Lost: 1 (100.00%)` – niemand antwortet.
+    lautet `Rcvd: 0 (0B) | Lost: 1 (100.00%)` – niemand antwortet. Eine Zeile
+    `nping_event_handler(): READ-PCAP killed: Resource temporarily unavailable`
+    kann dazukommen; sie ist harmlos und kein Fehler.
 
 Den Zustand der Einträge zeigt `ip neigh` (siehe [Werkzeugeinführung](m1-werkzeuge.md#werkzeugeinfuhrung-mininet-und-die-netzwerkwerkzeuge)): `REACHABLE`
 (kürzlich bestätigt), `STALE` (alt, aber nutzbar), `DELAY`/`PROBE` (wird gerade
