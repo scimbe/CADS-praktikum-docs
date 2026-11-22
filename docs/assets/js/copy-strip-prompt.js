@@ -23,6 +23,8 @@
   // Fuehrender Prompt am Zeilenanfang: Knotennamen (h0..h9, r1/r2), ein
   // Desktop-Prompt (cads@host:/pfad$), die Mininet-Konsole (mininet>) oder ein
   // nacktes "$ ". Jeweils gefolgt von genau einem Leerzeichen.
+  // Material <9.6: button.md-clipboard; ab 9.6: button.md-code__button[data-md-type=copy].
+  var BUTTONS = "button.md-clipboard, button.md-code__button[data-md-type=\"copy\"]";
   var PROMPT = /^(?:h[0-9]+\$|r[0-9]+\$|cads@[^\s]+|mininet>|\$) /;
 
   function stripPrompts(text) {
@@ -54,7 +56,7 @@
     "click",
     function (ev) {
       var btn = ev.target && ev.target.closest
-        ? ev.target.closest("button.md-clipboard")
+        ? ev.target.closest(BUTTONS)
         : null;
       if (!btn) return;
 
