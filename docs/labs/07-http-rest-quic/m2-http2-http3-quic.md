@@ -48,7 +48,7 @@ h1$ ./startHTTP3Server.sh
     `cat startHTTP3Server.sh` zeigt euch, dass hier kein Hexenwerk passiert:
     derselbe nginx-`server`-Block hört doppelt – `listen 443 ssl` für TCP
     (HTTP/1.1 und HTTP/2) und `listen 443 quic` für QUIC. Genau diese eine
-    Zeile schaltet HTTP/3 ein.
+    Zeile schaltet HTTP/3 ein. Findet ihr sie in der Ausgabe?
 
 Fragt von `h2` aus dieselbe Seite einmal über HTTP/1.1 und einmal über
 HTTP/2 ab und lasst euch von `curl` die tatsächlich ausgehandelte Version
@@ -60,7 +60,9 @@ h2$ curl -sk --http2   -o /dev/null -w 'ausgehandelt: HTTP/%{http_version}\n' ht
 ```
 
 `-s` unterdrückt den Fortschrittsbalken von `curl`, der sonst die Zeile
-`ausgehandelt: …` verdeckt.
+`ausgehandelt: …` verdeckt. Mit `-w` gibt `curl` nach dem Abruf einen
+Formatstring aus; `%{http_version}` setzt dabei die tatsächlich ausgehandelte
+HTTP-Version ein.
 
 Zeichnet parallel auf `h2` den TCP-Verkehr mit: Startet den Mitschnitt mit
 `&`, führt die beiden `curl`-Befehle aus, wartet kurz (`sleep 1`), beendet
@@ -71,7 +73,10 @@ h2$ sudo rm -f /tmp/http12.pcap
 h2$ sudo tcpdump -i h2-eth0 -w /tmp/http12.pcap tcp port 443 &
 ```
 
-Wartet, bis `listening on h2-eth0` erscheint, und führt dann die beiden
+Schickt die beiden Zeilen einzeln ab und wartet jeweils, bis die
+Eingabeaufforderung wieder da ist; sonst können Zeichen verloren gehen (etwa
+`udo: command not found`) – tippt die Zeile dann einfach neu. Wartet, bis
+`listening on h2-eth0` erscheint, und führt dann die beiden
 `curl`-Befehle von oben aus. Beendet danach den Mitschnitt und seht ihn euch
 an:
 
@@ -83,13 +88,17 @@ h2$ tcpdump -r /tmp/http12.pcap -n | grep 'Flags \[S\]'
 ```
 
 Die PID in `jobs -l` gehört zu `sudo`; `kill` auf sie beendet `tcpdump`
-trotzdem. Die Zusammenfassung des Mitschnitts erscheint erst nach dem `kill`
+trotzdem. Habt ihr mehrere Jobs (etwa nach einem Fehlversuch), nehmt die PID
+aus der Zeile mit `tcpdump`; die Zahl in eckigen Klammern (`[1]`, `[2]`) ist
+die Jobnummer, nicht die PID, und `kill` braucht die PID. Die Zusammenfassung des Mitschnitts erscheint erst nach dem `kill`
 und kann zwischen spätere Eingaben rutschen. `head` zeigt nur die ersten
 Pakete; die zweite Zeile zählt die Verbindungsaufbauten (Flags `[S]`) – wie
-viele sind es?
+viele sind es? Zur Selbstprüfung: Ihr solltet genau 2 sehen, je eine
+TCP-Verbindung pro `curl`-Aufruf.
 
 Beide Abrufe laufen über TCP, Port 443. Anders als HTTP/3 in Teil 5 sind
-beide – **TCP**. Ob HTTP/2 mehrere Anfragen gemultiplext in einer Verbindung
+beide – **TCP**. Zwei SYNs heißen zwei TCP-Verbindungen: HTTP/2 spart erst bei
+vielen Anfragen Verbindungen. Ob HTTP/2 mehrere Anfragen gemultiplext in einer Verbindung
 überträgt, während HTTP/1.1 sie nacheinander abarbeitet, könnt ihr an diesem
 Mitschnitt nicht ablesen: TLS 1.3 verschlüsselt den Inhalt, und ihr habt
 je Version nur einen Abruf gemacht. Das ist die Theorie aus dem folgenden
@@ -165,7 +174,9 @@ h2$ tcpdump -r /tmp/quic.pcap -n | head -20
 ```
 
 `h2` hat die Adresse `10.0.6.2`, `h1` die `10.0.1.2`. Zählt die Paketgrößen
-der ersten Datagramme vom Client (`10.0.6.2 > 10.0.1.2`) und vergleicht sie
+der ersten zwei Initial-Datagramme vom Client (`10.0.6.2 > 10.0.1.2`; Hinweis:
+das ClientHello füllt typischerweise zwei Datagramme zu je 1200 Byte – das ist
+kein Zufall, sondern Vorschrift) und vergleicht sie
 mit den ersten Antworten des Servers. `length` ist die UDP-Nutzlast; mit
 `-v` zeigt `tcpdump` zusätzlich die Länge im IP-Header, die um die 28 Byte
 von IP- und UDP-Header größer ist.
@@ -205,6 +216,7 @@ HTTP/2). Woher weiß er dann, dass er auf das schnellere HTTP/3 über QUIC
 wechseln kann? Der Server sagt es ihm – mit dem **`Alt-Svc`**-Header
 (*Alternative Services*, RFC 7838).
 
+Genau das passiert bei jedem Aufruf einer großen Webseite in eurem Browser.
 Fragt den Server aus Teil 4/5 über TCP an und lasst euch nur die Kopfzeilen
 zeigen:
 
@@ -250,7 +262,8 @@ unterwegs gesperrt sein, wie in dieser Umgebung nach außen.)
 
     Beendet dann die Topologie mit `exit` in der Mininet-Konsole (Fenster
     `Terminal`, Prompt `mininet>`). Laufende Mitschnitte beendet ihr wie
-    oben mit `kill <PID>`.
+    oben mit `kill <PID>` (die PID aus der Zeile mit `tcpdump`, nicht die
+    Jobnummer in `[ ]`).
 
 !!! success "Meilenstein 2 geschafft"
     **Das habt ihr gelernt:**

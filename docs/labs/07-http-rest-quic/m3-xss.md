@@ -25,6 +25,9 @@ Hier seht ihr an einem absichtlich verwundbaren Übungsziel, wie ein ungeprüft 
     gegen ein externes Ziel scheitert von hier aus technisch, nicht nur aus
     Vorsicht. Warum genau, seht ihr in der Gegenprobe in Schritt 6. Übertragt nichts davon auf ein Ziel außerhalb dieser Topologie.
 
+Dieser Teil hat sechs nummerierte Schritte; Verweise wie „Schritt 2–4“ oder
+„Schritt 6“ meinen genau diese Nummern.
+
 HTTP/REST-Anfragen von Hand zu sprechen (Teile 1–3) heißt auch: zu sehen, was
 mit den Daten passiert, die eine Anfrage mitbringt – zum Beispiel ein
 Suchbegriff in einer Query-String. Wenn ein Server diesen Wert ungeprüft in
@@ -48,7 +51,7 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     ```
 
     Es erscheint `[uebungsziel] hoert auf Port 8080`.
-    Die Fenster `Node: h1` und `Node: h2` liegen nach dem Start übereinander;
+    Die Fenster `Node: h1` und `Node: h2` liegen nach dem Start übereinander oder nebeneinander;
     wie ihr sie wiederfindet und sicher tippt, steht unter
     [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
     `h1$` und `h2$` bedeuten: Befehl im Fenster `Node: h1` bzw. `Node: h2`
@@ -61,6 +64,8 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     h2$ curl -s 'http://10.0.1.2:8080/suche?q=<script>alert(1)</script>'
     ```
 
+    Das ist derselbe Fehler, der in echten Suchfeldern von Webseiten
+    auftritt: Jede Seite, die eure Eingabe wieder anzeigt, muss sie escapen.
     Prüft in der Ausgabe: steht `<script>alert(1)</script>` unverändert
     (nicht als `&lt;script&gt;`) im HTML? Genau das ist die Lücke – jeder
     Browser, der diese Antwort rendert, würde das Skript ausführen.
@@ -98,9 +103,10 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     innerhalb von `topo01`, es wird nichts exfiltriert. Wer einen grafischen
     Browser zur Hand hat, kann die Seiten stattdessen wirklich öffnen und
     beobachten, dass das eingeschleuste Skript ohne weiteres Zutun feuert.
-    Startet den Browser im Fenster `Node: h2` (der Aufruf `h2 firefox-esr …`
-    in der Mininet-Konsole startet bei Tests kein Fenster, weil Firefox dort
-    als `root` nicht unterstützt wird). Öffnet zuerst `/`, damit das
+    Probiert das unbedingt: Der `alert`-Dialog ist der Moment, in dem man den
+    Angriff sieht. Startet den Browser im Fenster `Node: h2` (nicht in der
+    Mininet-Konsole; dort läuft Firefox als `root` nicht). Das Fenster
+    erscheint nach einigen Sekunden. Öffnet zuerst `/`, damit das
     Demo-Cookie gesetzt ist, danach das Gästebuch:
 
     ```bash
@@ -108,10 +114,17 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     h2$ sudo -u cads env DISPLAY=$DISPLAY HOME=/config firefox-esr http://10.0.1.2:8080/gaestebuch &
     ```
 
-    Der `fetch`-Aufruf zeigt keinen Dialog; ob er gefeuert hat, seht ihr in
-    `/sammler/log`, wo danach neue Einträge stehen. Die reflektierte Lücke
+    Der zweite Befehl öffnet nur einen neuen Tab im bereits laufenden
+    Firefox. Der `fetch`-Aufruf zeigt keinen Dialog; ob er gefeuert hat, seht
+    ihr in `/sammler/log`. Der Eintrag des Browsers sieht dem `curl`-Eintrag
+    aus diesem Schritt zum Verwechseln ähnlich (gleicher Wert, gleiche
+    Quell-IP); beobachtet deshalb den neuen Zeitstempel bzw. zählt die
+    Einträge vor und nach dem Seitenaufruf. Die reflektierte Lücke
     aus Schritt 2 zeigt dagegen den `alert(1)`-Dialog, wenn ihr
-    `http://10.0.1.2:8080/suche?q=<script>alert(1)</script>` öffnet.
+    `http://10.0.1.2:8080/suche?q=<script>alert(1)</script>` öffnet. Nach
+    dem Schließen des Dialogs fehlt der eingegebene Text in der Zeile
+    „Ergebnisse für:“: Der Browser hat ihn als Skript ausgeführt statt ihn
+    anzuzeigen.
 
 5. Schneidet die Strecke zwischen `h1` und `h2` mit, während ihr Schritt 2–4
    wiederholt, und sucht den Payload im Klartext:
@@ -131,15 +144,19 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
 
     Wartet nach dem Start des Mitschnitts, bis `listening on h2-eth0`
     erscheint, bevor ihr weitertippt; sonst geht der Anfang eurer Eingabe
-    verloren. Die `<PID>` lest ihr aus der Ausgabe von `jobs -l` ab (Zahl
-    hinter `[1]+`); sie gehört zu `sudo`, `kill` darauf beendet `tcpdump`
-    trotzdem. `-n` beim Lesen verhindert, dass `tcpdump` Port 8080 als
+    verloren. Die `<PID>` lest ihr aus der Ausgabe von `jobs -l` ab: Nehmt
+    die Zeile, in der `tcpdump` steht (habt ihr in Schritt 4 Firefox mit `&`
+    gestartet, steht dort `[1]` oder `[2]` für Firefox und `tcpdump` hat eine
+    spätere Jobnummer, etwa `[3]+`). Die PID ist die Zahl hinter der
+    Jobnummer, nicht die Jobnummer selbst; sie gehört zu `sudo`, `kill`
+    darauf beendet `tcpdump` trotzdem. `-n` beim Lesen verhindert, dass `tcpdump` Port 8080 als
     `http-alt` beschriftet.
 
     **Aufgabe:** Findet im Mitschnitt (a) die Anfrage mit dem reflektierten
     Payload, (b) die Anfrage, die den gespeicherten Payload einträgt, und (c)
     die Anfrage an `/sammler`, die den Cookie-Wert überträgt. Alle drei
-    stehen im Klartext auf der Leitung – HTTP verschlüsselt nichts. Was würde
+    stehen im Klartext auf der Leitung – HTTP verschlüsselt nichts; das ist der
+    Grund, warum HTTPS heute Standard ist. Was würde
     sich ändern, wenn der Server stattdessen HTTPS spräche (vgl. [Teil 3](m1-http-von-hand.md#teil-3-manuelles-http-uber-tls-mit-openssl-s_client-topo01))?
 
 6. Klont das Übungsziel mit `httrack`, dem Site-Cloning-Werkzeug – dem
@@ -151,7 +168,8 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     h2$ ls ~/rn-practice/topo01/clone-uebungsziel
     ```
 
-    `httrack` braucht etwa eine halbe Minute; tippt den `ls`-Befehl erst, wenn
+    `httrack` braucht je nach Lauf wenige Sekunden bis etwa eine halbe
+    Minute; tippt den `ls`-Befehl erst, wenn
     der Prompt zurück ist. Die Warnung, dass `httrack` als `root` läuft, könnt
     ihr hier ignorieren.
 
@@ -162,7 +180,8 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     während der erste funktioniert. Erwartet keine Fehlermeldung im Klartext:
     `httrack` meldet nur `Done.1.1.1.1/ (0 bytes) - -4`, also null geladene
     Byte und den Fehlercode `-4` (Verbindung fehlgeschlagen). Mehr zeigt
-    `ping 1.1.1.1` auf `h2`. Achtet darauf, **wer** den Fehler meldet. `h2`
+    `ping 1.1.1.1` auf `h2`. Dass ein Router Verkehr nur weiterleitet, wenn
+    eine Route existiert, kennt ihr schon aus den Routing-Blättern. Achtet darauf, **wer** den Fehler meldet. `h2`
     hat sehr wohl eine Default-Route; schaut, wohin sie führt, und wer auf
     dem Weg antwortet.
 

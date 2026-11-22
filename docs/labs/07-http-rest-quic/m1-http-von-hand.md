@@ -3,6 +3,7 @@
 *07 · HTTP/REST/QUIC von Hand* · [Übersicht des Blatts](index.md)
 
 Hier sprecht ihr HTTP ohne Browser selbst, lokal, gegen eine echte REST-API und über TLS.
+Genau so arbeitet jede App, die eine Wetter-API abfragt – nur sieht sie die Zeilen nie.
 
 <div class="schichtenbild" style="max-width:20rem;margin:0 0 1.2em 0;font-size:.72rem;line-height:1.5">
 <div style="margin-bottom:.3em;color:#757575">In diesen Schichten des TCP/IP-Modells bewegt ihr euch hier:</div>
@@ -78,7 +79,7 @@ schiefgehen kann.
         könnt ebenso die numerische Adresse verwenden, z. B.
         `netcat 10.0.1.2 80`.
 
-    ![Terminalfenster "Node: h2": Ausgabe von netcat 10.0.1.2 80 mit Request (GET / HTTP/1.1, Host: h1) und der kompletten Antwort inkl. Status-Zeile "HTTP/1.0 200 OK", Headern (Cache-Control, Server, Date, Content-Type, Content-Length) und dem Beginn des HTML-Bodys](../../assets/screenshots/07-http-rest-quic/netcat-manual-http.png)
+    ![Terminalfenster "Node: h2": Ausgabe von netcat 10.0.1.2 80 mit Request (GET / HTTP/1.1, Host: h1) und der kompletten Antwort inkl. Status-Zeile "HTTP/1.0 200 OK", Headern (u. a. Cache-Control, Server, Date, Content-Type, Content-Length) und dem Beginn des HTML-Bodys](../../assets/screenshots/07-http-rest-quic/netcat-manual-http.png)
     *Echte, von Hand über `netcat` gesprochene HTTP/1.1-Anfrage gegen den
     lokalen Server auf `h1` – Status-Zeile, Header, Leerzeile und HTML-Body
     sind vollständig sichtbar, genau wie ein Browser sie normalerweise
@@ -110,7 +111,13 @@ schiefgehen kann.
     h2$ ./runSimpleBrowser.sh &
     ```
 
-    Der Inhalt ist identisch, nur der Weg dorthin unterscheidet sich.
+    Der Inhalt ist identisch, nur der Weg dorthin unterscheidet sich. Schaut
+    im Mitschnitt der Browser-Anfrage nach: Zählt ihre Headerzeilen (es sind
+    rund neun) gegen eure zwei Zeilen und achtet darauf, dass der Browser
+    ungefragt noch eine zweite Anfrage für `/favicon.ico` schickt (Antwort
+    `404`). Ihr habt mit zwei Zeilen dasselbe Ergebnis erreicht. Auch die
+    Größe der Anfrage unterscheidet sich deutlich (Browser etwa 388 Byte,
+    Handanfrage nur ein Bruchteil davon).
 
 6. Wiederholt den Versuch gegen den HTTPS-Server (`python3
     startHTTPsServer.py` auf `h1`, siehe Aufgabenblatt 01) mit reinem
@@ -158,7 +165,14 @@ Internet. Startet `topo01` wie in Teil 1 und arbeitet im Terminal von `h1`.
     `HTTP/1.1 401 Unauthorized` und dem Rumpf
     `{"cod":401, "message": "Invalid API key. …"}`. Die Verbindung ist dann
     trotzdem richtig aufgebaut; es liegt am Schlüssel, nicht am Netz oder an
-    eurer Eingabe.
+    eurer Eingabe. Schon die Antwort `401` zeigt, dass ihr den Server im
+    Internet erreicht und mit einer echten Web-API gesprochen habt.
+
+    Ohne gültigen Schlüssel kommt **überall** `401`, auch bei `mode=xml`
+    und bei `Accept`-Zeilen. Der Vergleich von JSON und XML, das Verhalten
+    des `Accept`-Headers und die Suche nach `RateLimit`-Zeilen werden daher
+    erst mit dem echten Schlüssel sichtbar, den die Lehrenden zu Beginn
+    nennen.
 
 1. Baut von `h1` aus eine rohe TCP-Verbindung zum API-Server auf:
 
@@ -209,7 +223,8 @@ Internet. Startet `topo01` wie in Teil 1 und arbeitet im Terminal von `h1`.
 5. Zeichnet den gesamten Vorgang mit Wireshark mit (Interface `h1-eth0`,
     der Uplink; Filter z. B. auf `tcp.port == 80` oder die aufgelöste IP der
     API) und vergleicht die Rohdaten mit der euch angezeigten
-    Konsolenausgabe. Sucht darin die Zeile mit `appid=`: Die Anfrage geht
+    Konsolenausgabe. In der Liste der Interfaces ist beim Start evtl.
+    `h1-eth1` vorausgewählt; nehmt `h1-eth0`. Sucht darin die Zeile mit `appid=`: Die Anfrage geht
     über Port 80, also unverschlüsselt – der Schlüssel steht im Klartext in
     der URL und ist im Mitschnitt lesbar. Behaltet das für Teil 3 im Kopf.
 
@@ -263,7 +278,10 @@ Internet. Startet `topo01` wie in Teil 1 und arbeitet im Terminal von `h1`.
     # empfangen, bis recv() nichts mehr liefert, und die Antwort ausgeben.
     ```
 
-    Probiert es auf `h1`, denn nur `h1` erreicht die externe API. Gegen den
+    Probiert es auf `h1`, denn nur `h1` erreicht die externe API. Für den
+    ersten Test muss der HTTP-Server aus Teil 1 auf `h1` laufen
+    (`python3 startHTTPServer.py &`), sonst meldet euer Skript
+    `ConnectionRefusedError`. Gegen den
     Server auf `h1` (Port 80, Pfad `/`) erwartet ihr `HTTP/1.0 200 OK`; gegen
     `api.openweathermap.org` ohne gültigen Schlüssel ist `HTTP/1.1 401
     Unauthorized` die richtige Antwort. Bei einer Bash-Lösung beendet
@@ -311,7 +329,8 @@ Baut von `h2` aus eine TLS-Verbindung zu `h1` auf:
 h2$ openssl s_client -connect 10.0.1.2:443
 ```
 
-Beobachtet zunächst den ausgegebenen Zertifikats-Handshake, **bevor** ihr
+Das Schloss-Symbol im Browser steht genau für diesen Handshake. Beobachtet
+zunächst den ausgegebenen Zertifikats-Handshake, **bevor** ihr
 irgendetwas eintippt – ihr solltet dieselben unsinnigen Zertifikatsangaben
 (`CN=noway`, `O=Not your buisness`) sehen, die euch in
 [Aufgabenblatt 01, Aufgabe 10](../01-netzwerkgrundlagen-tools/index.md) bereits im
@@ -322,10 +341,12 @@ und `Cipher`).
 
 Beendet diese Sitzung mit ++ctrl+c++ und startet sie für die Anfrage von Hand
 mit `-quiet` neu. Die interaktive Sitzung ohne `-quiet` lieferte bei Tests
-mit der Zeile `Connection: close` keine Antwort (stattdessen `RECONNECTING`
-und `unexpected eof`); mit `-quiet` kommt die Antwort zuverlässig. `-quiet`
-unterdrückt die Handshake-Ausgabe, deshalb habt ihr sie vorher ohne
-`-quiet` angesehen:
+mit der Zeile `Connection: close` keine Antwort (stattdessen `read R BLOCK`
+und `unexpected eof while reading`); mit `-quiet` kommt die Antwort
+zuverlässig. `-quiet` kürzt die Handshake-Ausgabe deutlich (Zertifikatsdetails,
+Protokoll- und Cipher-Zeilen entfallen), einzelne Zeilen wie
+`Connecting to 10.0.1.2` oder `verify error` erscheinen aber trotzdem. Deshalb
+habt ihr den vollständigen Handshake vorher ohne `-quiet` angesehen:
 
 ```bash
 h2$ openssl s_client -quiet -connect 10.0.1.2:443
@@ -360,7 +381,7 @@ Header, Body) identisch? Was genau hat `openssl s_client` für euch
     **Das habt ihr gelernt:**
 
     - HTTP ist ein textbasiertes Protokoll: Request-Line, Header, Leerzeile, optionaler Body; die Antwort ist ähnlich aufgebaut.
-    - Query-Strings und der Accept-Header steuern bei REST-Abfragen Inhalt und Format der Antwort, etwa JSON oder XML.
+    - Bei REST-Abfragen steuern Query-String-Parameter (hier `mode`) und je nach API auch der `Accept`-Header Inhalt und Format der Antwort, etwa JSON oder XML.
     - Mit openssl s_client übernimmt ein Werkzeug den TLS-Handshake, danach sprecht ihr wieder normales Klartext-HTTP.
 
     **Was Meilenstein 2 verspricht:** Der nächste Meilenstein vergleicht die HTTP-Versionen: HTTP/1.1 und HTTP/2 über TCP, HTTP/3 über QUIC und damit UDP. Das HTTP-Grundwissen von hier ist dafür die Voraussetzung.
