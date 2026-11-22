@@ -114,12 +114,12 @@ folgenden Schritte offen.
     device":
 
     ![Wireshark-Fehlerdialog „Promiscuous mode not supported on the 'any' device" mit OK-Knopf, im Hintergrund eine bereits laufende, noch leere Aufzeichnung auf „any"](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-promiscuous-error.png)
-    *Der Dialog erscheint, wenn beim Start der Haken „Promiscuous mode" gesetzt ist. Im Desktop-Image ist er schon abgewählt; ihr seht den Dialog dann normalerweise nicht.*
+    *Der Dialog erscheint, wenn beim Start der Haken „Promiscuous mode" gesetzt ist. Im Desktop-Image ist er beim ersten Start gesetzt; ihr könnt ihn in Schritt 1 abwählen. Seht ihr den Dialog trotzdem, ist das kein Fehler von euch.*
 
     Der Promiscuous-Modus lässt eine einzelne Netzwerkkarte auch Verkehr
     mitschneiden, der nicht an sie adressiert ist. Die Sammel-Schnittstelle
     `any` kann das nicht. Bestätigt mit OK; Wireshark zeichnet dann ohne
-    Promiscuous-Modus weiter auf. Offizielle Doku:
+    Promiscuous-Modus weiter auf – die Aufzeichnung läuft normal. Offizielle Doku:
     [wireshark.org/docs](https://www.wireshark.org/docs/).
 
 1. Tippt im offenen Terminal:
@@ -132,24 +132,37 @@ folgenden Schritte offen.
     seht ihr eine Liste der Schnittstellen, unter anderem `eth0`, `any` und
     `Loopback: lo`.
 
+    !!! tip "Kleines Fenster, Meldungen im Terminal"
+        Wireshark öffnet als relativ kleines Fenster, in dem Spalten
+        abgeschnitten sind. Vergrößert es per **Doppelklick auf die
+        Titelleiste**. Im Terminal, aus dem ihr Wireshark gestartet habt,
+        erscheinen außerdem Zeilen wie `[Capture MESSAGE]` oder
+        `QThreadStorage … WARNING`. Das ist normales Rauschen und kein Fehler
+        von euch.
+
 2. Wählt die Zeile **`any`** aus (sie fasst alle Schnittstellen in einer
     Aufzeichnung zusammen – genau das braucht ihr hier: Schritt 2 und 6
     erzeugen nämlich teils rein lokalen Verkehr, der `eth0` nie erreicht) und
     öffnet über `Capture → Options…` (oder `Strg+K`) die
-    Aufzeichnungsoptionen. Prüft dort unten links, dass der Haken
-    **"Enable promiscuous mode on all interfaces" abgewählt** ist, bevor ihr
-    startet (im Image ist er es bereits – setzt ihn nicht):
+    Aufzeichnungsoptionen. Wählt dort unten links den Haken
+    **"Enable promiscuous mode on all interfaces" ab**, bevor ihr startet
+    (im Image ist er zunächst gesetzt):
 
     ![Wireshark Capture Options: Zeile „any" ausgewählt, Spalte „Link-layer Header" zeigt „Linux cooked v1" für any und „Ethernet" für eth0/lo, der Haken „Enable promiscuous mode on all interfaces" unten links ist abgewählt](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-interfaces-promiscuous.png)
-    *Die Einstellung vor dem Start: „any" ausgewählt, Promiscuous-Modus abgewählt.*
+    *Die gewünschte Einstellung vor dem Start: „any" ausgewählt, Promiscuous-Modus abgewählt. Bei euch ist der Haken anfangs gesetzt.*
 
-3. Klickt "Start". Die Aufzeichnung läuft jetzt auf `any`. (Ohne die
-    Optionen geht es auch schneller: Ein **Doppelklick** auf die
-    Schnittstellenzeile im Startfenster beginnt sofort mit dem Mitschnitt.)
+3. Klickt "Start". Die Aufzeichnung läuft jetzt auf `any`. Erscheint der
+    Dialog „Promiscuous mode not supported" (siehe Kasten oben), klickt
+    **OK**: Das ist kein Fehler von euch, die Aufzeichnung läuft danach
+    normal. (Der Doppelklick-Schnellweg auf die Schnittstellenzeile im
+    Startfenster führt in denselben Dialog, solange der Haken gesetzt ist.)
 
     !!! note "Die Paketliste füllt sich laufend"
         Ihr seht den gesamten Verkehr aller Schnittstellen, auch den des
         Desktop-Streamings, über das ihr diesen Desktop im Browser seht.
+        Schon nach Sekunden stehen hunderte Zeilen in der Liste – das ist
+        normal. Gleich filtert ihr genau die wenigen Zeilen heraus, die ihr
+        selbst erzeugt habt; Admins tun das täglich.
         Drei Fensterbereiche sind wichtig:
 
         - oben die **Paketliste** (eine Zeile pro Paket),
@@ -202,8 +215,8 @@ folgenden Schritte offen.
 1. Öffnet ein **zweites** Terminal (Wireshark läuft im ersten weiter), am
     einfachsten mit `Strg+Umschalt+N` im Terminalfenster, und führt dort aus.
     Das neue Fenster erscheint manchmal erst nach einigen Sekunden und kann
-    hinter Wireshark liegen; holt es dann über die Fensterliste oben links
-    nach vorn (siehe
+    hinter Wireshark liegen; verkleinert oder verschiebt dann Wireshark am
+    Titelbalken (siehe
     [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen)):
 
     ```bash
@@ -234,11 +247,16 @@ folgenden Schritte offen.
         `10.43.0.10`) statt der im Bild. Manchmal seht ihr auch deutlich
         mehr DNS-Pakete, weil zusätzlich Suchdomänen abgefragt werden, und
         `nslookup` meldet vorab Zeilen wie `Got recursion not available`.
-        Die Zusatzanfragen kommen von `search` und `options ndots:` in
-        `/etc/resolv.conf`; Antworten wie „No such name" darauf sind normal.
+        Die Zusatzanfragen (z. B. `becke.net.rn-praktikum.svc.cluster.local`)
+        kommen von `search` und `options ndots:` in `/etc/resolv.conf`;
+        Antworten wie „No such name" darauf sind normal. Zu eurer Frage
+        gehören nur die Zeilen mit `A becke.net` bzw. `AAAA becke.net` ohne
+        solchen Suffix.
         Sucht dann die Zeile mit `A becke.net` oder filtert mit
         `dns.qry.name == "becke.net"`. Ruft ihr in Schritt 3 `curl` auf,
-        kommen für denselben Namen noch einmal DNS-Zeilen hinzu.
+        kommen für denselben Namen noch einmal DNS-Zeilen hinzu. Steht unten
+        „Displayed: 0", obwohl ihr sicher Verkehr erzeugt habt, prüft zuerst
+        den Text im Filterfeld.
 
     ![Wireshark mit Anzeigefilter „dns": Paketliste zeigt „Standard query ... A becke.net" und die Antwort „Standard query response ... A becke.net A 81.169.145.66" zwischen 172.17.0.11 und dem Resolver 141.22.192.100, darunter der Detailbaum mit Linux cooked capture, IPv4, UDP und DNS](../../assets/screenshots/01-netzwerkgrundlagen-tools/wireshark-dns-filter.png)
     *Die DNS-Anfrage (Protokollspalte „DNS") und ihre Antwort, direkt nach `nslookup becke.net`.
@@ -248,6 +266,9 @@ folgenden Schritte offen.
     Ihr seht die Anfrage ("Standard query … A becke.net") und die Antwort
     ("Standard query response … A becke.net A …") als eigene Zeilen mit
     Protokoll "DNS".
+
+    Gefunden? Das ist euer erster eigener Fußabdruck im Netz: genau die Frage,
+    die jeder Browser vor jedem Seitenaufruf stellt.
 
     !!! note "Warum die Pakete an euren Resolver gehen, nicht an `becke.net`"
         Die DNS-Anfrage geht an den Resolver aus `/etc/resolv.conf`, nicht
@@ -319,12 +340,14 @@ Hintergrundrauschen des Betriebssystems sucht:
 ip.addr == <eure ermittelte IP-Adresse>
 ```
 
-Macht anschließend einen Rechtsklick auf eines der gefilterten TCP-Pakete und
-wählt "Follow → TCP Stream" (im Untermenü „Follow" steht daneben auch „TLS
-Stream"; nehmt „TCP Stream"). Wireshark zeigt dann die gesamte Übertragung
+Macht anschließend einen Rechtsklick auf eines der gefilterten TCP-Pakete (z. B.
+das SYN/ACK) und wählt "Follow → TCP Stream" (bei Paketen, die TLS enthalten,
+steht daneben auch „TLS Stream"; nehmt „TCP Stream"). Wireshark zeigt dann die gesamte Übertragung
 dieser einen Verbindung am Stück. Weil Schritt 3 die Seite über HTTPS abruft,
 seht ihr nach dem Beginn des TLS-Handshakes nur verschlüsselte, nicht lesbare
 Bytes; in [Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01) folgt ihr auf demselben Weg einem unverschlüsselten Strom.
+Genau dieser Schutz bewahrt euch im Café-WLAN davor, dass andere mitlesen.
+Nur den Namen `becke.net` (SNI) findet ihr im Strom noch lesbar – sucht ihn.
 Dabei öffnet sich ein zusätzliches Fenster „Follow TCP Stream". Schließt es
 mit **Close** (oder **Back**). Im Hauptfenster steht jetzt der Filter
 `tcp.stream eq <Nummer>` anstelle eures Anzeigefilters – tragt für Schritt 5
@@ -332,6 +355,11 @@ wieder den Filter von oben ein. Klickt dazu ins Filterfeld und löscht den alten
 Text vollständig (Text markieren und Entf, oder der X-Knopf rechts im Feld),
 bevor ihr tippt: Sonst hängt sich der neue Text an den alten an, und das Feld
 wird rot.
+
+!!! question "Nachgedacht: DNS oder HTTPS?"
+    Seht euch den Mitschnitt für `becke.net` noch einmal an: Welche Zeilen
+    gehören zu DNS, welche zu eurem Webabruf – und woran erkennt ihr das in
+    der Spalte `Protocol`?
 
 --8<-- "issue-feedback.md"
 
@@ -397,7 +425,9 @@ einzelnen Zeilen auf. Ordnet die Schichten zu:
         zusätzlich, dass das Paket euer Rechner abgeschickt hat.
 
 Wenn der Bildschirm zu voll wird, könnt ihr das Terminalfenster mit
-`nslookup`/`curl` schließen. **Wireshark lasst ihr laufen**, ihr braucht es in
+`nslookup`/`curl` schließen. Bevor ihr tippt, prüft kurz, dass das richtige
+Fenster den Fokus hat (Titelleiste hervorgehoben): Nach einem Fensterwechsel
+landet das erste Zeichen sonst manchmal noch im alten Fenster. **Wireshark lasst ihr laufen**, ihr braucht es in
 Schritt 6.
 
 --8<-- "issue-feedback.md"
@@ -505,7 +535,11 @@ nicht, weil `ping` weder TCP/UDP noch Anwendungsdaten verwendet.
     Legt euch unter `~/rn-practice/notizbuch.md` eine eigene Datei an und
     tragt dort Befehle und Wireshark-Filter ein, die ihr euch merken wollt.
     Im Image ist dafür der Editor `mousepad` vorhanden:
-    `mousepad ~/rn-practice/notizbuch.md &` im normalen Terminal.
+    `mousepad ~/rn-practice/notizbuch.md &` im normalen Terminal. Die Datei
+    entsteht erst mit dem Speichern (`Strg+S`).
+
+Geschafft: Ihr habt echten Verkehr zu einem Server im Internet und rein
+lokalen Loopback-Verkehr unterschieden – allein an einer MAC-Adresse.
 
 Schließt zum Abschluss dieses Teils Wireshark und das Terminal und öffnet für
 [Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01) ein neues Terminal. Beim Schließen (`Strg+Q`) fragt Wireshark, ob der Mitschnitt
@@ -520,6 +554,6 @@ Saving" bzw. „Continue without Saving"); den Mitschnitt braucht ihr nicht.
     - In einem einzelnen Paket die vier Schichten (Netzzugriff, Netzwerk, Transport, Anwendung) benennen.
     - DNS als Hilfsdienst zur Namensauflösung von Anwendungsprotokollen wie HTTP unterscheiden, die Nutzdaten transportieren.
 
-    **Was Meilenstein 2 verspricht:** Als Nächstes startet ihr ein kleines emuliertes Netz mit zwei Endgeräten und zwei Routern und untersucht es mit ping, traceroute, dig, whois, nmap und Wireshark. Das Schichtenwissen hilft euch, die Ausgaben einzuordnen.
+    **Was Meilenstein 2 verspricht:** Als Nächstes startet ihr ein kleines emuliertes Netz mit zwei Endgeräten und zwei Routern und untersucht es mit ping, traceroute, dig, whois, nmap und Wireshark. Das Schichtenwissen hilft euch, die Ausgaben einzuordnen, und ihr seht, wie ein Paket zwischen zwei Routern wandert.
 
     [Weiter zu Meilenstein 2: Werkzeuge in der emulierten Topologie](m2-werkzeuge-in-topo01.md){ .md-button }

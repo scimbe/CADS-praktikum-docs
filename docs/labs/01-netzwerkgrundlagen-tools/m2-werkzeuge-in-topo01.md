@@ -18,7 +18,7 @@ Hier startet ihr die emulierte Topologie topo01 und untersucht sie mit den gäng
 
 !!! abstract "Auf einen Blick"
     **Lernziel:** Ihr startet ein emuliertes Netz aus zwei Endgeräten und zwei
-    Routern, prüft mit `ping`, `traceroute`, `dig`, `nmap` und `ss`/`netstat`,
+    Routern, prüft mit `ping`, `traceroute`, `dig`, `nmap` und `netstat` (`ss` folgt in Meilenstein 3),
     wer wen erreicht, und beobachtet mit Wireshark, welche Verbindungen im
     Klartext und welche verschlüsselt laufen.
 
@@ -37,6 +37,8 @@ aus zwei Endgeräten `h1` (`10.0.1.2`) und `h2` (`10.0.6.2`) und zwei Routern
 `r1`/`r2` dazwischen. Nur `h1` hat zusätzlich über `h1-eth0` (`10.0.5.2`) einen
 NAT-Uplink ins Internet; `r1` und `r2` kennen keinen Weg nach draußen.
 Aufgaben mit Internet- oder DNS-Zugriff führt ihr deshalb auf `h1` aus.
+Die Aufgaben dieser Seite sind von 1 bis 11 durchnummeriert; Verweise wie
+„Aufgabe 9" (auch auf der nächsten Seite) meinen genau diese Zählung.
 
 ```text
 Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 ── 10.0.4.0/24 ── r2 ── (10.0.6.2) h2
@@ -66,10 +68,12 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     für `h2` (Titel „Node: h1" und „Node: h2"). In diesen Knoten-Terminals
     seid ihr `root`; die Eingabeaufforderung sieht in beiden gleich aus. Die
     Fenster können übereinander liegen oder komplett hinter der
-    Mininet-Konsole verschwinden. Ihr findet sie über die Fensterliste oben
-    links in der Leiste: Klickt auf den Eintrag „Xfce4-terminal"; die Liste
-    nennt jedes Fenster mit Titel („Node: h1", „Node: h2", „Terminal").
-    Alternativ zieht ihr die Fenster am Titelbalken auseinander. Mehr dazu in
+    Mininet-Konsole verschwinden. Gleichartige Fenster fasst die Leiste zu
+    einem Eintrag „Xfce4-terminal" zusammen, ein Klick darauf holt nicht
+    immer das gewünschte Fenster nach vorn. Verlässlicher: Zieht die
+    Fenster am Titelbalken auseinander und klickt auf einen sichtbaren Rand
+    des Fensters, das ihr braucht; der Fenstertitel („Node: h1", „Node: h2",
+    „Terminal") verrät, wo ihr tippt. Mehr dazu in
     der [Umgebungsreferenz](../../reference/umgebung.md#fenster-wiederfinden-und-tippen). Für die Router
     `r1`/`r2` oder ein versehentlich geschlossenes Fenster öffnet ihr auf der
     Mininet-Konsole ein weiteres Terminal:
@@ -94,7 +98,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     *Oben die Mininet-Konsole nach `pingall`, unten die Knoten-Terminals von `h1` und `h2`.*
 
     `pingall` braucht etwa eine Minute, weil die fehlgeschlagenen Pings auf
-    ihre Zeitüberschreitung warten. Erwartet wird
+    ihre Zeitüberschreitung warten. Nutzt die Zeit: Seht euch den Netzplan
+    oben an und vermutet, welche Verbindungen fehlen werden. Erwartet wird
     **`16% dropped (10/12 received)`**. Jede Zeile heißt „dieser
     Knoten hat diese Ziele erreicht"; das `X` markiert ein Ziel, das nicht
     geantwortet hat.
@@ -164,10 +169,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     h1$ ping -c 4 h2              # Ping mit Namen statt IP
     h1$ ping -c 4 10.0.5.1        # Ping an ein anderes System im lokalen Segment
     h1$ ping -c 4 1.1.1.1         # Ping ins Internet (numerisch)
-    h1$ ping -c 4 one.one.one.one # Ping ins Internet mit Namen (dasselbe Ziel)
+    h1$ ping -c 4 one.one.one.one # Ping ins Internet mit Namen (derselbe Dienst, aber evtl. andere Adresse)
     ```
 
-    Zum Vergleich der erste Aufruf, wie er bei uns aussah:
+    Zum Vergleich der erste Aufruf, wie er bei uns aussah (vor dem `pingall`):
 
     ```text
     h1$ ping -c 4 10.0.6.2
@@ -179,7 +184,11 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     ```
 
     Die erste Antwort dauert länger, weil beim ersten Paket noch die
-    Hardware-Adressen der Zwischenstationen ermittelt werden müssen.
+    Hardware-Adressen der Zwischenstationen per ARP ermittelt werden müssen.
+    Habt ihr vorher `pingall` ausgeführt, seht ihr diesen Effekt meist nicht
+    mehr, denn die Adresseinträge stehen dann schon im Zwischenspeicher
+    (ARP-Cache). Eure erste Antwort kann also schon rund 60 ms dauern; das ist
+    kein Fehler.
 
     Notiert euch die Ausgaben (RTT, TTL) der lokalen Ziele und vergleicht
     sie miteinander: Was fällt euch auf, und wie erklärt ihr die Unterschiede?
@@ -195,9 +204,11 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
           0,1 ms: kein Router dazwischen, kein künstlicher Verzug.
         - `1.1.1.1` und `one.one.one.one` liefern an manchen Standorten
           **100 % Paketverlust**, an anderen kommen Antworten durch (z. B.
-          `ttl=53`, rund 10 ms) – das hängt vom Standort eures Desktops ab
-          (`ping` löst den Namen übrigens auf, die Adresse wird in der
-          Kopfzeile genannt).
+          `ttl=53`, rund 10 ms) – das hängt vom Standort eures Desktops ab.
+          Beide Namen gehören zum selben Dienst, müssen aber nicht dieselbe
+          Adresse haben: `one.one.one.one` löst bei `ping` je nach
+          Standort z. B. auf `1.0.0.1` oder `1.1.1.1` auf (die Adresse steht
+          in der Kopfzeile).
 
     !!! question "Nachgedacht: `h1` hat Internet, bekommt aber keine Ping-Antwort"
         `h1` ist der einzige Knoten mit Weg ins Internet. Ob ICMP-Pakete
@@ -209,8 +220,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         folgenden Fragen sind dann ein Gedankenexperiment, und die Beobachtung
         zeigt, dass solche Filter standortabhängig sind. (Auch dann kann
         `traceroute` schon nach wenigen Stationen in `* * *` enden, obwohl
-        `ping` antwortet.) Weist (bei 100 %
-        Verlust) nach, woran das liegt:
+        `ping` antwortet; auf dem ICC-Cluster z. B. nach Hop 2, `10.42.0.1`.)
+        Weist (bei 100 % Verlust) nach, woran das liegt:
 
         ```bash
         h1$ getent hosts one.one.one.one       # löst der Name auf? (evtl. nur IPv6-Adressen)
@@ -230,6 +241,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
            weiter draußen? Begründet mit der Hop-Nummer.
         4. Warum ist "kein Ping-Echo" ein schlechter Beweis dafür, dass ein
            Rechner nicht erreichbar ist? Nennt zwei Gründe.
+        5. (Nur falls bei euch `ping` durchkommt, `traceroute` aber früh in
+           `* * *` endet:) Welche ICMP-Meldung der Router fehlt dann, auf die
+           `traceroute` angewiesen ist?
 
         !!! info "Werkzeug: `traceroute`"
             **Was es tut:** `traceroute` zeigt den Weg eines Pakets
@@ -283,9 +297,15 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
                Echo-Anfragen bewusst ignorieren; umgekehrt beweist ein
                Echo nur, dass ICMP durchkommt, nicht dass ein bestimmter
                Dienst läuft.
+            5. „Time Exceeded": `traceroute` wartet auf diese Meldung, mit der
+               ein Router eine abgelaufene TTL meldet. Kommt sie ab einer
+               Station nicht mehr zurück, bleibt die Zeile `* * *`, obwohl
+               `ping` das Ziel erreicht.
 
         ICMP gesperrt, TCP erlaubt: Diese Asymmetrie ist in Unternehmens- und
-        Hochschulnetzen häufig.
+        Hochschulnetzen häufig. Darum heißt „ping geht nicht" im
+        Homeoffice-VPN nicht „Server tot" – dafür habt ihr jetzt den Beweis
+        selbst erzeugt.
 
     Wechselt danach zum Terminal von `h2` und wiederholt das Experiment aus
     dessen Sicht. Anders als `h1` hat `h2` keinen Weg ins Internet: `r1` und
@@ -335,10 +355,13 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
 
     Im Startfenster **doppelklickt ihr auf die Zeile `h2-eth0`**; damit
     beginnt der Mitschnitt (alternativ: Zeile markieren und in der Symbolleiste
-    auf die Haifischflosse klicken). Wireshark öffnet maximiert und verdeckt
-    dabei die Terminalfenster; zurück zu den Terminals kommt ihr über die
-    Fensterliste oben links (siehe
-    [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen)).
+    auf die Haifischflosse klicken). Wireshark öffnet als eigenes, eher
+    kleines Fenster und verdeckt dabei Teile der Terminalfenster. Vergrößert
+    es per Doppelklick auf die Titelleiste, wenn euch Detailbaum und Rohdaten
+    zu klein sind; wie ihr die Terminals wiederfindet, steht unter
+    [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
+    Die Warnzeilen, die Wireshark beim Schließen ins Terminal schreibt
+    (`QThreadStorage …`), sind wie in Teil 1 harmlos.
 
     Wechselt zum Terminal von `h1` und sendet einen einzelnen Ping:
 
@@ -358,7 +381,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     filter" `icmp` und Enter. Wiederholt den Ping noch zwei weitere Male
     (`ping -c 1 h2`) – welche Pakettypen wiederholen sich, welche nicht?
     Führt anschließend `ping -c 1 10.0.2.3` aus (eine nicht existierende
-    Adresse) und beobachtet den Unterschied. Schließt danach das
+    Adresse; `ping` wartet etwa 10 Sekunden und endet dann ohne Antwort –
+    das ist kein Hänger) und beobachtet den Unterschied. Schließt danach das
     Wireshark-Fenster von `h2` (bei der Frage nach dem Speichern: „Stop and
     Quit without Saving"; steht die Aufzeichnung, „Quit without Saving" bzw.
     „Continue without Saving"), startet Wireshark stattdessen
@@ -444,6 +468,12 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         `pkill nc` beendet euren ganzen Desktop und meldet euch ab. Beendet
         Prozesse mit `Strg+C` oder `kill <PID>` (die PID steht in der Ausgabe
         von `jobs -l` bzw. `ps`).
+
+        Wundert euch deshalb nicht, dass das Skript `test30M.txt` in
+        Aufgabe 9 selbst `pkill -f "nc -l 1234"` enthält: Es beendet gezielt
+        nur den einen `nc`-Prozess mit genau dieser Kommandozeile (Port 1234).
+        Wer `pkill` frei tippt, riskiert dagegen, mehr als gewollt zu
+        beenden; tippt es darum nie selbst.
 
     ??? success "Lösung"
         Die Nutzdaten sind **6 Bytes** lang: `h a l l o` (fünf Zeichen, je ein
@@ -543,7 +573,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     und Betreiber des Netzes.
 
     Vergleicht das Ergebnis mit dem Aufruf derselben Abfrage im Browser
-    **auf dem normalen Desktop** (Firefox ESR über das Anwendungsmenü unter „Internet", nicht
+    **auf dem normalen Desktop** (Firefox ESR über das Anwendungsmenü unter „Internet" – direkt darunter steht „Log Out", das beendet eure Sitzung –, nicht
     `runSimpleBrowser.sh`; der Eintrag „Web Browser" startet Chromium, das für
     diese Aufgabe ebenso geht; `h2` hat kein Internet) unter
     `https://ip-api.com/#<ermittelte-IP-Adresse>`. Welche Darstellung eignet
@@ -597,7 +627,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         auf manchen Desktops der Fall. Dann
         hilft RDAP (siehe Vertiefung unten).
 
-    Auf `h1`:
+    Auf `h1` (die Abfrage kann einige Sekunden bis etwa eine Minute dauern):
 
     ```bash
     h1$ whois mozilla.com
@@ -617,11 +647,15 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         Antwort für `bundesregierung.de` enthält stattdessen nur den Hinweis,
         dass der WHOIS-Dienst der DENIC auf Port 43 keine Angaben zum
         Domaininhaber herausgibt; dafür verweist sie auf eine Webabfrage.
+        Ist Port 43 bei euch gesperrt (Timeout), zeigt die RDAP-Abfrage von
+        `rdap.denic.de` in der Vertiefung unten dasselbe Ergebnis.
 
     !!! example "Vertiefung (optional): RDAP statt WHOIS"
         `whois` spricht TCP-Port 43. **RDAP** ist der Nachfolger von WHOIS
         und läuft über normales HTTPS (Port 443). Das ist nützlich, wenn
-        Port 43 in einem Netz gesperrt ist:
+        Port 43 in einem Netz gesperrt ist, wie es in Firmennetzen oft der
+        Fall ist. Jeder der drei Aufrufe braucht 10 bis 20 Sekunden ohne
+        Ausgabe; wartet kurz. Bleibt die Ausgabe leer, wiederholt den Aufruf:
 
         ```bash
         h1$ curl -sL https://rdap.org/domain/mozilla.com | head -c 600
@@ -704,6 +738,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     FreeBSD OpenSSH 3.5p1 - Remote Command Execut | freebsd/remote/17462.txt
     ```
 
+    Genau so inventarisieren Admins ein Netz: Ihr findet Geräte, die ihr
+    nicht kennt, und seht, ob dort ein Dienst wie SSH auf Port 22 offen ist.
+
     Port-Scans dienen hier ausschließlich der eigenen, isolierten
     Mininet-Umgebung. Gegen fremde Systeme ohne Zustimmung sind sie in
     Deutschland rechtlich heikel und teils strafbar.
@@ -760,7 +797,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         h2$ scp -i ~/.ssh/rn-practice-key cads@10.0.1.2:rn-practice/test30M.txt ./
         The authenticity of host '10.0.1.2 (10.0.1.2)' can't be established.
         ED25519 key fingerprint is SHA256:U152+5KFVB8AWmYYTdqVlO/Yr8PSjSql+blega5/lr0.
+        This key is not known by any other names.
         Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+        Warning: Permanently added '10.0.1.2' (ED25519) to the list of known hosts.
         test30M.txt                                  100%  196     1.6KB/s   00:00
 
         h1$ (Server-Terminal)
@@ -850,6 +889,10 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Beendet nun den SSH-Server im Terminal von `h1` mit `Strg+C`: `sshd -D`
     belegt das Terminal, und ihr braucht es gleich wieder.
 
+    Geschafft: Ihr habt gerade eine Datei so übertragen, wie Admins Server
+    warten – und ein Mithörer sieht trotzdem nur „Encrypted packet". Im
+    nächsten Schritt seht ihr die Kehrseite.
+
     Beobachtet in Wireshark den TCP-Drei-Wege-Handshake, die
     SSH-Verhandlungsphase und danach durchgehend verschlüsselten Verkehr –
     der Dateiinhalt selbst ist nicht einsehbar.
@@ -897,8 +940,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     !!! tip "Woran ihr eine erfolgreiche Bind-Shell erkennt"
         Nach dem `netcat`-Aufruf erscheint kein Prompt wie `root@…:~#`,
         sondern ein einfaches `#` – das ist die Shell, die `test30M.txt` auf
-        `h2` geöffnet hat, nicht eine neue Shell auf `h1`. Erst danach tippt
-        ihr `ifconfig`.
+        `h2` geöffnet hat, nicht eine neue Shell auf `h1`. Davor kann die
+        Zeile `/bin/sh: 0: can't access tty; job control turned off`
+        erscheinen; sie ist harmlos. Erst danach tippt ihr `ifconfig`.
 
     Erscheint ein Interface `h2-eth0`, habt ihr Zugriff auf `h2` – obwohl ihr
     den Befehl von `h1` aus abgesetzt habt. Schaut euch über die Bind-Shell
@@ -940,7 +984,8 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         tcp        0      0 0.0.0.0:1234    0.0.0.0:*        LISTEN  55593/nc
         ```
 
-        Ein Programm namens `nc` (Prozess 55593) lauscht auf allen Adressen
+        In einem schmalen Fenster bricht die Zeile um, dann steht die PID
+        (`…/nc`) in der Folgezeile. Ein Programm namens `nc` (Prozess 55593) lauscht auf allen Adressen
         (`0.0.0.0`) auf Port 1234 – genau die Bind-Shell. Nach `exit` fehlt
         diese Zeile; ist nichts offen, erscheint nur die Kopfzeile.
 
@@ -1010,8 +1055,9 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     (Firefox öffnet beim ersten Start evtl. eine Willkommensseite und einen
     Tab von mozilla.org, der nie lädt, weil `h2` kein Internet hat; beides
     könnt ihr ignorieren.) Ruft `http://h1` auf. Vergleicht in Wireshark ("Follow → TCP
-    Stream" auf einem Paket zwischen `10.0.6.2` und `10.0.1.2`; die
-    Streamnummer ist bei euch eine andere) den HTTP/HTML-Inhalt mit der im Browser sichtbaren Seite bzw.
+    Stream": setzt zuerst den Filter `http` und klickt auf die Zeile
+    `GET / HTTP/1.1`, nicht auf `GET /favicon.ico`; die Streamnummer ist bei
+    euch eine andere) den HTTP/HTML-Inhalt mit der im Browser sichtbaren Seite bzw.
     mit "View Page Source".
 
     Beendet den HTTP-Server auf `h1` (er läuft im Hintergrund, `Strg+C`
@@ -1034,7 +1080,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     !!! info "Passphrase für `key.pem`"
         Der Start fragt interaktiv nach einer PEM-Passphrase, bevor der
         Server auf Port 443 lauscht. Die Passphrase ist **`mininet`**; beim
-        Tippen erscheinen keine Zeichen. Danach steht im Terminal
+        Tippen erscheinen keine Zeichen, schließt sie mit Enter ab. Danach steht im Terminal
         `Serving TLS`.
 
     Ruft auf `h2` im Browser `https://h1` auf. Statt der Seite zeigt der
@@ -1077,19 +1123,16 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
         würdet ihr an dieser Stelle abbrechen.
 
     Beobachtet nun erneut in Wireshark, dass der Inhalt diesmal nicht mehr
-    im Klartext sichtbar ist.
+    im Klartext sichtbar ist. Filtert dazu zuerst auf `ip.addr == 10.0.1.2`:
+    Sonst landet ihr leicht bei einer Hintergrundverbindung von Firefox, deren
+    Strom leer ist („0 bytes").
 
     Beendet den HTTPS-Server auf `h1` mit `Strg+C`. Es erscheint ein
     Python-Traceback mit `KeyboardInterrupt`; das ist normal und kein Fehler.
 
-11. **Netz beenden.** Auf der Mininet-Konsole:
-
-    ```text
-    mininet> quit
-    ```
-
 !!! example "Vertiefung (optional): TLS-ClientHello von curl und Firefox vergleichen"
-    Aufgabe 10 hat gezeigt, dass der Browser bei einem fehlerhaften
+    Diese Vertiefung macht ihr **vor** Aufgabe 11, solange das Netz noch
+    läuft. Aufgabe 10 hat gezeigt, dass der Browser bei einem fehlerhaften
     Zertifikat warnt. Geht einen Schritt tiefer und vergleicht, *wie*
     unterschiedliche Clients überhaupt eine TLS-Verbindung anbahnen:
     Startet auf `h1` erneut `python3 startHTTPsServer.py` (Passphrase
@@ -1102,6 +1145,14 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Zufall, sondern der Fingerabdruck der jeweiligen TLS-Bibliothek – genau
     das Prinzip, auf dem Verfahren wie JA3-Fingerprinting beruhen (siehe
     [Aufgabenblatt 06, Teil 5](../06-advanced-covert-channels/index.md)).
+    Beendet danach den HTTPS-Server mit `Strg+C` und schließt die
+    Wireshark-Fenster.
+
+11. **Netz beenden.** Auf der Mininet-Konsole:
+
+    ```text
+    mininet> quit
+    ```
 
 !!! note "Subnetz-Rechenaufgabe zu dieser Topologie"
     Die Rechenaufgabe zu dieser Topologie (warum `pingall` Verluste meldet)
@@ -1115,7 +1166,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     **Das habt ihr gelernt:**
 
     - Mit ping und traceroute prüfen, wer wen erreicht, und erklären, warum in einer gerouteten Topologie nicht jeder jeden direkt erreicht.
-    - Namensauflösung mit dig/nslookup, Registrierungsdaten mit whois und Netzscans mit nmap einsetzen.
+    - Namensauflösung mit dig (nslookup kennt ihr aus Meilenstein 1), Registrierungsdaten mit whois und Netzscans mit nmap einsetzen.
     - Im Mitschnitt unverschlüsselte Verbindungen von verschlüsselten (SSH, SCP, HTTPS) unterscheiden und benennen, was trotz Verschlüsselung sichtbar bleibt.
     - Einen fehlerhaften TLS-Zustand im Browser erkennen und begründen.
 

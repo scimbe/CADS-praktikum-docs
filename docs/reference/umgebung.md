@@ -39,12 +39,18 @@ Hintergrund läuft dabei ebenfalls `xfce4-terminal`, nicht das Programm
 Nach dem Start einer Topologie öffnen sich Knotenfenster („Node: h1", „Node:
 h2", …). Sie liegen oft übereinander oder komplett hinter dem Mininet-Terminal.
 
-- **Fensterliste:** Klickt in der Leiste oben links auf den Eintrag
-  „Xfce4-terminal". Es klappt eine Liste aller Terminalfenster auf („Node:
-  h1", „Node: h2", „Terminal" usw.); ein Klick holt das Fenster nach vorn.
-  Der Fenstertitel nennt den Knoten, in dem ihr gerade tippt.
+- **Leiste:** Gleichartige Fenster fasst die Leiste zu einem Eintrag
+  „Xfce4-terminal" zusammen (mit einem Zähler bei mehreren Fenstern). Ein
+  Klick darauf holt nicht in jedem Fall das gewünschte Fenster nach vorn; eine
+  ausgeklappte Liste mit allen Fenstern dürft ihr nicht erwarten.
 - **Auseinanderziehen:** Zieht überlappende Fenster am Titelbalken
-  auseinander.
+  auseinander und klickt dann auf einen sichtbaren Teil des Fensters, das ihr
+  braucht. Ein zu großes Fenster (z. B. Wireshark) verkleinert ihr per
+  Doppelklick auf die Titelleiste; ein kleines vergrößert derselbe
+  Doppelklick.
+- **Wo lande ich?** Der Fenstertitel nennt den Knoten, in dem ihr gerade
+  tippt („Node: h1", „Node: h2", „Terminal"); die Titelleiste des aktiven
+  Fensters ist hervorgehoben.
 - **Neues Terminal:** Strg+Umschalt+N im aktiven Terminalfenster oder das
   Terminal-Symbol am Rand. Das Symbol holt ein bereits offenes Fenster nur
   nach vorn, wenn eines existiert und verdeckt wird. Beendet mit `exit` nur

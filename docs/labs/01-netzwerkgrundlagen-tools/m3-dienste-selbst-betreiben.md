@@ -28,7 +28,7 @@ Diese Seite dreht die Perspektive um: Ihr betreibt Dienste selbst und seht im Mi
     Server nicht antwortet, den Namen nicht kennt oder eine falsche Adresse
     liefert. Wer selbst einen Server gebaut hat, versteht diese Ausgaben.
 
-    **Vorwissen:** [Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01), Aufgabe 5 (`dig`) und die Topologie `topo01`.
+    **Vorwissen:** [Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01), Aufgabe 5 („DNS-Auflösung mit Dig") und die Topologie `topo01`.
 
 In [Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01) habt ihr `dig` benutzt, um Namen aufzulösen. In diesem Teil betreibt
 ihr selbst einen kleinen, lesbaren DNS-Server (`dns-server.py`, nur
@@ -73,7 +73,7 @@ h2$ nslookup -port=5353 h1 10.0.1.2
 h2$ host -p 5353 becke.net 10.0.1.2
 ```
 
-So sieht die Antwort (gekürzt) auf die erste Frage aus; zum Vergleich mit Aufgabe 5
+So sieht die Antwort (gekürzt) auf die erste Frage aus; zum Vergleich mit der `dig`-Ausgabe aus Teil 2, Aufgabe 5,
 steht diesmal `flags: qr aa` ohne `rd`/`ra`:
 
 ```text
@@ -89,7 +89,8 @@ h2.			60	IN	A	10.0.6.2
 `nslookup` meldet `Name: h1`, `Address: 10.0.1.2`; `host` meldet
 `becke.net has address 185.199.108.153`.
 
-Vergleicht die Adresse, die euer Server für `becke.net` liefert
+Ihr habt hier selbst eine Antwort gefälscht – gleich seht ihr, ob `dig` sie
+glaubt. Vergleicht die Adresse, die euer Server für `becke.net` liefert
 (`185.199.108.153`), mit der Antwort von `dig becke.net` (ohne `@`, also über
 den DNS-Dienst der Topologie; `dig becke.net +short` zeigt nur die
 Adresse). Was folgt daraus für das Vertrauen in DNS-Antworten?
@@ -130,11 +131,16 @@ h2$ dig @10.0.1.2 -p 5353 gibtsnicht.invalid +noall +comments
         nicht); darüber entscheidet die Zeile
         `rcode = 0 if (ip or qtype != 1) else 3`: Findet der Server keine
         Adresse zum Namen, ist der Statuscode 3 (`NXDOMAIN`), sonst 0
-        (`NOERROR`). Findet beides mit `grep -n -E "flags|rcode" dns-server.py`.
+        (`NOERROR`). Beide Stellen findet ihr im Skript mit
+        `grep -n -E "flags|rcode" dns-server.py`.
 
 Beendet den DNS-Server auf `h1` mit `Strg+C`. Der Server läuft im
 Vordergrund und belegt das Fenster „Node: h1"; weitere Befehle tippt ihr in
-„Node: h2" (die Fensterliste oben links hilft beim Wechseln). Zum Beenden
+„Node: h2". Wechselt zwischen den Fenstern, indem ihr auf einen sichtbaren
+Teil des gewünschten Fensters klickt (ggf. vorher am Titelbalken
+verschieben, siehe
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen));
+der Fenstertitel zeigt, wo ihr tippt. Zum Beenden
 wechselt ihr zurück in „Node: h1" und drückt dort `Strg+C`.
 
 !!! quote "Hintergrund: DNS ist kaum jünger als das Internet-Protokoll selbst"
@@ -157,9 +163,11 @@ wechselt ihr zurück in „Node: h1" und drückt dort `Strg+C`.
     erste Frage bei fast jeder Serverstörung. Ebenso wichtig für die
     Sicherheit: Jeder offene Port ist eine Tür; wer Server betreibt, prüft
     regelmäßig mit `ss`, ob nur die Dienste lauschen, die dort hingehören
-    (und nicht ein vergessener Testdienst oder Schlimmeres).
+    (und nicht ein vergessener Testdienst oder Schlimmeres). Wer neugierig
+    ist: `ss -tlnp` zeigt auch auf eurem eigenen Rechner, was dort alles
+    lauscht.
 
-    **Vorwissen:** [Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01), Aufgabe 9 (`netstat`).
+    **Vorwissen:** [Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01), Aufgabe 9 („Sichere Übertragung mit SCP …", dort steht `netstat`).
 
 Das Netz `topo01` muss laufen (Start wie in [Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01), Aufgabe 1: `cd ~/rn-practice/topo01`,
 `./start-topo01.sh`; läuft es schon, macht ihr einfach weiter). Alle Befehle
@@ -200,8 +208,10 @@ selbst einen Dienst und findet ihn wieder.
     Adressen dieses Rechners", `10.0.1.2` nur auf dieser. `Peer` bleibt leer
     (`0.0.0.0:*`), weil noch niemand verbunden ist. `Process` nennt Programm
     und Prozessnummer. Die erste Zeile ist der DNS-Dienst der Topologie, die
-    zweite euer `socat`. Prozessnummern und `fd=` weichen bei euch ab, und
-    in einem schmalen Fenster brechen lange Zeilen um.
+    zweite euer `socat`. Prozessnummern und `fd=` weichen bei euch ab, die
+    Reihenfolge der Zeilen auch, und in einem schmalen Fenster brechen lange
+    Zeilen um (auch die Kopfzeile). Vergrößert das Fenster, wenn euch das
+    stört.
 
     **Typische Fehlermeldung:** `socat: E bind(…, {AF=2 0.0.0.0:8080}):
     Address already in use` – der Port ist schon belegt (oft von einem
@@ -226,7 +236,10 @@ h1$ netstat -tlnp 2>/dev/null | grep 8080 || echo "netstat nicht verfuegbar"
     Welche Spalten zeigt `ss` (Zustand, lokale Adresse:Port, Prozess)? Was
     bedeutet `LISTEN`? Beendet den Dienst danach wieder (`jobs -l` zeigt die
     Prozessnummer, `kill <PID>` beendet ihn) und prüft mit `ss -tlnp`, dass der
-    Port verschwunden ist.
+    Port verschwunden ist. Danach meldet die Shell `Exit 143`, und `socat`
+    schreibt `exiting on signal 15`: Das ist kein Fehler. `kill` schickt
+    standardmäßig das Signal 15 (Beenden-Bitte), und ein so beendetes
+    Programm meldet 128 + 15 = 143.
 
     ??? success "Lösung"
         `ss` zeigt `State`, `Recv-Q`/`Send-Q` (Warteschlangen), `Local
@@ -248,7 +261,7 @@ h1$ netstat -tlnp 2>/dev/null | grep 8080 || echo "netstat nicht verfuegbar"
     geht, bestellt künftig HTTP nur noch mit „s" und versteht, warum
     Telnet und FTP aus dem Betrieb verschwunden sind.
 
-    **Vorwissen:** [Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01), Aufgaben 4 (`netcat`) und 9 (SSH/SCP), Teil 4
+    **Vorwissen:** [Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01), Aufgaben 4 („Kommunikation mit Netcat …") und 9 („Sichere Übertragung mit SCP …"), Teil 4
     (`socat`, `ss`).
 
 !!! quote "Hintergrund: das „TCP/IP swiss army knife""
@@ -319,7 +332,10 @@ h1$ tcpdump -i h1-eth1 -w ~/rn-practice/pcaps/01-klartext.pcap tcp port 8080 &
 h2$ printf 'GEHEIM: passwort123\n' | socat -T2 - TCP:10.0.1.2:8080
 ```
 
-Der Echo-Dienst schickt dieselbe Zeile zurück. Beendet den Mitschnitt auf
+Der Echo-Dienst schickt dieselbe Zeile zurück – ihr seht `GEHEIM: passwort123`
+also zweimal im Terminal von `h2`: einmal von euch, einmal vom Dienst. Und
+gleich seht ihr es auch auf der Leitung. Habt ihr nach dem Start von `tcpdump`
+keinen Prompt mehr, drückt Enter. Beendet den Mitschnitt auf
 `h1` wie mit `Strg+C`: `jobs -l` zeigt die Prozessnummer von `tcpdump`,
 `kill -INT <PID>` beendet ihn sauber (ein hartes Abbrechen kann die Datei
 beschädigen). `tcpdump` meldet dann „N packets captured" (die Zeilen
@@ -347,7 +363,8 @@ stehen ein paar unlesbare Bytes aus den Paketköpfen:
 Der Mitschnitt liegt in eurem Home-Verzeichnis (in den Knoten-Terminals
 `/config`) und bleibt über das Ende der
 Sitzung hinaus erhalten. Löscht ihn, sobald ihr die Aufgabe beantwortet habt –
-er enthält das „Passwort" im Klartext:
+er enthält das „Passwort" im Klartext, und so räumt auch ein Admin
+Mitschnitte mit sensiblen Daten auf (Datenschutz):
 
 ```bash
 h1$ rm ~/rn-practice/pcaps/01-klartext.pcap
@@ -359,11 +376,19 @@ beendet ihn.
 !!! question "Aufgabe: Klartext oder nicht?"
     Der Text `GEHEIM: passwort123` steht unverschlüsselt im
     Mitschnitt. Vergleicht das mit dem SCP/SSH-Verkehr aus Aufgabe 9 ([Teil 2](m2-werkzeuge-in-topo01.md#teil-2-werkzeuge-in-der-emulierten-topologie-topo01)).
-    Habt ihr den SSH-Mitschnitt von dort nicht mehr, erzeugt ihn neu:
-    Startet `sshd` und führt `scp` wie in Aufgabe 9 aus, während auf `h1`
-    `tcpdump -i h1-eth1 -w ~/rn-practice/pcaps/01-ssh.pcap tcp port 22 &`
-    läuft (beenden wie oben mit `kill -INT <PID>`, lesen mit
-    `tcpdump -r … -A`; löscht die Datei danach). Warum ist dort der Inhalt **nicht** lesbar, hier aber schon? Was bedeutet das
+    Habt ihr den SSH-Mitschnitt von dort nicht mehr, erzeugt ihn neu, in
+    dieser Reihenfolge (`sshd -D` belegt das Fenster von `h1`, `tcpdump`
+    muss deshalb zuerst im Hintergrund laufen):
+
+    1. Auf `h1`: `tcpdump -i h1-eth1 -w ~/rn-practice/pcaps/01-ssh.pcap tcp port 22 &`
+    2. Auf `h1`: `/usr/sbin/sshd -D -e -f sshd.conf` (im Verzeichnis
+       `~/rn-practice/topo01`).
+    3. Auf `h2`: `scp` wie in Aufgabe 9. Dann auf `h1` den `sshd` mit `Strg+C`
+       beenden.
+    4. Auf `h1`: `jobs -l`, dann `kill -INT <PID>` für `tcpdump`; lesen mit
+       `tcpdump -r … -A`; löscht die Datei danach.
+
+    Warum ist dort der Inhalt **nicht** lesbar, hier aber schon? Was bedeutet das
     für Anwendungsprotokolle, die – wie klassisches HTTP, Telnet oder FTP – ohne
     Transportverschlüsselung arbeiten?
 
@@ -371,11 +396,16 @@ beendet ihn.
         `socat` und der Echo-Dienst schicken die Bytes unverändert über TCP;
         auf dem Weg sind sie lesbar, und jeder, der an einer Leitung, einem Hub
         oder einem gespiegelten Switch-Port mitschneidet, sieht sie. SSH dagegen verschlüsselt den
-        Inhalt, bevor er auf die Leitung kommt; im Mitschnitt stehen nur
-        „Encrypted packet" und Metadaten. Klassisches HTTP, Telnet und FTP
+        Inhalt, bevor er auf die Leitung kommt. In Wireshark steht danach nur
+        „Encrypted packet"; in `tcpdump -A` seht ihr zu Beginn im Klartext
+        das Banner (`SSH-2.0-OpenSSH …`) und die Algorithmenlisten der
+        Verhandlung, danach nur noch unlesbare Zeichen, und eure Daten sind
+        nicht darunter. Klassisches HTTP, Telnet und FTP
         übertragen Zugangsdaten und Inhalte im Klartext und gelten daher
         als unsicher; ihre verschlüsselten Nachfolger sind HTTPS, SSH und
         SFTP/FTPS.
+
+Geschafft: Ihr habt selbst gezeigt, warum SSH das Klartext-Telnet abgelöst hat.
 
 Beendet zum Schluss das Netz auf der Mininet-Konsole mit `quit`.
 

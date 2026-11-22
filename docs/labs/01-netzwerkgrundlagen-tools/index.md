@@ -35,7 +35,7 @@
 
 ## Aufgaben
 
-Das Blatt ist in 3 Meilensteine geteilt. Jeder Meilenstein ist eine eigene Seite und endet mit einer kurzen Zusammenfassung: was ihr gelernt habt und was der nächste Meilenstein bringt. Bearbeitet sie der Reihe nach.
+Das Blatt ist in 3 Meilensteine geteilt. Jeder Meilenstein ist eine eigene Seite und endet mit einer kurzen Zusammenfassung: was ihr gelernt habt und was der nächste Meilenstein bringt. Bearbeitet sie der Reihe nach. Die Teile laufen über die Meilensteine hindurch weiter: Meilenstein 1 enthält Teil 1, Meilenstein 2 Teil 2, Meilenstein 3 die Teile 3 bis 5. Verweise wie „Teil 4" oder „Aufgabe 9" (eine nummerierte Aufgabe in Teil 2) beziehen sich auf diese Zählung.
 
 1. [Meilenstein 1: Schichten im echten Verkehr](m1-schichten-im-echten-verkehr.md){ .meilenstein }  
    Auf dieser Seite zeichnet ihr echten Netzwerkverkehr mit Wireshark auf und ordnet ihn dem TCP/IP-Schichtenmodell zu.
