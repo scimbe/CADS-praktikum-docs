@@ -59,8 +59,9 @@ Echte Ausgabe (die letzten Zeilen):
   Läufen auch weniger).
 - `Lost/Total Datagrams`: `0/3454`, also nichts verloren.
 
-**Selbst.** Wiederholt die Messung mit einer Rate über der Link-Kapazität und
-vergleicht die `Lost/Total`-Spalte:
+**Selbst.** Schätzt zuerst: Wie viel Prozent der Datagramme gehen bei 12 statt
+10 Mbit/s verloren? Wiederholt dann die Messung mit einer Rate über der
+Link-Kapazität und vergleicht die `Lost/Total`-Spalte:
 
 ```bash
 h0$ iperf3 -u -b 12M -t 10 -c 10.0.20.10
@@ -81,7 +82,8 @@ h0$ iperf3 -u -b 12M -t 10 -c 10.0.20.10
     Warteschlange vor dem Link den Überschuss zunächst auffängt. Deshalb ist
     der Gesamtwert (9,4 %) niedriger als der Verlust im eingeschwungenen
     Zustand: Am Server (`h2`) seht ihr in den Sekundenzeilen zunächst 0 % und
-    danach etwa 19 % je Sekunde.
+    danach etwa 19 % je Sekunde. Ihr habt die Leitung gerade überlastet; genau das
+    tut ein Heimnetz bei zwei parallelen Streams.
 
 !!! question "Nachgedacht: Warum gibt es Jitter und Verlust bei UDP, TCP braucht sie nicht?"
     ??? success "Lösung"
@@ -130,7 +132,8 @@ sie in einer zu großen Warteschlange stehen. Der Name dafür ist *Bufferbloat*.
 **Vorgemacht.** `topo02` läuft. Ein Terminal auf `h0` genügt, weil `iperf3`
 mit `&` im Hintergrund läuft (ein zweites mit `mininet> xterm h0` ist
 optional). Beachtet, dass die Ausgabe von `iperf3` dann zwischen `ping` und
-`tc` im selben Fenster erscheint:
+`tc` im selben Fenster erscheint und die Leerlauf-Messung aus dem Bild
+scrollen kann: Notiert die Leerlauf-RTT sofort.
 
 ```bash
 h0$ tc qdisc add dev h0-eth0 root netem rate 2mbit limit 1000   # kleine Rate, große Queue
@@ -150,10 +153,14 @@ rtt min/avg/max/mdev = 2776.816/2944.185/3084.044/102.236 ms   <- unter Last, 0 
 ```
 
 Der erste Wert unter Last kann kleiner sein, er steigt, während sich die Queue
-füllt; deshalb das `sleep 5`. Die Leerlauf-RTT liegt um eine Millisekunde.
-Unter Last steigt sie auf
-**etwa drei Sekunden** (in anderen Läufen 2,8 bis 3,4 s), ohne dass ein `ping`-Paket verloren geht. Die Pakete
-warten in der großen Queue.
+füllt; deshalb das `sleep 5`. Die Leerlauf-RTT liegt mit dieser Regel bei
+0,3 bis 1 ms (die Regel selbst kostet schon etwa 0,7 ms; die Leitung ohne Regel
+hat 0,3 ms). Unter Last steigt sie auf
+**etwa drei Sekunden** (in anderen Läufen 2,8 bis 3,7 s, Mittel meist 3 bis
+3,5 s), ohne dass ein `ping`-Paket verloren geht. Die Pakete
+warten in der großen Queue. Von 0,7 ms auf 3000 ms, ohne dass ein Paket verloren
+geht, das ist ein Faktor von rund 4000. Genau das spürt ihr im Videocall,
+wenn jemand im Haus einen Film lädt.
 
 **Selbst.** Begrenzt jetzt die Wartezeit in der Queue. `tbf` mit `latency 400ms`
 hält die Warteschlange so kurz, dass ein Paket höchstens 400 ms wartet, mit
@@ -161,13 +168,16 @@ hält die Warteschlange so kurz, dass ein Paket höchstens 400 ms wartet, mit
 `tc -s qdisc show dev h0-eth0` die verworfenen Pakete (`dropped`):
 
 Wartet, bis die Ausgabe von `iperf3` beendet ist (20 s, auf dem Server nach
-einer langen Queue bis etwa 30 s), sonst meldet der Server „server is busy“,
-und räumt die vorherige Regel vorher mit
-`tc qdisc del dev h0-eth0 root` ab. Führt `tc -s qdisc show …` erst nach dem
-Ende von `iperf3` aus, damit dessen Zeilen die Ausgabe nicht unterbrechen. Wie
-in Teil H zählt auch hier nur die `receiver`-Zeile.
+einer langen Queue bis etwa 30 s), sonst meldet der Server „server is busy“;
+das ist normal, kurz warten und wiederholen. Führt `tc -s qdisc show …` erst
+nach dem Ende von `iperf3` aus, damit dessen Zeilen die Ausgabe nicht
+unterbrechen. Wie in Teil H zählt auch hier nur die `receiver`-Zeile. Die erste
+Zeile des Blocks räumt die vorherige Regel ab (beim ersten Durchlauf meldet sie
+einen Fehler, weil noch keine Regel hängt, was ihr ignorieren dürft); ohne sie
+meldet `tc` bei der zweiten Messung `File exists`.
 
 ```bash
+h0$ tc qdisc del dev h0-eth0 root
 h0$ tc qdisc add dev h0-eth0 root tbf rate 2mbit burst 32kbit latency 50ms
 h0$ iperf3 -c 10.0.20.10 -t 20 &
 h0$ sleep 5
@@ -176,23 +186,27 @@ h0$ tc -s qdisc show dev h0-eth0
 h0$ tc qdisc del dev h0-eth0 root
 ```
 
-Wiederholt das mit `latency 400ms`.
+Wiederholt das mit `latency 400ms` (wieder mit dem `tc qdisc del` als erster
+Zeile). `overlimits` in der Ausgabe von `tc -s` zählt, wie oft `tbf` ein Paket
+wegen der Ratengrenze warten ließ; das ist kein zweiter Verlustzähler, verworfen
+wird nur, was unter `dropped` steht.
 
 ??? success "Erwartung und Lösung"
-    Die Messwerte der drei Queue-Varianten aus einem Lauf. `dropped` und
-    `Retr` streuen von Lauf zu Lauf stark (bei `latency 400ms` wurden etwa 5 bis
-    20, bei `latency 50ms` etwa 30 bis 55 beobachtet); nehmt die Tabelle als
-    Größenordnung, die Reihenfolge ist stabil:
+    Die Messwerte der drei Queue-Varianten, als Spannen aus mehreren Läufen auf
+    beiden Clustern. RTT, `dropped` und `Retr` streuen von Lauf zu Lauf stark
+    (kleine Stichprobe); nehmt die Tabelle als Größenordnung, die Reihenfolge ist
+    stabil:
 
-    | Queue | RTT unter Last (min/avg/max) | `dropped` | Durchsatz (receiver) |
+    | Queue | RTT unter Last (min bis max, Mittel) | `dropped` | Durchsatz (receiver) |
     |---|---|---|---|
-    | `netem … limit 1000` (Vorgemacht) | 2,8 / 2,9 / 3,1 s | 0 | 1,9 Mbit/s |
-    | `tbf … latency 400ms` | 11 / 168 / 291 ms | 5 | 1,90 Mbit/s |
-    | `tbf … latency 50ms` | 19 / 28 / 40 ms | 31 | 1,83 Mbit/s |
+    | `netem … limit 1000` (Vorgemacht) | 2,8 bis 3,7 s, Mittel 3 bis 3,5 s | 0 | etwa 1,9 Mbit/s |
+    | `tbf … latency 400ms` | etwa 90 bis 370 ms, Mittel 170 bis 250 ms | etwa 5 bis 27 | 1,8 bis 1,9 Mbit/s |
+    | `tbf … latency 50ms` | etwa 16 bis 51 ms, Mittel 28 bis 42 ms | etwa 30 bis 51 | 1,8 bis 1,9 Mbit/s |
 
     Je kürzer die Queue, desto kürzer die Wartezeit. Dafür verwirft sie Pakete,
-    sobald sie voll ist, und TCP wiederholt sie (in der `iperf3`-Ausgabe steigt `Retr` im Beispiel von 5 auf 29).
-    Der Durchsatz bleibt praktisch gleich.
+    sobald sie voll ist, und TCP wiederholt sie (in der `iperf3`-Ausgabe variiert
+    `Retr` stark: bei `latency 400ms` meist einige wenige bis gut ein Dutzend, bei
+    `latency 50ms` einige Dutzend). Der Durchsatz bleibt praktisch gleich.
 
 !!! question "Nachgedacht: Warum hilft eine kleinere Queue, und was kostet sie?"
     Diese Abwägung ist der Grund, warum Router statt einer einfachen großen
@@ -218,7 +232,9 @@ Wiederholt das mit `latency 400ms`.
     in manchen Rechenzentren); hier vergleicht ihr Reno und Cubic. Wer Durchsatzprobleme
     auf einer Langstrecke untersucht, prüft zuerst, welcher Algorithmus auf
     der Verbindung läuft, denn auf Strecken mit hoher Latenz verhalten sie
-    sich sehr verschieden.
+    sich sehr verschieden; deshalb lädt ein Download aus Übersee manchmal viel
+    langsamer als einer aus der Stadt. Auf unserer 10-Mbit/s-Strecke seht ihr am
+    Durchsatz keinen Unterschied; ihr belegt hier nur, welcher Algorithmus läuft.
 
     **Vorwissen:** `ss -ti` ([Teil C](m2-durchsatz-und-staukontrolle.md#teil-c-das-tcp-congestion-window-unter-paketverlust-live-beobachten-topop04)), `iperf3` ([Teil B](m2-durchsatz-und-staukontrolle.md#teil-b-iperfiperf3-in-topo02-durchsatz-latenz-fairness-und-congestion-control), Schritt 7).
 
@@ -239,10 +255,16 @@ Ausgabe: mindestens `reno cubic`, je nach Standort auch `bbr`. Dann die Messung 
 ```bash
 h2$ iperf3 -s
 h0$ iperf3 -C reno -c 10.0.20.10 -t 6 &
-h0$ sleep 2; ss -ti dst 10.0.20.10   # während der Transfer läuft
+h0$ sleep 2; ss -ti dst 10.0.20.10 | grep -E "reno|cubic"   # während der Transfer läuft
 ```
 
-Echte Ausgabe (gekürzt):
+Der Filter `grep -E "reno|cubic"` zeigt nur die Zeilen mit dem Algorithmus. In
+schmalen Fenstern bricht die lange `ss`-Zeile sonst um und ist schwer zu lesen.
+In diesen Zeilen ist das erste Wort der Algorithmus, das ist die ganze Antwort.
+
+Echte Ausgabe (gekürzt, hier ohne den Filter, damit die `ESTAB`-Zeilen mit den
+Ports sichtbar sind; `wscale` und andere Felder weichen je nach System ab, bei
+euch kann etwa `wscale:10,10` stehen):
 
 ```text
 ESTAB 0  3725424  10.0.10.10:52484  10.0.20.10:5201
@@ -252,8 +274,7 @@ ESTAB 0  0        10.0.10.10:52474  10.0.20.10:5201
 ```
 
 Die Messverbindung (Port 5201, viele Daten in `Send-Q`) trägt `reno`. Die
-Steuerverbindung von `iperf3` daneben, ohne Datenverkehr, `cubic`. Wenn die
-Ausgabe umbricht, hilft `ss -ti dst 10.0.20.10 | grep -E "reno|cubic"`.
+Steuerverbindung von `iperf3` daneben, ohne Datenverkehr, `cubic`.
 
 **Selbst.** Wartet, bis der erste Lauf beendet ist (etwa 10 Sekunden, denn die
 Warteschlange muss sich erst leeren), und wiederholt die Messung
@@ -263,7 +284,8 @@ ohne `-C reno` (System-Standard Cubic). Vergleicht die Algorithmus-Zeile.
     Beide Verbindungen zeigen jetzt `cubic`. Der Algorithmus ist also keine
     globale Einstellung, sondern eine Eigenschaft je Verbindung. Das sehr
     große `cwnd` des Reno-Laufs (hier 2513 Segmente) kommt von der langen
-    Warteschlange vor dem Link (Teil I). Im Cubic-Lauf fiel das `cwnd` in
+    Standard-Warteschlange vor dem 10-Mbit/s-Link (der Effekt aus Teil I,
+    hier ohne eigene `tc`-Regel). Im Cubic-Lauf fiel das `cwnd` in
     Wiederholungen kleiner aus (etwa 900 bis 950); vermutlich, weil dort
     schon ein `ssthresh` gesetzt war. In beiden Fällen liegt die RTT der
     Messverbindung bei etwa einer Sekunde oder mehr.

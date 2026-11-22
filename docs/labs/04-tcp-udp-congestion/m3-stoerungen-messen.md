@@ -89,7 +89,9 @@ $ ./start-topo02.sh
 
 Die Knotenfenster liegen nach dem Start oft übereinander. Prüft vor jeder
 Eingabe den Fenstertitel (`Node: h0` usw.), klickt ins Fenster und wartet kurz;
-++ctrl+c++ wirkt nur im fokussierten Fenster. Näheres unter
+++ctrl+c++ wirkt nur im fokussierten Fenster. Die Fensterliste („Xfce4-terminal“
+oben links oder Symbol unten links) hilft beim Wechseln; ihre Reihenfolge ändert
+sich nach jedem Topologiestart, lest die Namen. Näheres unter
 [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
 
 **Vorgemacht: der ungestörte Zustand.** Stellt in den Terminals von `h0` und
@@ -112,14 +114,16 @@ h0$ tc qdisc add dev h0-eth0 root netem delay 100ms
 h0$ ping -c 10 10.0.20.10
 ```
 
-Notiert die Laufzeit vorher und nachher.
+Überlegt vorab, in welche Richtung die Regel wirkt, und schätzt danach die neue
+Laufzeit. Notiert die Laufzeit vorher und nachher.
 
 ??? success "Erwartung und Lösung"
     `rtt min/avg/max/mdev = 100.333/100.380/100.423/0.034 ms`. Die Laufzeit steigt um
     **etwa 100 ms und nicht um 200**, obwohl das Paket hin und zurück muss.
     Die Regel wirkt nur auf den **ausgehenden** Verkehr von `h0-eth0`:
     Die Anfrage wird verzögert, die Antwort von `h2` kommt über eine
-    Schnittstelle ohne Regel zurück.
+    Schnittstelle ohne Regel zurück. So fühlt sich eine Videokonferenz über eine
+    Satellitenstrecke an.
 
 **Aufgabe 2: Schwankung.** Ersetzt die feste Verzögerung durch eine schwankende
 und beobachtet die Streuung:
@@ -133,14 +137,14 @@ Vergleicht `mdev` in der Zusammenfassung von `ping` mit dem Wert aus Aufgabe 1.
 
 ??? success "Erwartung und Lösung"
     `rtt min/avg/max/mdev = 69.031/102.216/132.243/21.499 ms`: Der Mittelwert
-    bleibt bei etwa 100 ms, `mdev` steigt von 0,03 auf etwa 20 ms. Diese
+    bleibt bei etwa 100 ms, `mdev` steigt von 0,03 auf etwa 20 bis 28 ms (die
+    Werte streuen, auch `min` und `max` ändern sich von Lauf zu Lauf). Diese
     Schwankung heißt **Jitter** und ist der Grund, warum Sprach- und
     Videoübertragung einen Puffer braucht. Eine konstant hohe Laufzeit stört
     weniger als eine unregelmäßige.
 
 **Aufgabe 3: Verlust, und was er mit TCP macht.** Entfernt die Verzögerung und
-legt stattdessen 5 % Paketverlust an. Messt zuerst ohne Regel (Erwartung etwa
-9,5 Mbit/s) und danach mit Regel, jeweils mit `iperf` wie in [Teil B](m2-durchsatz-und-staukontrolle.md#teil-b-iperfiperf3-in-topo02-durchsatz-latenz-fairness-und-congestion-control). Beendet
+legt stattdessen 5 % Paketverlust an. Messt zuerst ohne Regel (Erwartung 9,5 bis 9,6 Mbit/s) und danach mit Regel, jeweils mit `iperf` wie in [Teil B](m2-durchsatz-und-staukontrolle.md#teil-b-iperfiperf3-in-topo02-durchsatz-latenz-fairness-und-congestion-control). Beendet
 vorher einen noch laufenden `iperf`- oder `iperf3`-Server im Fenster `Node: h2`
 (++ctrl+c++), damit ihr ihn frisch starten könnt. Die Endzeile von `iperf` kann
 länger als `-t` sein (etwa 20 bis 23 Sekunden bei `-t 20`), denn der Client
@@ -157,13 +161,16 @@ h0$ iperf -c 10.0.20.10 -t 20            # mit 5 % Verlust
 **Bildet vor der Messung eine Erwartung:** Um wie viel bricht der Durchsatz bei
 5 % Verlust ein: um 5 %, um deutlich mehr oder kaum? Messt und vergleicht mit
 [Teil C](m2-durchsatz-und-staukontrolle.md#teil-c-das-tcp-congestion-window-unter-paketverlust-live-beobachten-topop04) (dort habt ihr den TCP-Durchsatz
-auf `topoP04` gemessen; zieht euren eigenen Wert heran). Erklärt, warum der Einbruch hier anders ausfällt als auf `topoP04`
+auf `topoP04` gemessen; zieht euren eigenen Wert heran). Habt ihr den Wert aus Teil C notiert? Sonst messt kurz neu oder nehmt die 40 bis
+130 Kbit/s aus [Teil A](m1-fehlerrate-mtu.md#teil-a-fehlerrate-mtu-und-ip-fragmentierung-topop04). Erklärt, warum der Einbruch hier anders ausfällt als auf `topoP04`
 (Hinweise: In welche Richtung wirkt der Verlust hier, in welche dort? Wie
 groß ist die RTT?).
 
 ??? success "Erwartung und Lösung"
-    Ohne Regel etwa 9,6 Mbit/s, mit 5 % Verlust **8,8 bis 9,3 Mbit/s**:
-    Der Durchsatz sinkt um weniger als 10 %. Auf `topoP04` sind es rund 99 %
+    Ohne Regel 9,5 bis 9,6 Mbit/s, mit 5 % Verlust **8,7 bis 9,3 Mbit/s**
+    (gemessen u. a. 8,74 und 9,16; die Werte streuen von Lauf zu Lauf):
+    Der Durchsatz sinkt um weniger als 10 %. Viele erwarten einen Einbruch um
+    mehr als die Hälfte; lagt ihr daneben, ist die Überraschung der Lerneffekt. Auf `topoP04` sind es rund 99 %
     Einbruch. Dort wirkt der Verlust auf vier Teilstrecken und in beide
     Richtungen, sodass auch Bestätigungen verloren gehen (Round-Trip-Verlust
     von etwa 34 %). Hier wirkt der Verlust nur in einer Richtung (ausgehende
@@ -185,14 +192,15 @@ h0$ iperf -c 10.0.20.10 -t 10
 
 Vergleicht den gemessenen Durchsatz mit den eingestellten 1 Mbit/s. (`tc qdisc
 show` zeigt `burst 4Kb` statt `32kbit`: Es sind dieselben 4 KByte. Die
-iperf-Endzeile kann auch hier länger als 10 Sekunden dauern.) **Warum
+iperf-Endzeile kann auch hier länger als 10 Sekunden dauern, bis etwa 15
+Sekunden; bricht nicht ab.) **Warum
 liegt der gemessene Wert darunter und nicht exakt darauf?** Denkt an das, was
 außer den Nutzdaten noch über die Leitung geht.
 
 ??? success "Erwartung und Lösung"
     Gemessen etwa 0,96 Mbit/s, also rund 4 % unter dem Soll. Die Rate von
     `tbf` bezieht sich auf alle Bytes inklusive Ethernet-, IP- und TCP-Kopf.
-    `iperf` zählt nur die Nutzdaten.
+    `iperf` zählt nur die Nutzdaten. Dasselbe gilt für euren DSL-Vertrag.
 
 Räumt zum Schluss auf und prüft, dass keine Regel mehr aktiv ist:
 
@@ -254,7 +262,8 @@ $ grep -n "TCLink" ~/rn-practice/topo02/topo02.py
 ```
 
 Ihr seht drei Treffer (der Befehl läuft auch in einem Knotenfenster, das
-Heimatverzeichnis ist gemeinsam): der erste ist der Import, der dritte die
+Heimatverzeichnis ist gemeinsam): der erste ist der Import, der zweite
+enthält `cls=TCLink` beim Anlegen einer Verbindung, der dritte ist die
 Netz-Definition mit `link=TCLink`; die Zeile mit `bw=10, delay='0.1ms'` legt die
 Verbindung an. Nur diese Verbindung
 (zwischen `r1` und `r2`) trägt eine Begrenzung. Alle anderen Verbindungen
@@ -311,6 +320,10 @@ h0$ ping -c 10 10.0.20.10
 h0$ iperf3 -c 10.0.20.10 -t 8 -f m
 ```
 
+Die erste Antwort von `ping` enthält die Adressauflösung (ARP) und zieht den
+Mittelwert nach oben. Lasst sie weg (`ping -c 11` und ab `icmp_seq=2` lesen)
+oder merkt euch, dass der Mittelwert dadurch etwas zu hoch ausfällt.
+
 **Konfiguration 1** ist die unveränderte Topologie, Soll 10 Mbit/s und 0,1 ms
 je Richtung. Messt sie zuerst, sie ist euer Bezugspunkt.
 
@@ -352,8 +365,9 @@ h0$ tc qdisc show dev h0-eth0
 
 #### Schritt 3: Die Abweichung ausrechnen und begründen
 
-Legt eure Messwerte in einer Tabelle ab und **rechnet die Abweichung in Prozent
-selbst aus**, für jede Konfiguration (als Ist-Rate nehmt ihr die
+So prüft man, ob ein 100-Mbit-Anschluss wirklich 100 Mbit/s liefert, und warum die
+Antwort fast immer „nein, etwa 94“ lautet. Legt eure Messwerte in einer Tabelle
+ab und **rechnet die Abweichung in Prozent selbst aus**, für jede Konfiguration (als Ist-Rate nehmt ihr die
 `receiver`-Zeile):
 
 ```text
@@ -380,7 +394,8 @@ $ mousepad ~/rn-practice/snapshots/04-teile-sollist.txt &
 ```
 
 Das Fenster ist leer: Schreibt eure Tabelle hinein und speichert mit
-++ctrl+s++. Ohne Speichern bleibt die Datei leer.
+++ctrl+s++. Ohne Speichern bleibt die Datei leer. Der Stern vor dem Titel
+verschwindet nach dem Speichern.
 
 ??? success "Beispielwerte aus einem Lauf"
     | Konfiguration | Soll Rate | Ist Rate (receiver) | Abw. % | Soll RTT | Ist RTT (Mittel) | Abw. % |
@@ -509,14 +524,15 @@ h2$ nping --icmp -c 20 --delay 100ms 10.0.0.1
 ```
 
 **Selbst.** Wiederholt den Lauf zwei- bis dreimal. Die Prozentzahl schwankt,
-weil 20 Sonden eine kleine Stichprobe sind. In der Langausgabe kann die
+weil 20 Sonden eine kleine Stichprobe sind; Werte zwischen etwa 15 und 55 % sind
+kein Fehler, sondern Stichprobe. In der Langausgabe kann die
 `SENT`-Zeile einer Sonde doppelt erscheinen (meist bei der letzten); maßgeblich
 ist die Zusammenfassung mit `Raw packets sent: 20`. Haltet sie gegen den
 Erwartungswert `1 − 0,9⁴ ≈ 34 %` aus [Teil A](m1-fehlerrate-mtu.md#teil-a-fehlerrate-mtu-und-ip-fragmentierung-topop04).
 
 ??? success "Erwartung und Lösung"
     Gemessen in vier Läufen: 25 %, 40 %, 25 % und 30 %; in weiteren Läufen
-    20 bis 45 %. Üblich sind 15 bis 55 %, Erwartungswert 34 %, deutlich über den 10 % einer
+    15 bis 50 %. Üblich sind 15 bis 55 %, Erwartungswert 34 %, deutlich über den 10 % einer
     *einzelnen* Teilstrecke, weil Anfrage und Antwort zusammen vier
     Teilstrecken queren.
 
@@ -573,15 +589,19 @@ $ ./start-topo02.sh
 ```bash
 h0$ tc qdisc add dev h0-eth0 root netem loss 8%
 h2$ iperf3 -s
-h0$ iperf3 -c 10.0.20.10 -t 8 &          # Transfer im Hintergrund
-h0$ sleep 2; ss -ti dst 10.0.20.10       # jetzt etwa alle 3 Sekunden wiederholen (Pfeil hoch, Enter)
+h0$ iperf3 -c 10.0.20.10 -t 20 &         # Transfer im Hintergrund
+h0$ sleep 2; ss -ti dst 10.0.20.10 | grep -A1 ESTAB   # jetzt etwa alle 3 Sekunden wiederholen (Pfeil hoch, Enter)
 ```
 
-Die Ausgabe von `iperf3` läuft zwischen eure Eingaben; das ist normal. Mit
-`ss -ti dst 10.0.20.10 | grep -A1 ESTAB` bleibt die Ausgabe übersichtlicher.
+Mit `-t 20` habt ihr Zeit für mehrere Abfragen; bei `-t 8` ist der Transfer
+vorbei, bevor ihr die zweite Abfrage getippt habt. Die Ausgabe von `iperf3`
+läuft zwischen eure Eingaben und kann die Eingabezeile überschreiben; das ist
+normal, ein Druck auf ++enter++ bringt den Prompt zurück. Das `grep` hält die
+Ausgabe übersichtlich. Aus dem langen Block zählen nur drei Felder: `cwnd:`,
+`ssthresh:` und `retrans:`; alles andere dürft ihr ignorieren.
 
 Echte Ausgabe der Messverbindung (zwei Abfragen im Abstand von etwa
-3 Sekunden, gekürzt):
+3 Sekunden aus einem kürzeren Lauf, gekürzt):
 
 ```text
 ESTAB 0  165072  10.0.10.10:48592  10.0.20.10:5201
@@ -595,7 +615,9 @@ auf 299. Dazu steht in der Liste die Steuerverbindung von `iperf3`: kaum
 Daten, `cwnd:10`.
 
 Am Ende des Laufs meldet `iperf3` im Beispiel `Retr 340` und 5,9 Mbit/s; in
-anderen Läufen lag der Wert bei etwa 4 bis 7 Mbit/s. Räumt auf:
+anderen Läufen lag der Wert bei etwa 4 bis 7 Mbit/s. Gleich seht ihr, wie TCP
+bei Verlust sein Fenster schrumpfen lässt und ohne Verlust um das Hundertfache
+größer wird, genau das passiert auch auf einer schlechten WLAN-Verbindung. Räumt auf:
 
 ```bash
 h0$ tc qdisc del dev h0-eth0 root
@@ -606,12 +628,12 @@ Messverbindung ab (nicht der Steuerverbindung: Die Messverbindung erkennt ihr an
 der großen `Send-Q`).
 
 ??? success "Erwartung und Lösung"
-    Mit 8 % Verlust liegt `cwnd` der Messverbindung zwischen 2 und etwa 15 und
-    springt von Abfrage zu Abfrage. `retrans:` zählt mit jeder Abfrage höher. Der
+    Mit 8 % Verlust liegt `cwnd` der Messverbindung zwischen 1 und etwa 15 und
+    springt von Abfrage zu Abfrage (auch `cwnd:1` nach einem Timeout kommt vor). `retrans:` zählt mit jeder Abfrage höher. Der
     Durchsatz sinkt von 9,6 auf etwa 4 bis 7 Mbit/s. Ohne Verlustregel wächst
-    `cwnd` derselben Verbindung auf viele hundert bis rund tausend Segmente (981
-    im Beispiellauf, in anderen Läufen etwa 1000 bis 1150; `retrans` bleibt
-    aus). Die RTT steigt dabei auf über eine Sekunde, weil das
+    `cwnd` derselben Verbindung auf viele hundert bis über tausend Segmente (981
+    im Beispiellauf, in anderen Läufen etwa 900 bis 1450; der Wert wächst weiter
+    und hängt davon ab, wann ihr abfragt; `retrans` bleibt aus). Die RTT steigt dabei auf über eine Sekunde, weil das
     Fenster die Warteschlange vor dem Link füllt ([Teil I](m4-udp-bufferbloat-algorithmen.md#teil-i-bufferbloat-warum-eine-schnelle-leitung-trage-werden-kann-topo02)).
 
 !!! question "Nachgedacht: Warum bleibt `cwnd` klein, obwohl der Link nicht überlastet ist?"

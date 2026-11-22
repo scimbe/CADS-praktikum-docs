@@ -42,16 +42,17 @@ $ cd ~/rn-practice/topoP04
 $ ./start-topoP04.sh
 ```
 
-Es öffnet sich ein Fenster `topoP04` mit dem Mininet-Prompt `mininet>` und
-zwei Terminals „Node: h1“ und „Node: h2“. Tippt immer erst in das Fenster, in
+Es öffnet sich ein Terminal mit dem Mininet-Prompt `mininet>` und zwei
+Terminals „Node: h1“ und „Node: h2“. Das Mininet-Terminal heißt in der
+Fensterliste einfach „Terminal“, nicht nach der Topologie. Tippt immer erst in das Fenster, in
 das ihr gerade tippen wollt: Eingaben und ++ctrl+c++ wirken nur im
 fokussierten Fenster, und nach einem Fensterwechsel geht oft der erste
 Buchstabe verloren. Wie ihr Fenster wiederfindet, steht unter
 [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
 
-![Desktop nach dem Start von topoP04: oben das Fenster "topoP04" mit den Startmeldungen von Mininet und dem Prompt "mininet>", darunter nebeneinander die Terminals "Node: h1" und "Node: h2" mit leerem Prompt](../../assets/screenshots/04-tcp-udp-congestion/topoP04-start.png)
-*Nach dem Start: das Mininet-Fenster oben, darunter die Terminals der beiden
-Hosts. Die Zeilen `10.00Mbit 10.00000% loss` zeigen die Eigenschaften der
+![Desktop nach dem Start von topoP04: oben das Terminal "Terminal" mit den Startmeldungen von Mininet und dem Prompt "mininet>", darunter nebeneinander die Terminals "Node: h1" und "Node: h2" mit leerem Prompt](../../assets/screenshots/04-tcp-udp-congestion/topoP04-start.png)
+*Nach dem Start: das Mininet-Terminal (je nach Lage oben oder unten), daneben
+die Terminals der beiden Hosts. Die Zeilen `10.00Mbit 10.00000% loss` zeigen die Eigenschaften der
 beiden Links.*
 
 Die Topologie besteht aus `h1` (`10.0.0.1`), `h2` (`10.0.0.2`) und einem
@@ -120,15 +121,19 @@ Erfolgsrate = 0,9 · 0,9 · 0,9 · 0,9 = 0,656      Verlust = 1 − 0,656 ≈ 34
 ```
 
 Bei nur 20 Anfragen schwankt der Zufall stark (typisch ±10 Prozentpunkte um
-34 %), deshalb liegen einzelne Läufe zwischen etwa 15 und 55 %. Je mehr
-Anfragen, desto näher liegt der Wert an 34 %: Probiert
-`ping -c 100 -i 0.2 10.0.0.2`. Die erste Antwort kann dabei deutlich länger
-dauern (bis etwa eine Sekunde); das ist der Verbindungsaufbau (ARP), kein
-Fehler.
+34 %): In den Testläufen lagen einzelne Läufe zwischen 20 und 55 %, und selbst
+der Mittelwert aus drei bis vier Läufen kann noch 5 bis 8 Punkte danebenliegen.
+Das ist eine kleine Stichprobe, kein Messfehler. Je mehr Anfragen, desto näher
+liegt der Wert an 34 %: Probiert `ping -c 100 -i 0.2 10.0.0.2` (in den
+Testläufen 31 bis 36 %). Die erste Antwort kann dabei etwas länger dauern
+(einige Millisekunden, selten bis etwa eine Sekunde); das ist die
+Adressauflösung (ARP), kein Fehler.
 
-**Selbst.** Wiederholt den Lauf dreimal und notiert die Verlustrate. Liegen
-eure Werte in der Spannweite? Bildet den Mittelwert über eure Läufe und
-vergleicht ihn mit 34 %.
+**Selbst.** Wiederholt den Lauf dreimal und notiert die Verlustrate (Lauf 1:
+_ %, Lauf 2: _ %, Lauf 3: _ %, Mittel: _ %). Liegen eure Werte in der
+Spannweite? Vergleicht den Mittelwert mit 34 % und danach mit dem Ergebnis von
+`-c 100`. Dass eure Werte streuen, ist der Beweis, dass Verlust Zufall ist; ein
+echtes WLAN verhält sich genauso.
 
 !!! question "Nachgedacht: Was würde sich ändern, wenn nur ein Link 10 % Verlust hätte?"
     Überlegt vorab, welcher Verlust bei `ping` dann zu erwarten wäre.
@@ -167,7 +172,9 @@ vergleicht ihn mit 34 %.
     - `Jitter`: Schwankung der Ankunftsabstände.
     - `Lost/Total`: 498 von 2622 gesendeten Datagrammen kamen nicht an (19 %).
 
-    **Wichtig:** Maßgeblich ist immer die Server-Seite. Die Zeile „Server
+    **Wichtig:** Maßgeblich ist immer die Server-Seite. (Ist das Fenster
+    schmal, wird die Server-Zeile abgeschnitten und der Prozentwert fehlt:
+    Zieht das Fenster breiter oder maximiert es.) Die Zeile „Server
     Report“, die der Client am Ende ausgibt, kann hier unbrauchbare Werte
     zeigen: meist stimmen die Zähler, aber die Prozentangabe lautet `(0%)`
     trotz Verlust; in anderen Läufen kommen riesige Verlustzahlen wie
@@ -241,6 +248,18 @@ Zeile „0.0000-20.4582 sec“ ist länger als die 10 Sekunden, die ihr
 angefordert habt: Der Client wartet, bis alle gesendeten Daten bestätigt sind.
 Warum das so ist, klärt [Teil C](m2-durchsatz-und-staukontrolle.md#teil-c-das-tcp-congestion-window-unter-paketverlust-live-beobachten-topop04).
 
+Auch der Server (`h1`) meldet eine Summenzeile, oft mit noch längerer Dauer und
+kleinerer Rate, in einem Lauf etwa `0.0000-36.6759 sec  137 KBytes
+30.5 Kbits/sec` neben `0.0000-20.2856 sec  137 KBytes  55.2 Kbits/sec` beim
+Client. Die übertragene Menge ist dieselbe; Client und Server stoppen die Uhr
+zu verschiedenen Zeitpunkten (bei vielen Timeouts zieht sich auch das Schließen
+der Verbindung), und Rate = Menge geteilt durch Dauer. Die Dauer streut von Lauf
+zu Lauf stark (hier 15 bis 37 s).
+
+Merkt euch die Zahl „ein Hundertstel“: Das ist kein Fehler eurer Messung,
+sondern ein typisches Verhalten von TCP auf Funkstrecken mit Verlust. Teil C
+zeigt live, warum.
+
 **Selbst.** Passen diese Messwerte zu euren Erwartungen? Vergleicht UDP und
 TCP: Wie wirkt sich dieselbe Fehlerrate von 10 % auf beide Protokolle aus?
 
@@ -292,7 +311,13 @@ als UDP-Nachricht.
     Im oberen Fenster steht je Paket eine Zeile (laufende Nummer, Zeit,
     Quelle, Ziel, Protokoll, Länge, Info). Im unteren Fenster klappt ihr die
     Schichten des gewählten Pakets auf. Im Prompt erscheinen Zeilen wie
-    `Capture Start …`, das ist normal.
+    `Capture Start …`, das ist normal. ARP- und ICMPv6-Zeilen im Mitschnitt
+    sind Hintergrundverkehr; ignoriert sie.
+
+    Wireshark öffnet je nach Lage klein oder bildschirmfüllend. **Beenden:**
+    ++ctrl+q++ im Wireshark-Fenster (oder File > Quit) und im Dialog
+    „Stop and Quit without Saving“ wählen. Beim Beenden schreibt das Terminal
+    harmlose Zeilen wie `QThreadStorage: … destroyed`.
 
 **Vorgemacht.** Beendet zuerst den noch laufenden Server auf `h1` (++ctrl+c++;
 vorher in das Fenster `Node: h1` klicken).
@@ -312,14 +337,21 @@ Jeder Versuch besteht aus drei Schritten:
 3. Nach etwa 2 Sekunden auf beiden Seiten ++ctrl+c++ drücken.
 
 Wireshark öffnet sich und kann die Knotenfenster verdecken. Holt
-`Node: h1` und `Node: h2` über die Fensterliste oben links nach vorn und klickt
-in das jeweilige Fenster, bevor ihr tippt; sonst landen Eingaben im
-Wireshark-Suchfeld oder im falschen Knoten.
+`Node: h1` und `Node: h2` über die Fensterliste („Xfce4-terminal“ oben links
+oder das Symbol unten links, dort den Namen anklicken) nach vorn und klickt in
+das jeweilige Fenster, bevor ihr tippt; sonst landen Eingaben im
+Wireshark-Suchfeld oder im falschen Knoten. Die Reihenfolge der Liste ändert
+sich, lest deshalb die Namen. Nach dem Fensterwechsel geht oft das erste
+Zeichen verloren: Wartet kurz, und prüft, ob der Prompt zurück ist, bevor ihr
+`nc -lu` neu startet.
 
-Erscheint der Text auf `h1`, ist der Versuch geglückt, sonst nicht. Ohne den
+Erscheint der Text auf `h1`, ist der Versuch geglückt, sonst nicht. Tippt in
+Wireshark den Anzeigefilter `udp`: Dort erscheinen nur zusammengesetzte
+Nachrichten (`Len=1638`), jede solche Zeile ist ein Erfolg. Ohne den
 Neustart auf `h1` nimmt der Empfänger nach dem ersten Erfolg nichts mehr an,
 obwohl Wireshark alle Fragmente zeigt. Wiederholt das Senden einige Male. Der Text
-(1638 Byte) wird in vier Fragmente zerlegt. Im Mitschnitt zeigt
+(1638 Byte) wird in vier Fragmente zerlegt. Bleibt es bei 0 Erfolgen, habt ihr
+nichts falsch gemacht: Genau das ist die Fragmentierungs-Falle. Im Mitschnitt zeigt
 Wireshark sie als `Fragmented IP protocol`:
 
 ![Wireshark-Mitschnitt auf h1-eth0: mehrere Gruppen von Paketen "Fragmented IP protocol" mit off=0, off=512, off=1024 und off=1536, jeweils gefolgt von einer UDP-Zeile mit Len=1638; eine Gruppe ohne off=1024 und danach eine ICMP-Zeile "Time-to-live exceeded (Fragment reassembly time exceeded)"; unten der aufgeklappte IPv4-Kopf mit Fragment Offset 1536 und der Liste der vier Fragmente](../../assets/screenshots/04-tcp-udp-congestion/wireshark-fragmente.png)
@@ -341,32 +373,46 @@ zeigt, sieht so aus:
 ging. Der Empfänger bekommt keine UDP-Nachricht.*
 
 **Erwartung.** Der kürzere Text (632 Byte) besteht aus zwei Fragmenten
-(IP-Längen 532 und 148 Byte), der längere (1638 Byte) aus vier. Jedes
+(IP-Längen 532 und 148 Byte), der längere (1638 Byte) aus vier. Warum 532 und
+nicht 536? Von der MTU 536 gehen 20 Byte IP-Kopf ab, bleiben 516; die Nutzlast
+eines Fragments muss ein Vielfaches von 8 sein, also 512 (+ 20 = 532).
+Wireshark zeigt in der Spalte `Length` die Rahmenlänge, also 14 Byte
+Ethernet-Kopf mehr: 546 und 162 statt 532 und 148. Jedes
 Fragment übersteht die Strecke mit `0,9² = 81 %`. Der Text kommt also mit
-`0,81² ≈ 66 %` (zwei Fragmente) bzw. `0,81⁴ ≈ 43 %` (vier Fragmente) an. Meist
-braucht ihr einige Versuche, bis der Text im `nc`-Fenster erscheint. Bei nur
-fünf Versuchen streut die Zahl der Erfolge stark: Auch 0 bis 5 Erfolge sind
-möglich, und in Messläufen lagen sie bei beiden Dateien oft unter der
-Erwartung.
+`0,81² ≈ 66 %` (zwei Fragmente) bzw. `0,81⁴ ≈ 43 %` (vier Fragmente) an. Bei der
+längeren Datei braucht ihr meist einige Versuche, bis der Text im `nc`-Fenster
+erscheint; bei der kürzeren klappt es öfter auf Anhieb. Bei nur fünf Versuchen
+streut die Zahl der Erfolge stark: Auch 0 bis 5 Erfolge sind möglich. In zwei
+Testläufen kam die längere Datei 0- und 2-mal von 5 an (Erwartung etwa 2), die
+kürzere beide Male 5-mal von 5 (Erwartung etwa 3). Das liegt alles in der
+Streuung.
 
 **Selbst.** Sendet beide Dateien (`MehrAls500ByteText.txt` und
 `MehrAls1500ByteText.txt`) jeweils fünfmal, jedes Mal mit Neustart des
-Empfängers, und zählt, wie oft der Text ankommt. Wiederholt das Experiment dann
-mit TCP (beendet vorher den UDP-`nc` auf `h1` mit ++ctrl+c++):
+Empfängers, und zählt, wie oft der Text ankommt (Vorlage: Versuch 1 bis 5,
+angekommen ja/nein). Wiederholt das Experiment dann mit TCP, wieder mit beiden
+Dateien (beendet vorher den UDP-`nc` auf `h1` mit ++ctrl+c++). Bei TCP endet
+`nc -l` von selbst, sobald die Verbindung geschlossen ist; der Prompt kommt
+zurück, es hängt nichts:
 
 ```bash
 h1$ nc -l 5000
-h2$ nc -N 10.0.0.1 5000 < MehrAls1500ByteText.txt
+h2$ time nc -N 10.0.0.1 5000 < MehrAls1500ByteText.txt
 ```
 
-Betrachtet den Mitschnitt: Gibt es IP-Fragmente? Erklärt (Stichwort: MSS), was
-TCP anders macht.
+Betrachtet den Mitschnitt (Anzeigefilter `tcp.port == 5000`): Gibt es
+IP-Fragmente? Was steht im SYN-Paket als `MSS`, und welches Flag tragen die
+Segmente? Erklärt (Stichwort: MSS), was TCP anders macht. Leitet außerdem aus
+der MTU 536 die MSS her, die im SYN steht. Beendet am Ende Wireshark (siehe
+Werkzeugkasten).
 
 !!! question "Nachgedacht: Warum entstehen bei TCP keine IP-Fragmente?"
     ??? success "Lösung"
         Im Mitschnitt tragen die TCP-Segmente das Flag `DF` (Don't Fragment).
-        Nach der vereinbarten MSS trägt jedes Segment höchstens 484 Byte
-        Nutzlast (IP-Länge 536 Byte), und so viel darf auf der Leitung
+        Die MSS im SYN ist 496: MTU 536 minus 20 Byte
+        IP-Kopf minus 20 Byte TCP-Kopf. Im Datenverkehr kommen 12 Byte
+        TCP-Optionen (Zeitstempel) hinzu, deshalb trägt jedes Segment höchstens
+        484 Byte Nutzlast (IP-Länge 536 Byte), und so viel darf auf der Leitung
         höchstens ankommen. Der Mitschnitt kann davon abweichen: Er zeigt
         mitunter einzelne größere Segmente (etwa `Len=968` oder `Len=1638`
         bei MSS 496, IP-Länge über 536). Vermutlich sind mehrere
@@ -376,8 +422,10 @@ TCP anders macht.
         Verlasst euch deshalb auf die im SYN angekündigte MSS und darauf, dass
         keine IP-Fragmente auftreten. Die Nachricht
         kommt in allen Versuchen vollständig an; die Dauer (gemessen mit
-        `time nc -N …`) reicht von wenigen Millisekunden bis etwa einer
-        Sekunde, denn `nc` endet schon nach dem Schreiben. Beim
+        `time nc -N …`) reicht meist von wenigen Millisekunden bis etwa einer
+        Sekunde, denn `nc` endet schon nach dem Schreiben. Geht ein Segment
+        verloren und läuft ein Timeout ab, dauert es auch einige Sekunden
+        (gemessen bis etwa 4 s bei der kürzeren Datei). Beim
         Verbindungsaufbau handeln die Partner die **MSS** (Maximum Segment
         Size) aus: die größte Nutzlast, die in ein Paket der Pfad-MTU passt
         (hier mit `mss 496` im SYN-Paket angekündigt). TCP zerlegt den
@@ -412,7 +460,8 @@ Gründen oft vermieden oder deaktiviert:
   da Reihenfolge und Vollständigkeit nicht garantiert sind.
 
 Im Gegenzug müssen Endgeräte und Anwendungen Pakete innerhalb der Pfad-MTU
-senden.
+senden. Genau deshalb halten VPN-Tunnel und Videokonferenzen ihre Pakete
+klein: Ein verlorenes Fragment kostet die ganze Nachricht.
 
 !!! success "Meilenstein 1 geschafft"
     **Das habt ihr gelernt:**
