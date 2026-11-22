@@ -39,20 +39,25 @@ Hintergrund läuft dabei ebenfalls `xfce4-terminal`, nicht das Programm
 Nach dem Start einer Topologie öffnen sich Knotenfenster („Node: h1", „Node:
 h2", …). Sie liegen oft übereinander oder komplett hinter dem Mininet-Terminal.
 
-- **Leiste:** Gleichartige Fenster fasst die Leiste zu einem Eintrag
-  „Xfce4-terminal" zusammen (mit einem Zähler bei mehreren Fenstern). Ein
-  Klick darauf holt nicht in jedem Fall das gewünschte Fenster nach vorn; eine
-  ausgeklappte Liste mit allen Fenstern dürft ihr nicht erwarten.
+- **Fensterliste:** Gleichartige Fenster fasst die Leiste oben links zu einem
+  Eintrag „Xfce4-terminal" mit Zähler zusammen. Ein Klick darauf – oder auf
+  das kleine Symbol ganz unten links in der blauen Leiste – klappt eine Liste
+  aller offenen Fenster auf („Node: h1", „Node: r1", …, „Terminal").
+  Klickt auf den **Namen**, um das Fenster nach vorn zu holen; das ✕ daneben
+  schließt es. Das ist der verlässlichste Weg zur Mininet-Konsole: Sie steht
+  als „Terminal" in der Liste. Stehen dort zwei „Terminal"-Einträge, verrät
+  der Prompt `mininet>`, welches die Konsole ist.
 - **Auseinanderziehen:** Zieht überlappende Fenster am Titelbalken
   auseinander und klickt dann auf einen sichtbaren Teil des Fensters, das ihr
-  braucht. Ein zu großes Fenster (z. B. Wireshark) verkleinert ihr per
-  Doppelklick auf die Titelleiste; ein kleines vergrößert derselbe
-  Doppelklick.
+  braucht. Ein Doppelklick auf die Titelleiste maximiert ein Fenster bzw.
+  stellt die vorige Größe wieder her.
 - **Wo lande ich?** Der Fenstertitel nennt den Knoten, in dem ihr gerade
   tippt („Node: h1", „Node: h2", „Terminal"); die Titelleiste des aktiven
   Fensters ist hervorgehoben.
-- **Neues Terminal:** Strg+Umschalt+N im aktiven Terminalfenster oder das
-  Terminal-Symbol am Rand. Das Symbol holt ein bereits offenes Fenster nur
+- **Neues Terminal:** Strg+Umschalt+N im normalen Terminal (`cads@…`) bzw.
+  in der Mininet-Konsole, oder das Terminal-Symbol am Rand. Achtung: In einem
+  Knotenfenster („Node: h3") öffnet Strg+Umschalt+N eine root-Shell im Netz
+  dieses Knotens (Titel „Terminal", Prompt `root@…`), kein normales Terminal. Das Symbol holt ein bereits offenes Fenster nur
   nach vorn, wenn eines existiert und verdeckt wird. Beendet mit `exit` nur
   das Fenster, das ihr meint: Prüft vorher den Fenstertitel.
 - **Erst klicken, dann tippen:** Nach einem Fensterwechsel geht der erste

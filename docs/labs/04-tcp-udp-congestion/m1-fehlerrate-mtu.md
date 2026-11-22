@@ -311,7 +311,7 @@ Jeder Versuch besteht aus drei Schritten:
 2. Auf `h2` senden (`h2$ nc -u 10.0.0.1 5000 < MehrAls1500ByteText.txt`).
 3. Nach etwa 2 Sekunden auf beiden Seiten ++ctrl+c++ drücken.
 
-Wireshark öffnet sich bildschirmfüllend und verdeckt die Knotenfenster. Holt
+Wireshark öffnet sich und kann die Knotenfenster verdecken. Holt
 `Node: h1` und `Node: h2` über die Fensterliste oben links nach vorn und klickt
 in das jeweilige Fenster, bevor ihr tippt; sonst landen Eingaben im
 Wireshark-Suchfeld oder im falschen Knoten.

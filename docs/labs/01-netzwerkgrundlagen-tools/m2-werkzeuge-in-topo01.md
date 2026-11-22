@@ -68,11 +68,11 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     für `h2` (Titel „Node: h1" und „Node: h2"). In diesen Knoten-Terminals
     seid ihr `root`; die Eingabeaufforderung sieht in beiden gleich aus. Die
     Fenster können übereinander liegen oder komplett hinter der
-    Mininet-Konsole verschwinden. Gleichartige Fenster fasst die Leiste zu
-    einem Eintrag „Xfce4-terminal" zusammen, ein Klick darauf holt nicht
-    immer das gewünschte Fenster nach vorn. Verlässlicher: Zieht die
-    Fenster am Titelbalken auseinander und klickt auf einen sichtbaren Rand
-    des Fensters, das ihr braucht; der Fenstertitel („Node: h1", „Node: h2",
+    Mininet-Konsole verschwinden. Gleichartige Fenster fasst die Leiste oben links
+    zu einem Eintrag „Xfce4-terminal" zusammen; ein Klick darauf klappt eine
+    Liste aller Fenster auf, aus der ihr das gewünschte per Klick auf den
+    Namen nach vorn holt (das ✕ daneben schließt es). Alternativ zieht ihr
+    die Fenster am Titelbalken auseinander; der Fenstertitel („Node: h1", „Node: h2",
     „Terminal") verrät, wo ihr tippt. Mehr dazu in
     der [Umgebungsreferenz](../../reference/umgebung.md#fenster-wiederfinden-und-tippen). Für die Router
     `r1`/`r2` oder ein versehentlich geschlossenes Fenster öffnet ihr auf der
