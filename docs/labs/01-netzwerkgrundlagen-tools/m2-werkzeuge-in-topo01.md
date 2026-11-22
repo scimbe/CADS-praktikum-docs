@@ -60,8 +60,7 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     Das Terminal, in dem ihr das Skript gestartet habt, ist jetzt die
     Mininet-Konsole (`mininet>`). Erscheint stattdessen eine Fehlermeldung und
     kein `mininet>`, startet das Skript noch einmal; hilft das nicht, meldet
-    euch beim Betreuer. Die Meldung `*** Error setting resource limits` beim
-    Start ist harmlos.
+    euch beim Betreuer.
 
     Nach dem Start öffnen sich zwei Terminalfenster, eines für `h1` und eines
     für `h2` (Titel „Node: h1" und „Node: h2"). In diesen Knoten-Terminals
@@ -1088,11 +1087,6 @@ Internet ── NAT (10.0.5.1) ── h1-eth0  h1  h1-eth1 (10.0.1.2) ── r1 
     ```text
     mininet> quit
     ```
-
-    Nach `quit` erscheint evtl. eine Zeile `*** Schnappschuss …` mit einer
-    internen Kennung (ihr könnt sie ignorieren): Das
-    Startskript sichert den Endzustand der Routingtabellen; die Meldung ist
-    harmlos.
 
 !!! example "Vertiefung (optional): TLS-ClientHello von curl und Firefox vergleichen"
     Aufgabe 10 hat gezeigt, dass der Browser bei einem fehlerhaften

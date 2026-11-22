@@ -661,8 +661,9 @@ für die nächsten Befehle.
     Befehl liest; die Erklärung steht deshalb darunter. Legt die Datei
     `~/rn-practice/topoP02/meine-config.sh` mit genau diesem Inhalt an,
     zum Beispiel im Desktop-Terminal mit dem Editor `mousepad`
-    (`mousepad ~/rn-practice/topoP02/meine-config.sh &`; `nano` ist im
-    Image nicht installiert). Existiert die Datei schon aus einem früheren
+    (`mousepad ~/rn-practice/topoP02/meine-config.sh &`; wer lieber im
+    Terminal bleibt, nimmt `nano ~/rn-practice/topoP02/meine-config.sh`,
+    speichert mit Strg+O und beendet mit Strg+X). Existiert die Datei schon aus einem früheren
     Versuch, öffnet `mousepad` sie mit dem alten Inhalt: Ersetzt ihn:
 
     ```text

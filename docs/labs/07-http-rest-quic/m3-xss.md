@@ -47,8 +47,7 @@ sichtbar bleibt – nicht Web-Sicherheit als Selbstzweck.
     h1$ python3 startXSSLabServer.py &
     ```
 
-    Es erscheint `[uebungsziel] hoert auf Port 8080`. Die Startseite des
-    Übungsziels nennt sich noch „Blatt 07 Teil 4“; gemeint ist dieser Teil 8.
+    Es erscheint `[uebungsziel] hoert auf Port 8080`.
     Die Fenster `Node: h1` und `Node: h2` liegen nach dem Start übereinander;
     wie ihr sie wiederfindet und sicher tippt, steht unter
     [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).

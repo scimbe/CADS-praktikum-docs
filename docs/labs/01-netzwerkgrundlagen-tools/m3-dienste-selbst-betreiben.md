@@ -377,9 +377,7 @@ beendet ihn.
         als unsicher; ihre verschlüsselten Nachfolger sind HTTPS, SSH und
         SFTP/FTPS.
 
-Beendet zum Schluss das Netz auf der Mininet-Konsole mit `quit`. Die dabei
-erscheinende Zeile `*** Schnappschuss …` ist eine interne Meldung des
-Startskripts; ihr könnt sie ignorieren.
+Beendet zum Schluss das Netz auf der Mininet-Konsole mit `quit`.
 
 --8<-- "issue-feedback.md"
 

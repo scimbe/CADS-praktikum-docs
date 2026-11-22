@@ -78,9 +78,6 @@ Das Blatt ist in 4 Meilensteine geteilt. Jeder Meilenstein ist eine eigene Seite
 
 ## Potenzielle Herausforderungen
 
-- **`*** Error setting resource limits. Mininet's performance may be
-  affected.`** beim Start ist harmlos: Der Übungs-Container darf die
-  Systemgrenzen nicht anheben, die Topologie läuft trotzdem.
 - **`topoP04` öffnet `Node: h1` und `Node: h2` selbst**, das zuletzt
   geöffnete Fenster hat den Fokus. `bash: h1: command not found` heißt: Ihr
   habt `h1 …` in ein Knoten-Fenster getippt – dort ohne Knotennamen

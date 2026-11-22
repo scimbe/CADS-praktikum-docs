@@ -90,8 +90,7 @@ mittels JA3-Fingerprint.
 3. Notiert Unterschiede zwischen `curl`, `openssl s_client` und Firefox beim
     TLS-Handshake (Cipher-Suite-Liste, TLS-Erweiterungen, Reihenfolge) – das
     ist die Grundlage, auf der ein JA3-Fingerprint einen Client eindeutig
-    erkennen kann, ganz ohne den Server-Namen (SNI) auszuwerten. (`wget` ist
-    im Image nicht installiert.) Dafür nehmt ihr eigenen Verkehr auf; nutzt
+    erkennen kann, ganz ohne den Server-Namen (SNI) auszuwerten. Dafür nehmt ihr eigenen Verkehr auf; nutzt
     wieder zwei `h1`-Fenster (Mitschnitt im ersten, die Clients im zweiten):
 
     ```bash

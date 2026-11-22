@@ -102,10 +102,7 @@ $ cd ~/rn-practice/topoP02
 $ ./start-topoP02.sh
 ```
 
-Nach einigen Sekunden erscheint der Prompt `mininet>`. Meldet Mininet beim
-Start `*** Error setting resource limits. Mininet's performance may be
-affected.`, ist das harmlos: Der Übungs-Container darf die Systemgrenzen nicht
-anheben, die Topologie läuft trotzdem.
+Nach einigen Sekunden erscheint der Prompt `mininet>`.
 
 ![Terminalfenster "Mininet" mit den Eingaben nodes und net; nodes nennt h1 h2 h3 h4 r1 r2 r3, net zeigt je Knoten seine Schnittstellen und die Gegenstelle, z. B. h1 h1-eth0:r1-eth0](../../assets/screenshots/02-subnetting-arp/topoP02-nodes-net.png)
 *Die Mininet-Kommandozeile von `topoP02` nach dem Start: `nodes` und `net`.*
