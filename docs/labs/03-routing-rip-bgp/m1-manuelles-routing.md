@@ -33,6 +33,9 @@ Auf dieser Seite verbindet ihr zwei Netze mit einem Router und tragt alle Routen
 
 In diesem Teil konfiguriert ihr Routing einmal komplett von Hand. Das schärft
 das Verständnis dafür, was RIP und BGP in [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh) automatisieren.
+(Die Teile des Blatts zählen über die Meilensteine hinweg: „Teil 2“ steht
+auf der Seite von Meilenstein 2, „Teil 3“ und „Teil 4“ auf der von
+Meilenstein 3.)
 
 **Topologie `topoP03`:** Zwei Switches `s1` und `s2`, dazwischen ein Router
 `r1` (`r1-eth0` an `s1`, `r1-eth1` an `s2`). An `s1` hängen `h1` und `h2`
@@ -53,11 +56,20 @@ einem Netz ins andere weitergeben.
       dann einmalig in `h2`, ohne ein Fenster zu öffnen.
 
     Neue Knotenfenster nehmen den Fokus und liegen oft über oder unter dem
-    Mininet-Terminal. Prüft vor dem Tippen den Fenstertitel („Node: r1“ usw.);
-    wie ihr ein Fenster wiederfindet, steht unter
+    Mininet-Terminal; auch ein Klick in das Mininet-Terminal holt es nach
+    vorn und verdeckt dabei die Knotenfenster. Keine Sorge, kein Fenster ist
+    weg: Klickt oben links auf **Xfce4-terminal** (oder auf das Symbol unten
+    links), dann zeigt die Liste alle Fenster, und ein Klick auf den Namen
+    holt das Fenster nach vorn (✕ schließt es). Die Mininet-Konsole steht dort
+    als „Terminal“. Prüft vor dem Tippen den Fenstertitel („Node: r1“ usw.);
+    weitere Einzelheiten stehen unter
     [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
     Geht beim Tippen der erste Buchstabe verloren, löscht die Zeile mit
-    ++ctrl+u++ und tippt sie neu.
+    ++ctrl+u++ und tippt sie neu; der verlorene Buchstabe steht dann oft im
+    Fenster, das vorher den Fokus hatte. Lange Befehle brechen im Fenster um;
+    das ist nur die Darstellung, nicht Teil des Befehls. `clear` gibt es nur
+    in Knotenfenstern; an der Mininet-Konsole meldet es `Unknown command`.
+    ++ctrl+l++ leert dagegen überall den Bildschirm.
 
     Mit `exit` (gleichbedeutend: `quit`) an der Mininet-Konsole beendet ihr
     die Emulation. Nur in `topo03` ([Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh)) hat `exit` zwei Stufen, siehe dort.
@@ -125,7 +137,9 @@ h1$ ping -c 1 10.0.0.2
 ```
 
 Der Ping scheitert mit `ping: connect: Network is unreachable`: `h1` hat keine
-Adresse und damit auch kein Netz, in dem `10.0.0.2` liegen könnte.
+Adresse und damit auch kein Netz, in dem `10.0.0.2` liegen könnte. Das ist der
+gewünschte Ausgangszustand, kein Fehler von euch; dieselbe Meldung sieht man im
+echten Netz auf jedem Rechner, dem das Gateway fehlt.
 
 **Gemeinsam.** Wir vergeben die Adressen nach diesem Plan:
 
@@ -222,7 +236,9 @@ PING 20.0.0.1 (20.0.0.1) 56(84) bytes of data.
 
 `ttl=63` zeigt, dass ein Router dazwischen lag: `h3` startet seine Antwort mit
 TTL 64, `r1` zieht eins ab. Beim Ping von `h1` zu `h2` im selben Netz steht
-dagegen `ttl=64`, denn dort liegt kein Router dazwischen.
+dagegen `ttl=64`, denn dort liegt kein Router dazwischen. Damit habt ihr selbst
+bewiesen, dass `r1` das Paket weitergereicht hat, ganz ohne Routing-Protokoll;
+den Unterschied zwischen 64 und 63 erkennt ihr künftig in jedem Netz.
 
 ![Drei Terminalfenster: oben links "Node: r1" mit den Adressen 10.0.0.254/24 und 20.0.0.254/24 auf r1-eth0 und r1-eth1, oben rechts "Node: h3" mit der Adresse 20.0.0.1/24 und der Route 10.0.0.0/24 via 20.0.0.254, unten "Node: h1" mit der Adresse 10.0.0.1/24, der Route 20.0.0.0/24 via 10.0.0.254, einem erfolgreichen ping von h1 zu 20.0.0.1 mit 0% Verlust und einem traceroute mit zwei Hops](../../assets/screenshots/03-routing-rip-bgp/topoP03-manual-routing.png)
 *Von Hand eingetragene Adressierung und Routen in `topoP03`: `r1` bekommt
@@ -234,10 +250,12 @@ Ziel.*
     Löscht auf `h3` die Rückroute (`h3$ ip route del 10.0.0.0/24`) und pingt
     erneut von `h1` aus. Öffnet dazu ein zweites Fenster für `h3` (`mininet> xterm h3`).
     Danach gibt es zwei Fenster mit dem gleichen Titel „Node: h3“: Das
-    **neue** Fenster (das zuletzt geöffnete, es liegt vorn) nehmt ihr für
+    **neue** Fenster (das zuletzt geöffnete, es liegt vorn; in der Fensterliste
+    ist sein Eintrag hervorgehoben) nehmt ihr für
     `tcpdump -n -i h3-eth0 icmp` (siehe Werkzeug-Kasten unten), im **alten**
     löscht ihr die Route. Startet `tcpdump` zuerst und löscht die Route erst
-    danach. Kommen die Anfragen bei `h3` an? Setzt die Route danach wieder
+    danach. Schreibt vorher eure Vorhersage auf: Kommen die Anfragen bei `h3`
+    an? Kommt eine Antwort bei `h1` an? Setzt die Route danach wieder
     (`h3$ ip route add 10.0.0.0/24 via 20.0.0.254`).
 
     !!! info "Werkzeug: `tcpdump` – Pakete auf einer Schnittstelle mitlesen"
@@ -271,9 +289,10 @@ Ziel.*
         Ergebnis: Der Ping schlägt fehl (`100% packet loss`), obwohl `tcpdump` auf `h3`
         die Anfragen `echo request` sehr wohl zeigt. Es fehlen nur die
         Antworten: `h3` hat keine Route zurück in das Netz `10.0.0.0/24` und
-        kann deshalb nicht antworten. (Genau genommen verwirft Linux hier unter
-        Umständen schon die Anfrage selbst, weil die Absenderadresse laut
-        Routing-Tabelle nicht erreichbar ist – davon handelt in [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh) der
+        kann deshalb nicht antworten. (Genau genommen kann Linux die Anfrage nach dem Mitschnitt noch
+        verwerfen, weil die Absenderadresse laut Routing-Tabelle nicht
+        erreichbar ist, das sogenannte RP-Filtering. `tcpdump` zeigt die
+        Anfrage trotzdem, denn er sieht das Paket vorher; davon handelt in [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh) der
         Abschnitt „RP-Filtering“.) Ein fehlgeschlagener Ping heißt also nicht
         „das Paket kam nicht an", sondern „ich habe keine Antwort gesehen".
         Routing ist **je Richtung** zu betrachten, nicht je Verbindung.

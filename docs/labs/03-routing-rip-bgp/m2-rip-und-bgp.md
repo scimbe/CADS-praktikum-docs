@@ -119,7 +119,11 @@ $ cd ~/rn-practice/topo03
 $ ./start-topo03.sh
 ```
 
-Nach etwa 30 Sekunden meldet sich die Mininet-Konsole. Die Topologie läuft in
+Nach etwa 20 bis 30 Sekunden meldet sich die Mininet-Konsole. Das Warten lohnt
+sich: Danach habt ihr vier echte Router, die ihr einzeln anfassen könnt, wie in
+einem kleinen Provider-Netz. Beim Start und beim Beenden schreibt FRR einige
+`INFO`-Zeilen (etwa `running version: 10.3` oder `waiting for daemons
+stopping`); sie sind harmlos. Die Topologie läuft in
 **zwei Stufen**, und das Skript sagt euch jeweils, in welcher ihr seid:
 
 - **Stufe 1:** Das Netz steht, aber die Routing-Dienste (RIP und BGP) sind noch
@@ -151,7 +155,13 @@ laufen noch nicht.*
 Knotenfenster nimmt den Fokus und liegt oft über den anderen Fenstern: Prüft
 vor dem Tippen den Fenstertitel („Node: r1“ usw.); wie ihr ein Fenster
 wiederfindet, steht unter
-[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen)
+(kurz: oben links auf **Xfce4-terminal** klicken, dann auf den Fensternamen).
+**Wichtig:** Nach `xterm r1` hat das neue Knotenfenster den Fokus. Klickt vor
+dem nächsten `xterm` wieder in die Mininet-Konsole; sonst landet der Befehl im
+Knotenfenster und hängt dort mit `Failed to initialize Xfconf` (++ctrl+c++
+beendet ihn). Verschluckt ein Fenster die ersten Zeichen, prüft die Zeile vor
+dem Drücken von Enter.
 
 ```bash
 mininet> xterm r1
@@ -310,7 +320,9 @@ mininet> exit
 
 Gebt in Wireshark den Anzeigefilter `rip or bgp` ein. (Das Bild unten zeigt
 `rip || bgp`; beide Schreibweisen sind gleichbedeutend.) Nach wenigen Sekunden
-beginnt ein reger Paketaustausch, in dem RIP und BGP versuchen, Konvergenz zu erreichen:
+beginnt ein reger Paketaustausch, in dem RIP und BGP versuchen, Konvergenz zu erreichen.
+Ihr seht gerade live, wie vier Router ohne eure Hilfe herausfinden, wie das
+ganze Netz aussieht; im Internet passiert das ständig:
 
 ![Wireshark mit dem Mitschnitt von r1-eth1 und dem Anzeigefilter "rip || bgp": RIPv2-Request und -Response-Nachrichten an 224.0.0.9 von 193.1.1.1, 193.1.1.2 und 193.1.1.4, darunter BGP-Nachrichten zwischen 193.1.1.1 und 193.1.1.2: OPEN Message, KEEPALIVE Message und UPDATE Message](../../assets/screenshots/03-routing-rip-bgp/topo03-wireshark-rip-bgp.png)
 *Mitschnitt auf `r1-eth1` direkt nach dem Start von RIP und BGP. Oben die
@@ -331,7 +343,7 @@ Lest den Mitschnitt von oben nach unten:
 5. `UPDATE Message`: Die Nachbarn tauschen ihre Routen.
 
 Vor der stabilen Sitzung seht ihr möglicherweise zusätzliche `OPEN`- und
-`NOTIFICATION Message`-Zeilen. Das ist beim Aufbau normal: `r1` und `r2`
+`NOTIFICATION Message`-Zeilen; je nach Lauf fehlen sie auch. Das ist beim Aufbau normal: `r1` und `r2`
 öffnen die TCP-Verbindung gleichzeitig (Verbindungskollision), eine der beiden
 Verbindungen wird mit einer `NOTIFICATION` wieder abgebaut, und die andere
 bleibt bestehen.
@@ -509,10 +521,11 @@ r1# exit
 
 Die drei Werte stehen für eBGP-Routen (von einem anderen autonomen System
 gelernt), iBGP-Routen (innerhalb desselben AS gelernt) und lokal auf dem Router
-konfigurierte BGP-Routen. Die Änderung wirkt nach wenigen Sekunden: Der
+konfigurierte BGP-Routen. Die Änderung wirkt nach wenigen Sekunden (etwa 10 s): Der
 Kernel übernimmt die neue Auswahl erst etwas später, `ip route` zeigt direkt
 nach dem Befehl vielleicht noch `proto bgp`. Wartet kurz und prüft dann die
-Auswirkung:
+Auswirkung (auch `193.1.2.0/24` wechselt von `proto bgp` auf `proto rip`;
+die `vtysh`-Abfrage zeigt nur `192.168.3.0/24`):
 
 ```bash
 r1$ traceroute -n 192.168.3.1
@@ -521,7 +534,10 @@ r1$ vtysh -c "show ip route 192.168.3.0/24"
 ```
 
 ```text
+192.168.1.0/24 dev r1-eth0 proto kernel scope link src 192.168.1.1
 192.168.3.0/24 nhid 12 via 193.1.1.2 dev r1-eth1 proto rip metric 20
+193.1.1.0/26 dev r1-eth1 proto kernel scope link src 193.1.1.1
+193.1.2.0/24 nhid 12 via 193.1.1.2 dev r1-eth1 proto rip metric 20
 
 Routing entry for 192.168.3.0/24
   Known via "bgp", distance 200, metric 0
@@ -535,8 +551,10 @@ Routing entry for 192.168.3.0/24
 ```
 
 Der `traceroute` zeigt unverändert `193.1.1.2` als ersten Hop. Im Kernel steht
-jetzt aber `proto rip` statt `proto bgp`, und in `vtysh` trägt der
-RIP-Eintrag das Wort `best`.
+jetzt aber `proto rip` statt `proto bgp` (bei beiden Zielnetzen), und in `vtysh`
+trägt der RIP-Eintrag das Wort `best`. Ihr habt dem Router gerade eine andere
+Meinung eingeredet, ohne dass sich ein Kabel oder ein Paketweg geändert hat;
+diese Stellschraube nutzen Administratoren im echten Betrieb.
 
 !!! question "Nachgedacht: Wechselt der Weg – oder nur die Quelle?"
     Es liegt nahe zu erwarten, dass sich mit der Distanz auch der Weg der
@@ -599,7 +617,9 @@ gewinnt gegen die `/24`-Routen aus BGP und RIP, weil der längste passende
 Präfix entscheidet. Von `r3` aus führt der Weg weiterhin über `193.1.2.1`
 (`r2`). Die manuelle Route wirkt nur auf `r1`; `r2`, `r3` und `r4` wissen
 nichts von ihr, und der Weg ist jetzt asymmetrisch: hin über `r4`, zurück
-über `r2`.
+über `r2`. Genau so entstehen im Alltag Pakete, die hin und zurück verschiedene
+Wege nehmen; Firewalls und Spoofing-Schutz reagieren darauf empfindlich, wie
+der nächste Abschnitt zeigt.
 
 #### RP-Filtering: Schutz vor IP-Spoofing
 
@@ -653,8 +673,10 @@ Absenderadresse laut eigener Routing-Tabelle nicht erreichbar wäre.
     Paket pro Ping (bei euch steigt er mit jedem Ping um 1). Typische Fehlermeldung bei `sysctl -w` ohne `unshare`:
     `permission denied on key …`.
 
-Deaktiviert RP-Filtering testweise auf `r4`. Die Einstellung gilt nur im
-Netz-Namensraum von `r4`:
+Deaktiviert RP-Filtering testweise auf `r4`. Der Befehl sieht lang aus, ist aber
+nur: erst `/proc/sys` schreibbar machen, dann zwei Werte auf `0` setzen. Er
+bricht im Fenster um (harmlos); ihr tippt ihn einmal und lest die Ausgabe
+`rp_filter = 0`. Die Einstellung gilt nur im Netz-Namensraum von `r4`:
 
 ```bash
 r4$ unshare -m sh -c 'mount -o remount,rw /proc/sys && sysctl -w net.ipv4.conf.all.rp_filter=0 net.ipv4.conf.r4-eth0.rp_filter=0'
@@ -710,15 +732,19 @@ r1$ ip route del 192.168.3.1/32
     `r4` (`vtysh -c "configure terminal" -c "no router rip" -c "end"` auf
     jedem der beiden). Prüft nach einer Weile, ob `192.168.3.0/24` von `r1`
     aus noch erreichbar ist, obwohl nur noch BGP läuft. Setzt anschließend
-    `distance bgp 200 200 200` auf allen drei BGP-Routern. Fällt das Netz
+    `distance bgp 200 200 200` auf allen drei BGP-Routern (AS-Nummern: `r1` =
+    65001, `r2` = 65002, `r3` = 65003; bei `vtysh -c … -c "router bgp 65002"`
+    gehört die AS-Nummer hinter `router bgp`). Das Beobachten dauert
+    insgesamt etwa fünf Minuten; nutzt die Zeit, um die Fragen schriftlich zu
+    beantworten. Fällt das Netz
     auseinander, oder bleibt eine Restkonnektivität übrig? Startet die
     Topologie danach neu.
 
     ??? success druck-zu "Lösung"
         Beobachtung: `show ip rip` auf `r1` zeigt die bereits gelernten RIP-Routen nach
-        dem Abschalten zunächst weiter, nach 180 s (RIP-Timeout) mit Metrik
+        dem Abschalten zunächst weiter, nach rund 3 Minuten (180 s RIP-Timeout) mit Metrik
         `16` (= unerreichbar; ab da zählt die Spalte **Time** die 120 s bis
-        zum Löschen herunter) und nach diesen 120 s (Garbage Collection) ganz weg. Die Routen über
+        zum Löschen herunter) und nach rund 2 weiteren Minuten (Garbage Collection) ganz weg. Die Routen über
         BGP bleiben die ganze Zeit; `ping 192.168.3.1` gelingt weiter. Auch
         mit `distance bgp 200 200 200` auf allen Routern fällt nichts
         auseinander: Die administrative Distanz entscheidet nur zwischen

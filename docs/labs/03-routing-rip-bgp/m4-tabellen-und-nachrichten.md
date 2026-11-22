@@ -35,7 +35,9 @@ es sogar drei, denn die Routing-Software hält je Protokoll eine eigene: `show
 ip rip` und `show ip bgp` zeigen, was **RIP** bzw. **BGP** jeweils für sich
 gelernt haben, bevor die administrative Distanz entscheidet, welcher Eintrag es
 in die Kernel-FIB schafft. In diesem Teil legt ihr alle drei nebeneinander und
-verfolgt ein einzelnes Präfix durch sie hindurch.
+verfolgt ein einzelnes Präfix durch sie hindurch. Das ist dieselbe
+Detektivarbeit wie bei einer Störung im echten Netz: Warum geht der Verkehr
+nicht den Weg, den ich erwartet habe?
 
 !!! info "Werkzeug: die drei `show`-Ansichten von `vtysh`"
     `show ip route` ist die **Entscheidung** (was tatsächlich weitergeleitet
@@ -48,7 +50,9 @@ verfolgt ein einzelnes Präfix durch sie hindurch.
     | `show ip rip` | Tabelle von RIP (Spalten siehe [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh)) |
     | `show ip bgp` | Tabelle von BGP |
 
-    Echte Ausgabe von `show ip bgp` auf `r1`:
+    Echte Ausgabe von `show ip bgp` auf `r1` (gekürzt: Vor der Tabelle stehen
+    einige Kopfzeilen mit Legende wie `BGP table version`, `Status codes` und
+    `Origin codes`, danach die Zeile `Displayed … routes`):
 
     ```text
          Network          Next Hop            Metric LocPrf Weight Path
@@ -74,7 +78,10 @@ BGP aktiv, siehe [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-u
 die Topologie vorher neu, sonst seht ihr 200 statt 20. Terminal auf `r1`
 (`mininet> xterm r1`). Das neue Fenster nimmt den Fokus und liegt oft hinter
 anderen Fenstern: Prüft vor dem Tippen den Fenstertitel (Hilfe:
-[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen)).
+[Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen);
+kurz: oben links auf **Xfce4-terminal** klicken und das Fenster in der Liste
+wählen). Das Knotenfenster startet klein; ein Doppelklick auf die Titelleiste
+vergrößert es, damit lange Ausgaben nicht abgeschnitten werden.
 
 **Vorgemacht:**
 
@@ -190,6 +197,8 @@ ausgetauschten BGP-Nachrichten; **Up/Down** nennt, wie lange die Sitzung steht
 (`Idle`, `Active`: die Sitzung steht nicht) oder, wenn die Sitzung steht, die
 Zahl der empfangenen Präfixe (hier 3); **PfxSnt** die Zahl der gesendeten (hier 4).
 Eine Zahl in `State/PfxRcd` ist also das Zeichen für eine gesunde Sitzung.
+Damit habt ihr gerade das geprüft, was Netzbetreiber bei Internet-Störungen
+als Erstes ansehen.
 
 Schaut nun auf den AS-Pfad zu `192.168.3.0/24`:
 
@@ -276,25 +285,36 @@ steht mit Metrik **3** da: `r3` kennt das Netz direkt (1), `r2` meldet es mit 2,
 `r1` lernt es von `r2` mit 3. `193.1.2.0/24` liegt mit Metrik 2 eine Station
 näher.
 
-**Selbst:** Schaltet wie in [Teil 3](m3-rekonvergenz-und-spuren.md#teil-3-redundanz-im-rip-netz-testen-reale-rekonvergenz-messen-topo03) `r2-eth1` aus (in einem
-Fenster für `r2`: `mininet> xterm r2`, dann `r2$ ifconfig r2-eth1 down`) und
-beobachtet auf `r1` etwa eine Minute lang `show ip rip`; eine Schleife nimmt euch das Wiederholen
-ab: `r1$ while true; do date +%T; vtysh -c "show ip rip" | grep 192.168.3; sleep 5; done`
-(Ende mit ++ctrl+c++). Über welchen Nexthop und mit welcher Metrik
-kennt `r1` das Netz `192.168.3.0/24` danach? Warum hat sich die Metrik nicht
+**Selbst:** Schreibt zuerst auf, was ihr erwartet: Über welchen Nexthop und
+mit welcher Metrik kennt `r1` das Netz `192.168.3.0/24` nach einem Ausfall von
+`r2-eth1`? Öffnet dann ein Fenster für `r2` (`mininet> xterm r2`; vorher in die
+Mininet-Konsole klicken, die Fensterliste oben links hilft beim Wechseln) und
+startet **zuerst** auf `r1` die Schleife, die euch das Wiederholen abnimmt:
+`r1$ while true; do date +%T; vtysh -c "show ip rip" | grep 192.168.3; sleep 5; done`
+(Ende mit ++ctrl+c++). Schaltet erst danach in `r2` ab (`r2$ ifconfig r2-eth1 down`)
+und beobachtet etwa eine Minute lang: Die Metrik 16 ist nur kurz sichtbar und
+entgeht euch leicht, wenn die Schleife erst nach dem Abschalten läuft. Über
+welchen Nexthop und mit welcher Metrik kennt `r1` das Netz danach? Warum hat sich die Metrik nicht
 verändert, obwohl der Weg ein anderer ist? Schaltet `r2-eth1` danach wieder
-ein.
+ein und beobachtet weiter: Springt `r1` zum alten Nexthop zurück? Wenn nicht,
+woran könnte das liegen?
 
 ??? success druck-zu "Lösung zur Selbst-Aufgabe"
-    Innerhalb von etwa 15 bis 30 Sekunden steht in `show ip rip` auf `r1`
-    `192.168.3.0/24` mit Next Hop `193.1.1.4` (`r4`) und Metrik **3**. Kurz
-    davor könnt ihr noch die alte Route über `193.1.1.2` mit Metrik **16**
-    sehen: So markiert RIP eine ausgefallene Route als unerreichbar, bevor
-    sie ersetzt wird. Der Weg
+    Nach etwa 20 bis 35 Sekunden steht in `show ip rip` auf `r1`
+    `192.168.3.0/24` mit Next Hop `193.1.1.4` (`r4`) und Metrik **3**. Davor
+    seht ihr die alte Route über `193.1.1.2` mit Metrik **16**, bei uns rund
+    20 bis 30 Sekunden lang (die Spalte **Time** zählt dabei herunter): So markiert RIP
+    eine ausgefallene Route als unerreichbar, bevor sie ersetzt wird. Der Weg
     `r1` → `r4` → `r3` hat genauso viele Zählschritte wie vorher `r1` → `r2` →
     `r3`: `r3` kennt das Netz direkt (1), `r4` meldet es mit 2, `r1` lernt es
     mit 3. RIP kennt nur diese Zahl, nicht die Strecke oder die Bandbreite
-    dahinter.
+    dahinter. Es ist wie ein Navi, das nur Kreuzungen zählt, nicht Kilometer
+    oder Stau.
+
+    Nach dem Wiedereinschalten von `r2-eth1` bleibt `r1` in der Regel
+    beim Nexthop `193.1.1.4`: Die Route über `r4` hat dieselbe Metrik 3, und
+    RIP wechselt bei gleicher Metrik nicht zurück, solange die bekannte Route
+    gültig bleibt. Das ist kein Fehler.
 
 !!! question "Nachgedacht: Warum 15 und nicht 255?"
     Die Obergrenze von RIP ist 15 Hops, die Zahl 16 bedeutet „unerreichbar".
@@ -395,16 +415,22 @@ r1$ tcpdump -r "$P" -v -n tcp port 179 | grep Message
 	Keepalive Message (4), length: 19
 ```
 
-Die Längen der `Update`-Nachrichten und ihre Zahl können bei euch abweichen.
+Die Längen der `Update`-Nachrichten und ihre Zahl können bei euch abweichen;
+zwischen den `Open`-Zeilen kann auch eine `Notification` stehen (Verbindungskollision, siehe unten).
 
 Notiert, in welcher Reihenfolge die Typen auftreten, und vergleicht das mit
 dem Wireshark-Mitschnitt aus [Teil 2](m2-rip-und-bgp.md#teil-2-dynamisches-routing-mit-rip-und-bgp-topo03-frrvtysh). Teil 2 zeigt dazu nur ein Bild;
 wollt ihr den Mitschnitt selbst vergleichen, erzeugt ihn neu: `topo03` neu
 starten, in Stufe 1 `wireshark -i r1-eth1 -k &` aufrufen und mit `exit` in
-Stufe 2 wechseln (Wireshark schließt ihr wieder mit **Stop and Quit without
-Saving**). Dort stehen zusätzlich möglicherweise mehrere `OPEN`- und
-`NOTIFICATION`-Nachrichten vom gleichzeitigen Verbindungsaufbau
-(Verbindungskollision), die in der Datei aus Teil 4 fehlen. Wireshark fasst
+Stufe 2 wechseln (Wireshark schließt ihr wieder mit **File > Quit**; im Dialog wählt ihr
+**Stop and Quit without Saving**. Wireshark deckt das Knotenfenster zu: Über
+die Fensterliste oben links kommt ihr zurück). Ob zusätzliche `OPEN`- und `NOTIFICATION`-Nachrichten vom gleichzeitigen
+Verbindungsaufbau (Verbindungskollision) auftauchen, hängt vom Lauf ab: Mal
+stehen sie in der Datei aus Teil 4, mal im frischen Mitschnitt, mal in keinem
+von beiden. Beides ist normal und kein Fehler: Beide Router haben gleichzeitig
+eine Verbindung aufgebaut, und eine wurde automatisch wieder abgebaut.
+Vergleicht also die Grundreihenfolge (`Open`, `Keepalive`, `Update`,
+`Keepalive`) und nicht die genaue Zeilenzahl. Wireshark fasst
 außerdem mehrere `UPDATE`-Nachrichten in einem TCP-Segment oft in einer Zeile
 zusammen, `tcpdump` zeigt jede einzeln.
 
@@ -435,8 +461,9 @@ Tabelle nicht automatisch einen veränderten Weg bedeutet. [Teil 3](m3-rekonverg
 gezeigt, dass Konvergenz kein Zeitpunkt ist, sondern ein Verlauf, den
 verschiedene Knoten zu verschiedenen Zeiten erreichen.
 
-In den Teilen 4 bis 8 habt ihr die Spur selbst vermessen, die drei Tabellen
-verglichen, AS-Pfad und Metrik gelesen und die Nachrichtentypen erkannt.
+In den Teilen 4 bis 8 habt ihr die Spur selbst vermessen (Teil 4), die drei
+Tabellen verglichen, AS-Pfad und Metrik gelesen und die Nachrichtentypen
+erkannt (Teile 5 bis 8).
 
 Damit habt ihr vier Werkzeuge in der Hand, mit denen in echten Netzen
 gearbeitet wird: `ip route` für den Kernel, `vtysh` für die

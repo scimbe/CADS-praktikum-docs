@@ -41,11 +41,24 @@ Rautenzeichen sagt euch, **wo**:
 
 Nur der Text **nach** dem Präfix wird getippt, das Präfix selbst nicht. Auf dem
 Bildschirm sieht es anders aus: In jedem Knoten-Fenster (Titel `Node: r1`)
-steht `root@<Zahlen-Buchstaben>:~/rn-practice/topo03#`. Das ist die
+steht `root@<Zahlen-Buchstaben>:~/rn-practice/topo03#` (in Meilenstein 1
+heißt das Verzeichnis `topoP03` statt `topo03`). Das ist die
 **Linux-Shell** des Knotens (`r1$` im Blatt), obwohl die Zeile mit `#` endet.
 Erst nach `vtysh` ändert sich die Eingabezeile; ihr verlasst `vtysh` mit
 `exit`. Der Prompt von `vtysh` zeigt ebenfalls die Container-Kennung statt
 `r1`.
+
+!!! tip "Fenster verloren? Nicht kaputt, nur verdeckt"
+    Jedes neue Knotenfenster nimmt den Fokus, und ein Klick in ein Fenster holt
+    es nach vorn und verdeckt dabei andere. Fenster verschwinden dadurch nicht:
+    Klickt oben links auf **Xfce4-terminal** (oder auf das Symbol unten links),
+    dann zeigt die Liste alle Fenster; ein Klick auf den Namen holt das
+    Fenster nach vorn, ✕ schließt es. Die Mininet-Konsole steht dort als
+    „Terminal“, `Launch New Instance` öffnet ein normales Terminal. Tippt
+    einen `xterm`-Befehl immer an der Mininet-Konsole: Nach `xterm r2` hat das
+    neue Knotenfenster den Fokus, also klickt vor dem nächsten `xterm` wieder
+    in die Mininet-Konsole. Einzelheiten:
+    [Fenster wiederfinden und tippen](../../reference/umgebung.md#fenster-wiederfinden-und-tippen).
 
 ## Aufgaben
 
@@ -69,7 +82,8 @@ Das Blatt ist in 4 Meilensteine geteilt. Jeder Meilenstein ist eine eigene Seite
   für Teil 1
 - `mininet-labs/rn-practice/topo03/` (`topo03.py`, `start-topo03.sh`,
   `tryping.sh`, FRR-Configs `r1`–`r4` (`zebra.conf`, `ripd.conf`,
-  `bgpd.conf`), `lib/topotest.py`, `lib/topolog.py`) – für Teil 2 bis 8
+  `bgpd.conf`), `lib/topotest.py`, `lib/topolog.py`) – für die Teile 2 bis 8 (Teil 2 in Meilenstein 2,
+  Teile 3 und 4 in Meilenstein 3, Teile 5 bis 8 in Meilenstein 4)
 - Olivier Bonaventure u. a.: *Computer Networking: Principles, Protocols and
   Practice*, UCLouvain (Université catholique de Louvain), Repository
   `cnp3/ebook`, Verzeichnis `exercises/traces/` – Lizenz CC BY-SA 3.0.
