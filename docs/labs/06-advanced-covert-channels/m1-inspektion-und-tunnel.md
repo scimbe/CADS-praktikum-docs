@@ -166,6 +166,11 @@ erste `h1`-Fenster, der Mitschnitt aus Schritt 3 braucht das zweite.
     genutzt? Wie sehen die (ungewöhnlich langen bzw. zufällig wirkenden)
     Subdomains aus, über die die Tunneldaten kodiert werden?
 
+    Der Tunnel steht und der Ping läuft durch. Merkt euch trotzdem: Ein
+    verdeckter Kanal ist nie umsonst, denn jedes Byte Nutzlast muss in
+    DNS-Namen verpackt werden. Wie hoch der Preis ist,
+    könnt ihr in der Vertiefung unten selbst messen.
+
 !!! example "Vertiefung (optional): Was der Tunnel kostet"
     Ein verdeckter Kanal ist nie umsonst. Übertragt dieselbe kleine Datei
     einmal **durch** den Tunnel und einmal direkt über die normale Strecke,
@@ -202,6 +207,10 @@ bzw. TTL-Manipulation.
         die Zeichenzahl des sichtbaren Textes (10):
         `hping3 -1 -d 11 -E /tmp/secret.txt -c 5 10.0.1.2`. (Im Screenshot
         unten steht `-d 20`; der Wert ist dort nur ein anderes Beispiel.)
+        Die Datei darf dabei nicht leer sein: Bei einer leeren Datei
+        sendet `hping3` kein einziges Paket und hängt, bis ihr es mit
+        ++ctrl+c++ abbrecht. Zeigt `wc -c` also `0`, ist beim Anlegen der
+        Datei etwas schiefgegangen.
 
     ![Terminalfenster "Node: h2": hping3 -1 -d 20 -E /tmp/secret.txt -c 5 10.0.1.2 mit fuenf beantworteten ICMP-Paketen und Abschlussstatistik "5 packets transmitted, 5 packets received, 0% packet loss"](../../assets/screenshots/06-advanced-covert-channels/hping3-icmp-payload.png)
     *`hping3` verschickt fünf ICMP-Echo-Requests von `h2` an `h1`, deren

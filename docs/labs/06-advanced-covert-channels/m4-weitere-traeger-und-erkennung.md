@@ -92,7 +92,10 @@ Der Server meldet sich mit mehreren Zeilen (u. a. einem Testhinweis für
 `curl --http3-only`, also QUIC über UDP). Diese Ausgabe kann die Eingabezeile
 zerstückeln: Wartet kurz, drückt ++enter++ und tippt erst bei sauberem Prompt
 weiter. Hier nutzt ihr nicht QUIC, sondern den TLS-Port TCP/443, auf dem der
-Server ebenfalls lauscht.
+Server ebenfalls lauscht. Prüft vor dem Verbindungsaufbau mit `jobs -l`,
+dass beide Hintergrundjobs laufen (`Running`): Ging beim Tippen ein Zeichen
+verloren (z. B. `udo` statt `sudo`), läuft der Mitschnitt nicht, und die
+Datei bleibt leer.
 
 Baut von `h2` eine TLS-Verbindung mit einem frei gewählten Servernamen auf:
 
@@ -103,7 +106,9 @@ h2$ echo | openssl s_client -connect 10.0.1.2:443 -servername geheim.example.org
 Beendet den Mitschnitt auf `h1` (`jobs -l`, die Zeile mit `tcpdump`,
 `kill <PID>`) und sucht erst danach den Servernamen im Mitschnitt. Liest ihr
 die Datei, solange `tcpdump` noch läuft, meldet `tcpdump -r` ggf. `truncated
-dump file`; der Treffer kann trotzdem erscheinen.
+dump file`; der Treffer kann trotzdem erscheinen. Jede TLS-Verbindung hat
+ein eigenes `ClientHello`: Rechnet mit etwa einer Trefferzeile je
+`openssl`-Aufruf; ruft ihr ihn zweimal auf, erscheinen entsprechend mehr.
 
 ```bash
 h1$ tcpdump -r /tmp/sni.pcap -A | grep -a geheim.example.org
@@ -193,7 +198,7 @@ aussieht.
 
 Nehmt einen der Mitschnitte aus den Teilen 8, 11 oder 13 (`/tmp/dnschan.pcap`,
 `/tmp/icmpts.pcap`, `/tmp/udpchan.pcap`) und einen Mitschnitt von normalem
-Verkehr und vergleicht Paketzahl und -größe. Die Mitschnitte liegen in `/tmp`
+Verkehr und vergleicht Paketzahl, -größe und Rate. Die Mitschnitte liegen in `/tmp`
 und sind nach einem Neustart der Topologie weg; fehlt `dnschan.pcap`, wiederholt
 Teil 8 (Server und Mitschnitt starten, `dig` senden, beides beenden). Den
 Mitschnitt von normalem Verkehr erzeugt ihr mit dem noch laufenden
@@ -204,6 +209,11 @@ h1$ sudo rm -f /tmp/normal.pcap
 h1$ sudo tcpdump -U -i h1-eth1 -w /tmp/normal.pcap tcp port 443 &
 h2$ curl -sk https://10.0.1.2/
 ```
+
+Die Antwortseite behauptet, sie sei „über HTTP/3“ gekommen. Das ist nur ein
+fester Text des Übungsservers: Euer `curl` hat hier TLS über TCP/443
+gesprochen (Teil 12), und genau diesen TCP-Verkehr zeichnet der Mitschnitt
+auf. Für die Statistik spielt der Text keine Rolle.
 
 Beendet den Mitschnitt (`jobs -l`, `kill <PID>`) und den HTTP/3-Server
 (`kill <PID>`). Vergleicht dann:
@@ -218,9 +228,16 @@ h1$ capinfos /tmp/normal.pcap
 durchschnittliche Paketgröße und Datenrate zusammen. Beachtet: Ein
 Mitschnitt aus Teil 8 oder 13 enthält nur ein bis zwei Pakete, und
 Datenrate und Durchschnitt sind bei so wenigen Paketen nicht
-aussagekräftig. Für eine Statistik braucht ihr mehr Verkehr. Startet den
+aussagekräftig. Für eine Statistik braucht ihr mehr Verkehr. Erwartet beim
+Vergleich der Paketgrößen keine „auffällig großen“ Pakete: Die
+Tunnel-ähnlichen Kanäle bestehen aus kleinen Paketen (grob 50 bis 120 Byte),
+der normale TLS-Verkehr kommt im Mittel auf mehrere hundert Byte. Worauf es
+ankommt, zeigt die Schleife unten. Startet den
 DNS-Server wie in Teil 8 neu und schickt von `h2` mehrere Abfragen mit
-unterschiedlichen langen Hex-Namen (hier 20 Stück) in einer Schleife:
+unterschiedlichen langen Hex-Namen (hier 20 Stück) in einer Schleife. Jetzt
+seid ihr der Verteidiger: 20 Pakete in kurzer Zeit zählen mehr als ein
+einzelnes Wort. Die Schleife gibt absichtlich nichts aus (`+short` und
+`NXDOMAIN`: es gibt nie einen Treffer), sie ist also nicht fehlgeschlagen.
 
 ```bash
 h1$ sudo rm -f /tmp/dnsmenge.pcap
@@ -229,8 +246,9 @@ h2$ for i in $(seq 20); do dig @10.0.1.2 -p 5353 +short +time=1 +tries=1 "$(head
 ```
 
 Beendet Mitschnitt und Server und lest `capinfos /tmp/dnsmenge.pcap`. Zählt
-ergänzend, wie viele Pakete auf einen bestimmten Kanal entfallen (die Zeile
-`reading from file …` geht auf die Fehlerausgabe und wird nicht mitgezählt):
+ergänzend die Pakete im Mitschnitt. Beachtet, dass `wc -l` Anfragen **und**
+Antworten zählt, also zwei Zeilen je Abfrage; die Zeile `reading from file …`
+geht auf die Fehlerausgabe und wird nicht mitgezählt:
 
 ```bash
 h1$ tcpdump -r /tmp/dnsmenge.pcap -n | wc -l
@@ -252,6 +270,8 @@ Kanäle erkennen könnte – **ohne** eine einzige Nutzlast zu entschlüsseln.
     - Bei TLS wird die Ziel-Domain (SNI) im ClientHello im Klartext übertragen und lässt sich mit openssl und tcpdump mitlesen.
     - Eine UDP-Nutzlast ohne Kopffeld-Trick ist der einfachste Kanal und fällt zugleich am leichtesten auf.
     - Verdeckte Kanäle verraten sich meist durch statistisches Verhalten wie Paketrate und -größe, nicht durch einzelne Pakete.
+
+    Ihr habt in diesem Blatt Kanäle gebaut und erkannt – beide Rollen gehören zusammen: Wer einen Kanal bauen kann, versteht, woran man ihn findet.
 
     **Wie es weitergeht:** Blatt 07 wechselt zur Anwendungsschicht: Ihr sprecht HTTP von Hand, auch über TLS, und beobachtet im Mitschnitt HTTP/2 sowie HTTP/3 über QUIC. Die Mitschnitt-Auswertung aus diesem Blatt hilft euch dabei.
 

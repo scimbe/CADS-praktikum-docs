@@ -94,6 +94,8 @@ Befehl (siehe [Übersicht](index.md)).
     TTL-Wert und wandelt das Ergebnis mit der ASCII-Tabelle (oder
     `printf "\x$(printf %x <Zahl>)"`) zurück in ein Zeichen. Reiht die
     Zeichen in der Reihenfolge auf, in der die Pakete eingetroffen sind.
+    Wenn dabei ein lesbares Wort herauskommt, habt ihr gerade eine Nachricht
+    aus einem Feld gelesen, das nie für Daten gedacht war.
 
 **Aufgabe:** Erklärt, warum ihr die Hop-Zahl vorher separat ermitteln
 müsst, statt sie zu raten – und warum ein verdecktes TTL-Signal über einen
@@ -194,6 +196,10 @@ h1$ sudo tcpdump -i h1-eth1 -w /tmp/seqchan.pcap tcp -c 2 &
 h2$ sudo hping3 -c 1 -S -M 305419896 -p 80 10.0.1.2
 ```
 
+Der Mitschnitt im Hintergrund schreibt seine Startmeldung wie in Teil 8 in
+die Eingabezeile: ++enter++ drücken und prüfen, dass der Prompt sauber
+dasteht, bevor ihr weitertippt.
+
 Lest die empfangene Sequenznummer aus dem Mitschnitt zurück:
 
 ```bash
@@ -248,6 +254,10 @@ h1$ sudo rm -f /tmp/knock.pcap
 h1$ sudo tcpdump -i h1-eth1 -w /tmp/knock.pcap tcp -c 6 &
 h2$ for p in 7000 8000 9000; do sudo hping3 -c 1 -S -p $p 10.0.1.2; sleep 1; done
 ```
+
+Auch hier gilt der Hinweis aus Teil 8: Die Startmeldung des
+Hintergrund-`tcpdump` kann die Eingabezeile überschreiben. ++enter++
+drücken und den Prompt prüfen, bevor ihr weitertippt.
 
 Lest die Klopf-Sequenz aus dem Mitschnitt zurück:
 

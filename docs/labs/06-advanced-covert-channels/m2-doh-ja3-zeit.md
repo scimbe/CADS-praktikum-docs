@@ -34,6 +34,9 @@ Fenster, `dig` und `curl` laufen parallel in einem zweiten. Öffnet es mit
     h1$ sudo tcpdump -i any -w /tmp/dns_plain.pcap "port 53 or host 1.1.1.1"
     ```
 
+    `tcpdump` meldet dabei `Promiscuous mode not supported on the "any"
+    device`: Das ist bei `-i any` normal und harmlos, der Mitschnitt läuft.
+
 2. Löst im zweiten `h1`-Fenster `example.com` klassisch über den
     eingetragenen Resolver auf:
 
@@ -47,6 +50,10 @@ Fenster, `dig` und `curl` laufen parallel in einem zweiten. Öffnet es mit
     h1$ curl -H "accept: application/dns-json" \
         "https://1.1.1.1/dns-query?name=example.com&type=A"
     ```
+
+    Die Antwort ist ein JSON-Text ohne abschließenden Zeilenumbruch: Der
+    nächste Prompt klebt direkt hinter dem letzten `}`. Das ist normal; mit
+    `-w '\n'` am Ende des `curl`-Aufrufs bekommt ihr einen Zeilenumbruch.
 
 4. Beendet den Mitschnitt im ersten Fenster mit ++ctrl+c++ und öffnet ihn
     in Wireshark (`h1$ wireshark /tmp/dns_plain.pcap`; alternativ
@@ -62,14 +69,22 @@ Fenster, `dig` und `curl` laufen parallel in einem zweiten. Öffnet es mit
     DoH dadurch von klassischem DNS aus Sicht eines mitlesenden Dritten im
     selben Netzsegment?
 
+    In Wireshark sind beim DoH-Teil womöglich viele Zeilen rot oder schwarz
+    markiert (`TCP Retransmission`, `Previous segment not captured`). Das
+    ist kein Fehler eurer Übung: Mit `-i any` kann dasselbe Paket auf
+    mehreren Schnittstellen erscheinen, und Wireshark deutet das als
+    Wiederholung. Die Daten sind trotzdem angekommen. Klickt für die
+    Auswertung ein DNS-Paket mit der Antwort und ein `Application Data`-Paket
+    der TLS-Verbindung an und vergleicht deren Inhalt.
+
 ### Teil 5 – TLS-Fingerprinting mit JA3
 
 **Ziel:** Identifiziert Client-Software anhand ihres TLS-`ClientHello`
 mittels JA3-Fingerprint.
 
-1. `jq` und `tshark` sollten bereits installiert sein (siehe Hinweis oben –
-    vor dem Start von `topo01`, im Desktop-Terminal; in den Knoten wird nichts
-    installiert).
+1. `jq` und `tshark` sollten bereits installiert sein (siehe den Werkzeug-
+    Kasten am Anfang der [Übersicht](index.md) – prüfen vor dem Start von
+    `topo01`, im Desktop-Terminal; in den Knoten wird nichts installiert).
 
 2. Wertet den TLS-Handshake aus einem vorhandenen Mitschnitt aus (z. B. dem
     `dns_plain.pcap`/DoH-Mitschnitt aus Teil 4, sofern er TLS-Verkehr
@@ -109,8 +124,13 @@ mittels JA3-Fingerprint.
     `sudo -u cads env DISPLAY=$DISPLAY HOME=/config firefox-esr https://www.wikipedia.org &`
     (dann Seite laden lassen und das Firefox-Fenster wieder schließen).
 
-    Beendet danach den Mitschnitt (`jobs -l`, `kill <PID>`, siehe Kasten in
-    der [Übersicht](index.md)) und lest je `ClientHello` den JA3-Hash und
+    Der Hintergrund-`tcpdump` schreibt seine Meldung in die Eingabezeile, und
+    die nächsten Befehle sehen dann durcheinander aus. Drückt ++enter++ und
+    prüft, dass ein sauberer Prompt dasteht; die Befehle laufen trotzdem.
+
+    Beendet danach den Mitschnitt (`jobs -l` zeigt die PID, dann
+    `kill <PID>`; zeigt `jobs -l` die PID von `sudo`, beendet `kill` darauf
+    den Mitschnitt ebenfalls) und lest je `ClientHello` den JA3-Hash und
     den Servernamen aus:
 
     ```bash
@@ -118,6 +138,11 @@ mittels JA3-Fingerprint.
         -T fields -e frame.number -e tls.handshake.extensions_server_name \
         -e tls.handshake.ja3
     ```
+
+    Notiert euch die Hashes von `curl`, `openssl s_client` und Firefox
+    nebeneinander: Erst im Vergleich sagen die langen Zeichenketten etwas
+    aus. (Firewalls und Bot-Abwehr nutzen solche Fingerabdrücke, um z. B.
+    `curl` von einem Browser zu unterscheiden.)
 
     `-e tls.handshake.ja3_full` zeigt zusätzlich die Zeichenkette, aus der
     der Hash gebildet wird (TLS-Version, Cipher-Suites, Erweiterungen,
@@ -158,7 +183,8 @@ mittels JA3-Fingerprint.
 zeitabhängige Sicherheitsprüfung) stillschweigend voraussetzt, dass die Uhr
 stimmt – und was passiert, wenn ein Angreifer (z. B. über einen gefälschten
 NTP-Server) die Uhr eines Opfers verstellt. Ihr tut das, **ohne** die
-Systemuhr zu verstellen.
+Systemuhr zu verstellen. (Aus demselben Grund blockiert ein Handy mit
+falscher Uhr plötzlich viele HTTPS-Seiten.)
 
 !!! info "Warum ihr die Uhr nicht verstellen könnt"
     `date -s` und `timedatectl` scheitern im Container mit `Operation not
@@ -244,7 +270,8 @@ Systemuhr zu verstellen.
 
     *Erwartet:* `Verification: OK`, dann `Verification error: certificate
     has expired` (Code 10), dann `Verification error: certificate is not yet
-    valid` (Code 9). Das ist derselbe Server und dasselbe Zertifikat – nur
+    valid` (Code 9); je nach OpenSSL-Version steht daneben auch die Zeile
+    `Verify return code: <Code> (…)`. Das ist derselbe Server und dasselbe Zertifikat – nur
     die Uhr des **Clients** unterscheidet sich. Eine Uhr in der Zukunft
     macht das Zertifikat „nicht mehr gültig“ (abgelaufen), eine Uhr in der
     Vergangenheit „noch nicht gültig“.
@@ -294,7 +321,9 @@ Systemuhr zu verstellen.
     abgelaufen; `-checkend 0` meldet auch dann „will expire“ (siehe
     Schritt 1).
 
-6. **Erweiterung (Denkaufgabe):** Ein Angreifer, der einem Client einen
+6. **Erweiterung (Denkaufgabe):** Überlegt zuerst, welche der beiden
+    Gültigkeitsgrenzen (`notBefore`, `notAfter`) in den Beobachtungen oben
+    jeweils verletzt war. Ein Angreifer, der einem Client einen
     gefälschten NTP-Server unterschiebt, verstellt dessen Uhr genau so wie
     `faketime` die Uhr eines Prozesses. Welche der Beobachtungen aus
     Schritt 3 und 4 (`faketime -f '+3d'` und `'-2d'` bzw. die Jahre 2035 und
